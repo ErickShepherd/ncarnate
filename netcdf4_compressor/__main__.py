@@ -156,29 +156,30 @@ def _files_to_paths(root : str, files : list) -> list:
     
         
 def _get_files(paths : str, recursive : bool) -> int:
-    
+
+    paths = [os.path.abspath(path) for path in paths]
     files = []
-    
+        
     for path in paths:
-    
+        
         if os.path.isdir(path):
 
             if recursive:
 
                 for root, subdirectories, subfiles in os.walk(path):
                     
+                    subfiles    = _files_to_paths(root, subfiles)
                     valid_files = list(filter(_validate_extension, subfiles))
-                    valid_paths = _files_to_paths(root, valid_files)
-                    
-                    files += valid_paths
+
+                    files += valid_files
 
             else:
                 
-                subfiles    = list(filter(os.path.isfile, os.listdir(path)))
+                subfiles    = _files_to_paths(path, os.listdir(path))
+                subfiles    = list(filter(os.path.isfile, subfiles))
                 valid_files = list(filter(_validate_extension, subfiles))
-                valid_paths = _files_to_paths(path, valid_files)
                 
-                files += valid_paths
+                files += valid_files
 
         elif os.path.isfile(path):
             
@@ -284,8 +285,8 @@ def _build_argument_parser():
 def _build_logger():
     
     logger    = logging.getLogger("myapp")
-    handler   = logging.FileHandler("log.txt")
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    handler   = logging.FileHandler("netcdf4_compressor_log.txt")
+    formatter = logging.Formatter("-" * 79 + "\n" + " ".join(sys.argv) + "\n%(asctime)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.WARNING)
@@ -306,8 +307,9 @@ if __name__ == "__main__":
         
         try:
             
+            #raise ValueError
             recompress(file, **kwargs)
-            
+        
         except Exception:
             
             logger.exception("ererere")

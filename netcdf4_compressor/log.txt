@@ -18,3 +18,35 @@ Traceback (most recent call last):
   File "__main__.py", line 310, in <module>
     raise ValueError
 ValueError
+2020-05-28 17:41:17,870 ERROR ererere
+-------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "__main__.py", line 310, in <module>
+    raise ValueError
+ValueError
+2020-05-28 17:41:28,454 ERROR ererere
+-------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "__main__.py", line 309, in <module>
+    raise ValueError
+ValueError
+2020-05-28 17:41:28,455 ERROR ererere
+-------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "__main__.py", line 309, in <module>
+    raise ValueError
+ValueError
+-------------------------------------------------------------------------------
+__main__.py .
+2020-05-28 17:42:26,502 ERROR ererere
+Traceback (most recent call last):
+  File "__main__.py", line 309, in <module>
+    raise ValueError
+ValueError
+-------------------------------------------------------------------------------
+__main__.py .
+2020-05-28 17:42:26,503 ERROR ererere
+Traceback (most recent call last):
+  File "__main__.py", line 309, in <module>
+    raise ValueError
+ValueError
