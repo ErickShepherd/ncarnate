@@ -58,15 +58,15 @@ License:
 import setuptools
 
 # Local application imports.
-import netcdf4_recompressor
+import netcdf_recompressor
 
 # Module dunder definitions.
-__author__  = netcdf4_recompressor.__author__
-__version__ = netcdf4_recompressor.__version__
+__author__  = netcdf_recompressor.__author__
+__version__ = netcdf_recompressor.__version__
 
 # Constant definitions.
-GITHUB_URL  = "https://github.com/ErickShepherd/netcdf4_recompressor"
-PYPI_URL    = "https://pypi.org/project/netcdf4_recompressor"
+GITHUB_URL  = "https://github.com/ErickShepherd/netcdf_recompressor"
+PYPI_URL    = "https://pypi.org/project/netcdf_recompressor"
 DESCRIPTION = __doc__.strip().split("\n")[0]
 
 with open("README.rst", "r") as file:
