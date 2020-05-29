@@ -56,7 +56,6 @@ License:
 
 # Standard library imports.
 import argparse
-import datetime
 import logging
 import os
 import sys
@@ -65,12 +64,25 @@ import sys
 from tqdm import tqdm
 
 # Local application imports.
+import netcdf_recompressor
 from netcdf_recompressor import recompress
+from netcdf_recompressor.constants import LOGGER
+from netcdf_recompressor.constants import PACKAGE_NAME
+
+# Dunder definitions.
+__author__  = netcdf_recompressor.__author__
+__version__ = netcdf_recompressor.__version__
+
 
 # Constant definitions.
 SUPPORTED_EXTENSIONS = ["nc", "hdf"]
-        
-        
+
+
+def _print_version() -> None:
+    
+    print(f"{PACKAGE_NAME} {__version__}")
+
+
 def _validate_extension(path : str) -> bool:
     
     filename, file_extension = os.path.splitext(path)
@@ -217,13 +229,20 @@ def _build_argument_parser():
     
     parser.set_defaults(**{"recursive" : False})
     
+    parser.add_argument(
+        "-V",
+        "--version",
+        action  = "store_true",
+        help    = "Prints the current package version."
+    )
+    
     return parser
 
 
 def _build_logger():
     
-    logger    = logging.getLogger("myapp")
-    handler   = logging.FileHandler("netcdf_recompressor_log.txt")
+    logger    = logging.getLogger("netcdf_recompressor")
+    handler   = logging.FileHandler("LOG_FILE")
     formatter = logging.Formatter("-" * 79 + "\n" + " ".join(sys.argv) + "\n%(asctime)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -236,18 +255,27 @@ if __name__ == "__main__":
     
     logger    = _build_logger()
     parser    = _build_argument_parser()
-    kwargs    = vars(parser.parse_args())
+    args      = parser.parse_args()
+    kwargs    = vars(args)
     paths     = kwargs.pop("path")
     recursive = kwargs.pop("recursive")
     files     = _get_files(paths, recursive)
+    
+    # TODO: Raises an error if path argument is not provided.
+    if args.version:
+        
+        _print_version()
     
     for file in tqdm(files, desc = "Files re/de-compressed"):
         
         try:
             
-            #raise ValueError
+            raise ValueError
             recompress(file, **kwargs)
         
         except Exception:
             
-            logger.exception("ererere")
+            message = (f"An error occurred while attempting to recompress the "
+                       f"given file: {file}")
+            
+            LOGGER.exception(message)

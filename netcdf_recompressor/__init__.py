@@ -61,6 +61,13 @@ import os
 import netCDF4 as nc
 import numpy as np
 
+# Standard library imports.
+from netcdf_recompressor import constants
+
+# Dunder definitions.
+__author__  = constants.__author__
+__version__ = constants.__version__
+
 
 def recompress(src       : str,
                dst       : str  = None,

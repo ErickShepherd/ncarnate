@@ -56,9 +56,38 @@ License:
 
 # Standard library imports.
 import json
+import logging
+import os
+import sys
+
+
+def _build_logger(package_name, log_file):
+    
+    datefmt = "%Y-%m-%d, %H:%M:%S"
+    
+    message  = "-" * 79 + "\n"
+    message += "Timestmp:               %(asctime)s\n"
+    message += "Level:                  %(levelname)s\n"
+    message += "System argument vector: " + " ".join(sys.argv) + "\n\n"
+    message += "Logged message:\n\n\t%(message)s\n\n"
+    
+    logger    = logging.getLogger(package_name)
+    handler   = logging.FileHandler(log_file)
+    formatter = logging.Formatter(message, datefmt = datefmt)
+    
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    
+    return logger
+
 
 # Constant definitions.
-with open("version.json", "r") as file:
+_MODULE_PATH = os.path.dirname(os.path.realpath(__file__))
+PACKAGE_NAME = "netcdf_recompressor"
+VERSION_FILE = os.path.join(_MODULE_PATH, "version.json")
+
+with open(VERSION_FILE, "r") as file:
     
     # Versioning system: SemVar
     #  - MAJOR: Incremented for incompatible API changes.
@@ -68,13 +97,13 @@ with open("version.json", "r") as file:
     AUTHOR  = "Erick Edward Shepherd"
     VERSION = json.load(file)
 
-DEFAULT_ENCODING = "utf-8"
-
 # Module dunder definitions.
 __author__  = AUTHOR
 __version__ = (
     f"{VERSION['major']}."
     f"{VERSION['minor']}."
-    f"{VERSION['maintenance']}."
-    f"{VERSION['build']}"
+    f"{VERSION['patch']}."
 )
+
+LOG_FILE     = f"{PACKAGE_NAME}_log.txt"
+LOGGER       = _build_logger(PACKAGE_NAME, LOG_FILE)

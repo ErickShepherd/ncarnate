@@ -59,8 +59,9 @@ import setuptools
 
 # Local application imports.
 import netcdf_recompressor
+from netcdf_recompressor import constants
 
-# Module dunder definitions.
+# Dunder definitions.
 __author__  = netcdf_recompressor.__author__
 __version__ = netcdf_recompressor.__version__
 
@@ -93,7 +94,7 @@ CLASSIFIERS = [
 PLATFORMS = ["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"]
 
 SETUP_KWARGS = dict(
-    name                 = "netcdf4_recompressor",
+    name                 = constants.PACKAGE_NAME,
     version              = __version__,
     description          = DESCRIPTION,
     long_description     = LONG_DESCRIPTION,
@@ -106,6 +107,7 @@ SETUP_KWARGS = dict(
     platforms            = PLATFORMS,
     python_requires      = ">=3.7",
     packages             = setuptools.find_packages(),
+    include_package_data = True,
     url                  = GITHUB_URL,
     download_url         = PYPI_URL,
     project_urls         = {
