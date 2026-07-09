@@ -74,6 +74,14 @@ def test_malformed_odl_fails_loud(text):
         structmeta.parse(text)
 
 
+def test_unbalanced_parentheses_bounded():
+    # A never-closing parenthesis must fail loud without accumulating the
+    # whole (hostile) body — O(n) with a continuation bound, not O(n^2).
+    text = "GROUP=A\nDimList=(\n" + "x\n" * 10000 + "END\n"
+    with pytest.raises(EosParseError):
+        structmeta.parse(text)
+
+
 @pytest.mark.parametrize("token", ["nan", "inf", "-inf", "1e999"])
 def test_non_finite_numbers_fail_loud(token):
     # Untrusted StructMetadata numbers must not reach pyproj/numpy as
