@@ -30,6 +30,21 @@ def stage(fixture: Path, workdir: Path) -> Path:
     return staged
 
 
+def structmetadata_text(attributes: dict) -> str:
+    """Concatenate StructMetadata.N parts ordered by numeric suffix (so .10
+    follows .2), matching production (`ncarnate.hdf4._metadata_part_order`)
+    and the generator. A lexicographic sort here would silently diverge for
+    a >=11-part granule."""
+    def order(name: str) -> int:
+        suffix = name.rsplit(".", 1)[-1]
+        return int(suffix) if suffix.isdigit() else 0
+
+    parts = sorted(
+        (n for n in attributes if n.startswith("StructMetadata")), key=order
+    )
+    return "".join(str(attributes[n]) for n in parts)
+
+
 def assert_lossless_netcdf(src_path: Path, dst_path: Path) -> None:
     """Independent raw-read comparison: the recompressed netCDF file must
     match the source in dimensions, attributes (values AND dtypes),

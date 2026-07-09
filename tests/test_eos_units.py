@@ -19,18 +19,14 @@ from ncarnate.errors import (
     UnsupportedProjectionError,
 )
 
-from conftest import HDFEOS2_FIXTURES
+from conftest import HDFEOS2_FIXTURES, structmetadata_text
 
 
 def structmetadata_of(stem: str) -> structmeta.EosStructMetadata:
     fixture = next(f for f in HDFEOS2_FIXTURES if stem in f.stem)
     source = SD(str(fixture), SDC.READ)
     try:
-        parts = sorted(
-            name for name in source.attributes()
-            if name.startswith("StructMetadata")
-        )
-        text = "".join(source.attributes()[name] for name in parts)
+        text = structmetadata_text(source.attributes())
     finally:
         source.end()
     return structmeta.parse(text)
@@ -72,6 +68,14 @@ def test_parses_myd05_dimension_maps():
 def test_malformed_odl_fails_loud(text):
     with pytest.raises(EosParseError):
         structmeta.parse(text)
+
+
+def test_structmetadata_parts_ordered_numerically():
+    # A >=11-part granule must concatenate .10 AFTER .2, not lexicographically.
+    from ncarnate.hdf4 import _structmetadata_text
+    attrs = {f"StructMetadata.{i}": f"[{i}]" for i in range(12)}
+    text = _structmetadata_text(attrs)
+    assert text == "".join(f"[{i}]" for i in range(12))
 
 
 def test_unbalanced_parentheses_bounded():

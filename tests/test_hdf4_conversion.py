@@ -10,7 +10,7 @@ from pyhdf.SD import SD, SDC
 from ncarnate import NcarnateError, recompress
 from ncarnate.hdf4 import sanitize_name
 
-from conftest import HDFEOS2_FIXTURES, stage
+from conftest import HDFEOS2_FIXTURES, stage, structmetadata_text
 
 
 def convert(fixture, workdir, **kwargs):
@@ -72,22 +72,13 @@ def test_structmetadata_preserved_verbatim(workdir):
     src, dst = convert(fixture, workdir)
     source = SD(str(src), SDC.READ)
     try:
-        parts = sorted(
-            name for name in source.attributes()
-            if name.startswith("StructMetadata")
-        )
-        expected = "".join(
-            source.attributes()[name] for name in parts
-        ).rstrip("\x00")
+        expected = structmetadata_text(source.attributes()).rstrip("\x00")
     finally:
         source.end()
     with nc.Dataset(dst) as output:
         info = output.groups["HDFEOS_INFORMATION"]
-        actual = "".join(
-            info.getncattr(name) for name in sorted(
-                a for a in info.ncattrs()
-                if a.startswith("StructMetadata")
-            )
+        actual = structmetadata_text(
+            {a: info.getncattr(a) for a in info.ncattrs()}
         )
     assert actual == expected
 

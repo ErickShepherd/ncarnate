@@ -231,11 +231,22 @@ def _read_attributes(hdf_object, count : int) -> dict:
     return attributes
 
 
+def _metadata_part_order(name : str) -> int:
+
+    # EOS metadata attributes are named "<Name>.N"; order by the integer
+    # suffix so that .10 follows .2 (a lexicographic sort would scramble a
+    # granule whose metadata spans >= 11 parts).
+    suffix = name.rsplit(".", 1)[-1]
+
+    return int(suffix) if suffix.isdigit() else 0
+
+
 def _structmetadata_text(file_attributes : dict) -> "str | None":
 
     parts = sorted(
-        name for name in file_attributes
-        if name.lower().startswith("structmetadata")
+        (name for name in file_attributes
+         if name.lower().startswith("structmetadata")),
+        key = _metadata_part_order,
     )
 
     if not parts:
