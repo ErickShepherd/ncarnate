@@ -11,7 +11,7 @@ from ncarnate import NcarnateError, recompress
 from ncarnate.eos.grid import reconstruct
 from ncarnate.limits import check_array_size
 
-from conftest import HDFEOS2_FIXTURES, NETCDF_FIXTURES, stage
+from conftest import HDFEOS2_FIXTURES, NETCDF_FIXTURES, stage, structmetadata_text
 
 
 @pytest.fixture
@@ -49,10 +49,7 @@ def test_grid_mesh_is_bounded(tiny_cap):
     fixture = next(f for f in HDFEOS2_FIXTURES if "seaice" in f.stem)
     source = SD(str(fixture), SDC.READ)
     try:
-        parts = sorted(
-            n for n in source.attributes() if n.startswith("StructMetadata")
-        )
-        text = "".join(source.attributes()[n] for n in parts)
+        text = structmetadata_text(source.attributes())
     finally:
         source.end()
     grid = structmeta.parse(text).grids[0]
