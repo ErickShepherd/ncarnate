@@ -10,7 +10,7 @@ from pyhdf.SD import SD, SDC
 from ncarnate import NcarnateError, recompress
 from ncarnate.hdf4 import sanitize_name
 
-from conftest import HDFEOS2_FIXTURES, stage
+from conftest import HDFEOS2_FIXTURES, stage, structmetadata_text
 
 
 def convert(fixture, workdir, **kwargs):
@@ -72,24 +72,28 @@ def test_structmetadata_preserved_verbatim(workdir):
     src, dst = convert(fixture, workdir)
     source = SD(str(src), SDC.READ)
     try:
-        parts = sorted(
-            name for name in source.attributes()
-            if name.startswith("StructMetadata")
-        )
-        expected = "".join(
-            source.attributes()[name] for name in parts
-        ).rstrip("\x00")
+        expected = structmetadata_text(source.attributes()).rstrip("\x00")
     finally:
         source.end()
     with nc.Dataset(dst) as output:
         info = output.groups["HDFEOS_INFORMATION"]
-        actual = "".join(
-            info.getncattr(name) for name in sorted(
-                a for a in info.ncattrs()
-                if a.startswith("StructMetadata")
-            )
+        actual = structmetadata_text(
+            {a: info.getncattr(a) for a in info.ncattrs()}
         )
     assert actual == expected
+
+
+def test_conversion_refuses_to_clobber_existing_autoderived_output(workdir):
+    fixture = next(f for f in HDFEOS2_FIXTURES if "raingrid" in f.stem)
+    src = stage(fixture, workdir)
+    existing = workdir / f"{fixture.stem}.nc"
+    existing.write_text("precious unrelated data")
+    with pytest.raises(NcarnateError, match="Refusing to overwrite"):
+        recompress(str(src))
+    assert existing.read_text() == "precious unrelated data"
+    # An explicit dst still overwrites (the user named it).
+    out = recompress(str(src), dst=str(workdir / "explicit.nc"))
+    assert out == str(workdir / "explicit.nc")
 
 
 def test_hdf4_conversion_refuses_dst_equal_src(workdir):
@@ -193,6 +197,21 @@ def test_sanitized_attribute_names_carry_companions(workdir):
         ) == "Ephemeris/Attitude Source"
 
 
+def test_embedded_nul_attribute_preserved_as_uint8(workdir):
+    # MODIS ships globals with embedded NUL record separators (e.g.
+    # 'Ephemeris Input Files.1'); they cannot survive netCDF's C-string
+    # attributes, so the reader keeps the exact bytes as uint8 with a
+    # self-describing __hdf4_encoding companion. The mod03 fixture carries
+    # these (its generator preserves them via the typed accessor).
+    fixture = next(f for f in HDFEOS2_FIXTURES if "mod03" in f.stem)
+    _, dst = convert(fixture, workdir)
+    with nc.Dataset(dst) as output:
+        encoded = [a for a in output.ncattrs() if a.endswith("__hdf4_encoding")]
+        assert encoded, "expected at least one embedded-NUL uint8 attribute"
+        base = encoded[0][: -len("__hdf4_encoding")]
+        assert output.getncattr(base).dtype == np.uint8
+
+
 def test_packed_geolocation_fails_loud():
     from ncarnate.errors import UnsupportedGeolocationError
     from ncarnate.hdf4 import TreeVariable, _normalize_coordinate
@@ -206,6 +225,89 @@ def test_packed_geolocation_fails_loud():
     )
     with pytest.raises(UnsupportedGeolocationError, match="packed"):
         _normalize_coordinate(packed, "degrees_north")
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("Land/SeaMask", "Land_SeaMask"),
+    ("Scan Offset", "Scan_Offset"),
+    ("Ephemeris/Attitude Source", "Ephemeris_Attitude_Source"),
+    ("a  b\tc", "a_b_c"),
+    ("already_ok", "already_ok"),
+    ("nscans*10", "nscans*10"),  # '*' is legal in netCDF, preserved
+])
+def test_sanitize_name_direct(raw, expected):
+    assert sanitize_name(raw) == expected
+
+
+def test_hostile_sds_name_converts_with_companion(workdir):
+    # A single SDS whose name is illegal in netCDF converts to the
+    # sanitized name, values intact, original recorded under hdf4_name.
+    from pyhdf.SD import SD, SDC
+
+    path = workdir / "hostile.hdf"
+    source = SD(str(path), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    data = np.arange(6, dtype=np.int16).reshape(2, 3)
+    sds = source.create("Sea Ice/Snow", SDC.INT16, (2, 3))
+    sds[:] = data
+    sds.endaccess()
+    source.end()
+
+    dst = recompress(str(path), geolocation=False)
+    with nc.Dataset(dst) as output:
+        assert "Sea Ice/Snow" not in output.variables
+        variable = output.variables["Sea_Ice_Snow"]
+        variable.set_auto_maskandscale(False)
+        assert np.array_equal(variable[...], data)
+        assert variable.getncattr("hdf4_name") == "Sea Ice/Snow"
+
+
+def test_sanitized_sds_name_collision_fails_loud(workdir):
+    # Two SDS whose names sanitize to the same string must be refused with
+    # a clean NcarnateError, not crash the writer with a raw netCDF error.
+    from pyhdf.SD import SD, SDC
+
+    path = workdir / "collide.hdf"
+    source = SD(str(path), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    for name in ("A B", "A/B"):
+        sds = source.create(name, SDC.INT16, (2, 2))
+        sds[:] = np.ones((2, 2), np.int16)
+        sds.endaccess()
+    source.end()
+
+    with pytest.raises(NcarnateError, match="collides"):
+        recompress(str(path), geolocation=False)
+
+
+def test_companion_attribute_collision_fails_loud():
+    # A real attribute whose name equals a generated companion
+    # (`foo/x` -> `foo_x__hdf4_name`) must be caught, not silently
+    # overwritten (verify_conversion re-reads through the same code, so an
+    # overwrite would be invisible).
+    from ncarnate.errors import NcarnateError
+    from ncarnate.hdf4 import _read_attributes
+
+    class _FakeAttr:
+        def __init__(self, name, value):
+            self._name, self._value = name, value
+
+        def info(self):
+            from pyhdf.SD import SDC
+            return self._name, SDC.CHAR, len(self._value)
+
+        def get(self):
+            return self._value
+
+    class _FakeObj:
+        def __init__(self, attrs):
+            self._attrs = attrs
+
+        def attr(self, index):
+            name, value = self._attrs[index]
+            return _FakeAttr(name, value)
+
+    hostile = _FakeObj([("foo/x", "a"), ("foo_x__hdf4_name", "b")])
+    with pytest.raises(NcarnateError, match="collides"):
+        _read_attributes(hostile, 2)
 
 
 def test_no_geolocation_is_sds_only(workdir):

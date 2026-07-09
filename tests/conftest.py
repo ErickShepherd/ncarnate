@@ -13,6 +13,31 @@ FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "data"
 NETCDF_FIXTURES = sorted((FIXTURE_ROOT / "netcdf").glob("*.nc"))
 HDFEOS2_FIXTURES = sorted((FIXTURE_ROOT / "hdfeos2").glob("*.hdf"))
 
+# These globs back the parametrized round-trip/conversion tests. If the
+# data tree ever moves or empties, an empty parameter set would make
+# pytest quietly *skip* those tests and the suite would stay green with
+# the whole losslessness proof gone. Fail loudly at collection instead,
+# pinning the documented fixture inventory (docs/fidelity-notes.md).
+_EXPECTED_NETCDF = {"endianness", "nested_groups", "packed_fill", "unlimited_dim"}
+_EXPECTED_HDFEOS2 = {
+    "amsre_seaice12km_trim", "mod03_trim", "myd05_trim",
+    "raingrid_trim", "amsre_5daysnow_trim",
+}
+
+if {f.stem for f in NETCDF_FIXTURES} != _EXPECTED_NETCDF:
+    raise RuntimeError(
+        f"netCDF fixture inventory drifted: found "
+        f"{sorted(f.stem for f in NETCDF_FIXTURES)}, expected "
+        f"{sorted(_EXPECTED_NETCDF)}"
+    )
+
+if {f.stem for f in HDFEOS2_FIXTURES} != _EXPECTED_HDFEOS2:
+    raise RuntimeError(
+        f"HDF-EOS2 fixture inventory drifted: found "
+        f"{sorted(f.stem for f in HDFEOS2_FIXTURES)}, expected "
+        f"{sorted(_EXPECTED_HDFEOS2)}"
+    )
+
 # Raw multi-MB granules live outside the repo; the tests marked
 # raw_granules only run where they exist (never in CI).
 GRANULE_DIR = Path.home() / "ncarnate-data" / "granules"
@@ -28,6 +53,21 @@ def stage(fixture: Path, workdir: Path) -> Path:
     staged = workdir / fixture.name
     shutil.copyfile(fixture, staged)
     return staged
+
+
+def structmetadata_text(attributes: dict) -> str:
+    """Concatenate StructMetadata.N parts ordered by numeric suffix (so .10
+    follows .2), matching production (`ncarnate.hdf4._metadata_part_order`)
+    and the generator. A lexicographic sort here would silently diverge for
+    a >=11-part granule."""
+    def order(name: str) -> int:
+        suffix = name.rsplit(".", 1)[-1]
+        return int(suffix) if suffix.isdigit() else 0
+
+    parts = sorted(
+        (n for n in attributes if n.startswith("StructMetadata")), key=order
+    )
+    return "".join(str(attributes[n]) for n in parts)
 
 
 def assert_lossless_netcdf(src_path: Path, dst_path: Path) -> None:

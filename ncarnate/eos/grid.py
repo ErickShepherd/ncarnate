@@ -26,6 +26,7 @@ from ncarnate.eos.gctp import decode_packed_dms
 from ncarnate.eos.gctp import projection_info
 from ncarnate.eos.structmeta import EosGrid
 from ncarnate.errors import UnsupportedGeolocationError
+from ncarnate.limits import check_array_size
 
 
 @dataclasses.dataclass
@@ -97,6 +98,24 @@ def reconstruct(grid : EosGrid) -> GridGeolocation:
             f"PixelRegistration={grid.pixel_registration}; only "
             f"HDFE_CENTER is supported (no fixture proves the variants)."
         )
+
+    # Dimensions come from untrusted StructMetadata; a zero divides by zero
+    # in _cell_centers (bare ZeroDivisionError) and a negative silently
+    # yields empty coordinate arrays instead of a refusal.
+    if grid.x_dim <= 0 or grid.y_dim <= 0:
+
+        raise UnsupportedGeolocationError(
+            f"Grid {grid.name!r} has non-positive dimensions "
+            f"(XDim={grid.x_dim}, YDim={grid.y_dim})."
+        )
+
+    # The reconstructed 2-D lat/lon mesh is XDim*YDim float64 (several such
+    # arrays through the inverse transform); dims are untrusted, so cap the
+    # allocation before np.meshgrid.
+    check_array_size(
+        (grid.y_dim, grid.x_dim), np.dtype(np.float64).itemsize,
+        f"Grid {grid.name!r} coordinate mesh"
+    )
 
     projection = projection_info(grid)
 

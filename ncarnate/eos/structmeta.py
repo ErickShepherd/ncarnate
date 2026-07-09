@@ -15,6 +15,7 @@ top-level LICENSE file.
 
 # Standard library imports.
 import dataclasses
+import math
 
 # Local application imports.
 from ncarnate.errors import EosParseError
@@ -124,13 +125,23 @@ def _parse_scalar(text : str):
 
     try:
 
-        return float(text)
+        value = float(text)
 
     except ValueError:
 
-        pass
+        return text
 
-    return text
+    # Reject non-finite numbers (nan/inf/1e999): they flow from untrusted
+    # StructMetadata into pyproj and numpy allocation, where they yield
+    # silently-garbage coordinates or PROJ errors rather than a clear
+    # refusal.
+    if not math.isfinite(value):
+
+        raise EosParseError(
+            f"StructMetadata contains a non-finite number: {text!r}"
+        )
+
+    return value
 
 
 def _parse_value(text : str):
@@ -150,12 +161,23 @@ def _parse_value(text : str):
     return _parse_scalar(text)
 
 
+# A single logical assignment never spans this many physical lines in
+# real StructMetadata (the longest are multi-line DimLists); a larger run
+# means unbalanced parentheses in a hostile file, caught before the buffer
+# grows without bound.
+_MAX_CONTINUATION_LINES = 4096
+
+
 def _logical_lines(text : str) -> list[str]:
 
     # Joins physical lines until parentheses balance, so multi-line
-    # tuples (long DimLists) parse as one assignment.
+    # tuples (long DimLists) parse as one assignment. Parenthesis depth is
+    # tracked incrementally (not recounted over the whole buffer each
+    # line) so a never-balancing hostile body is O(n), not O(n^2), and is
+    # bounded rather than accumulated to the end.
     lines   = []
-    pending = ""
+    pending = []
+    depth   = 0
 
     for raw in text.splitlines():
 
@@ -165,19 +187,29 @@ def _logical_lines(text : str) -> list[str]:
 
             continue
 
-        pending = f"{pending} {line}".strip() if pending else line
+        pending.append(line)
+        depth += line.count("(") - line.count(")")
 
-        if pending.count("(") > pending.count(")"):
+        if depth > 0:
+
+            if len(pending) > _MAX_CONTINUATION_LINES:
+
+                raise EosParseError(
+                    "StructMetadata has an unterminated parenthesized "
+                    "value (exceeded the continuation-line limit)."
+                )
 
             continue
 
-        lines.append(pending)
-        pending = ""
+        lines.append(" ".join(pending).strip())
+        pending = []
+        depth   = 0
 
     if pending:
 
         raise EosParseError(
-            f"StructMetadata ends with unbalanced parentheses: {pending!r}"
+            f"StructMetadata ends with unbalanced parentheses: "
+            f"{' '.join(pending)!r}"
         )
 
     return lines

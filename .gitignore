@@ -15,3 +15,7 @@ venv/
 
 # Local scratch.
 tmp/
+
+# Audit orchestration sidecars (ephemeral analysis).
+docs/audits/*.run.log
+docs/audits/*.audit-state.json

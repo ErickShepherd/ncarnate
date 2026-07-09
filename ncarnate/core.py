@@ -36,6 +36,7 @@ from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
 from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
+from ncarnate.limits import check_array_size
 
 # A netCDF4 group or file object (netCDF4.Dataset subclasses Group).
 _Group: TypeAlias = "nc.Dataset | nc.Group"
@@ -78,7 +79,12 @@ def recompress(src         : str,
 
     '''
 
-    src_path = os.path.abspath(src)
+    # Resolve symlinks: for in-place recompression `os.replace` onto a
+    # symlink would replace the link (orphaning its target with stale
+    # content) and the permission copy would stamp the target's mode onto
+    # the new file. Operating on the real path makes the atomic replace act
+    # on the actual file and keeps auto-derived outputs next to it.
+    src_path = os.path.realpath(src)
 
     if not os.path.isfile(src_path):
 
@@ -105,6 +111,8 @@ def recompress(src         : str,
 
             filename = os.path.splitext(src_path)[0]
             dst_path = filename + ".nc"
+
+            _guard_auto_destination(dst_path)
 
         if dst_path == src_path:
 
@@ -145,6 +153,8 @@ def recompress(src         : str,
             filename, file_extension = os.path.splitext(src_path)
             dst_path = filename + "_recompressed" + file_extension
 
+            _guard_auto_destination(dst_path)
+
         def _write(tmp_path : str) -> None:
 
             with nc.Dataset(src_path, mode = "r") as src_file, \
@@ -160,6 +170,27 @@ def recompress(src         : str,
     _write_verified(src_path, dst_path, _write, _verify)
 
     return dst_path
+
+
+def _guard_auto_destination(dst_path : str) -> None:
+
+    '''
+
+    Refuses to overwrite a pre-existing file at an *auto-derived*
+    destination (the ``<stem>.nc`` conversion target or the
+    ``_recompressed`` sibling). The user never named this path, so
+    clobbering a file that happens to already sit there would be silent
+    data loss of something unrelated. An explicit ``dst`` bypasses this.
+
+    '''
+
+    if os.path.exists(dst_path):
+
+        raise NcarnateError(
+            f"Refusing to overwrite the existing file {dst_path}, which "
+            f"was auto-derived from the input name. Pass an explicit "
+            f"output path, or move/remove the existing file."
+        )
 
 
 def _write_verified(src_path : str,
@@ -200,9 +231,18 @@ def _write_verified(src_path : str,
 
     except BaseException:
 
-        if os.path.exists(tmp_path):
+        # Best-effort cleanup that must never mask the original failure:
+        # a raised unlink (or a link-following exists check) would replace
+        # the real cause with a cleanup error.
+        try:
 
-            os.unlink(tmp_path)
+            if os.path.lexists(tmp_path):
+
+                os.unlink(tmp_path)
+
+        except OSError:
+
+            pass
 
         raise
 
@@ -330,8 +370,16 @@ def _copy_variables(src_obj   : _Group,
         _copy_attributes(src_var, dst_var, exclude = ("_FillValue",))
 
         # Copies the variable's stored values, raw. Zero-size variables
-        # (an empty unlimited dimension) have nothing to write.
+        # (an empty unlimited dimension) have nothing to write. The whole
+        # variable is materialized in memory, so bound its declared size
+        # first — a tiny, highly compressible crafted file can otherwise
+        # declare a variable that expands to terabytes on read.
         if 0 not in src_var.shape:
+
+            check_array_size(
+                src_var.shape, src_var.dtype.itemsize,
+                f"Variable {name!r}"
+            )
 
             dst_var[...] = src_var[...]
 

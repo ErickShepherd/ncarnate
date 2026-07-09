@@ -1,5 +1,7 @@
 [build-system]
-requires = ["hatchling"]
+# >= 1.27: the first hatchling that understands the PEP 639 SPDX `license`
+# expression + `license-files` used below.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -14,6 +16,20 @@ authors = [
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["netCDF", "netCDF4", "HDF5", "HDF4", "HDF-EOS2", "compression", "recompression", "atmospheric science"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
 dependencies = [
     # Floors track the versions the local build environment is verified
     # against (netCDF4 1.7.x, numpy 2.x); the Phase-4 CI matrix pins the
@@ -43,6 +59,18 @@ path = "ncarnate/constants.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ncarnate"]
+
+[tool.hatch.build.targets.sdist]
+# The sdist ships the package, the tests + fixtures (so
+# `pip install <sdist> && pytest` works), and the fidelity contract; but
+# NOT the internal planning/design/checklist/audit docs, which are
+# development material, not part of the release.
+exclude = [
+    "docs/plans",
+    "docs/design",
+    "docs/owner-checklist-*.md",
+    "docs/audits",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -105,9 +105,18 @@ def _ellipsoid(params : tuple[float, ...]) -> tuple[float, float]:
     elif second < 0:
 
         eccentricity_squared = -second
-        semi_minor           = semi_major * math.sqrt(
-            1.0 - eccentricity_squared
-        )
+
+        # A physical ellipsoid has 0 <= e^2 < 1; a hostile ProjParams[1]
+        # below -1 would otherwise reach sqrt() of a negative number and
+        # raise a bare math-domain ValueError instead of a named error.
+        if eccentricity_squared >= 1.0:
+
+            raise UnsupportedProjectionError(
+                f"ProjParams[1]={second} implies eccentricity-squared "
+                f">= 1, which is not a valid ellipsoid."
+            )
+
+        semi_minor = semi_major * math.sqrt(1.0 - eccentricity_squared)
 
     else:
 
@@ -118,7 +127,19 @@ def _ellipsoid(params : tuple[float, ...]) -> tuple[float, float]:
 
 def _polar_stereographic(grid : EosGrid) -> ProjectionInfo:
 
-    params                 = grid.proj_params
+    params = grid.proj_params
+
+    # Polar stereographic reads the central longitude and true-scale
+    # latitude from ProjParams[4]/[5]; a short array would otherwise raise
+    # a bare IndexError instead of the contract's named error (mirrors the
+    # length guard in _lambert_azimuthal).
+    if len(params) < 6:
+
+        raise UnsupportedProjectionError(
+            f"Grid {grid.name!r} declares GCTP_PS but ProjParams has only "
+            f"{len(params)} entries (need at least 6): {params}."
+        )
+
     semi_major, semi_minor = _ellipsoid(params)
 
     longitude_from_pole = decode_packed_dms(params[4])

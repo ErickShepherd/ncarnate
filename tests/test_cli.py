@@ -52,6 +52,15 @@ def test_directory_scan_processes_supported_files(monkeypatch, workdir):
     assert run_cli(monkeypatch, "--no-overwrite", str(workdir)) == 0
 
 
+def test_overlapping_arguments_deduplicated(monkeypatch, workdir):
+    from ncarnate.cli import _get_files
+    src = stage(NETCDF_FIXTURES[0], workdir)
+    # Same file named twice, and via its directory + directly.
+    files = _get_files([str(src), str(src), str(workdir)], recursive=False)
+    assert files.count(str(src)) == 1
+    assert len(files) == len(set(files))
+
+
 def test_no_geolocation_flag_reaches_conversion(monkeypatch, workdir):
     import netCDF4 as nc
     fixture = next(f for f in HDFEOS2_FIXTURES if "raingrid" in f.stem)

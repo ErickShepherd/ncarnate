@@ -75,9 +75,19 @@ def structmetadata(sd: SD) -> str:
 
 
 def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) -> None:
-    """Copy global attributes; optionally replace the StructMetadata text."""
+    """Copy global attributes preserving each one's exact HDF4 type code.
+
+    Iterates by index through the typed ``attr()`` accessor rather than the
+    ``attributes()`` dict: the dict type-erases values and truncates CHAR
+    attributes at the first embedded NUL, so globals like MODIS's
+    NUL-separated 'Ephemeris Input Files.1' would lose their tail (and no
+    fixture could then exercise the reader's embedded-NUL -> uint8 path).
+    """
+    _, n_attrs = src.info()
     wrote_sm = False
-    for name, value in src.attributes().items():
+    for idx in range(n_attrs):
+        attr = src.attr(idx)
+        name, attr_type, _n = attr.info()
         if name.startswith("StructMetadata"):
             if not wrote_sm:
                 text = structmeta_override if structmeta_override is not None \
@@ -85,9 +95,7 @@ def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) ->
                 dst.attr("StructMetadata.0").set(SDC.CHAR, text)
                 wrote_sm = True
             continue  # never duplicate split parts
-        if isinstance(value, str):
-            dst.attr(name).set(SDC.CHAR, value)
-        # Non-string globals (none in the surveyed granules) are skipped.
+        dst.attr(name).set(attr_type, attr.get())
 
 
 def copy_attrs_typed(src_obj, dst_obj, n_attrs: int) -> None:

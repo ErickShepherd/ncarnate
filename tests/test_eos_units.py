@@ -19,18 +19,14 @@ from ncarnate.errors import (
     UnsupportedProjectionError,
 )
 
-from conftest import HDFEOS2_FIXTURES
+from conftest import HDFEOS2_FIXTURES, structmetadata_text
 
 
 def structmetadata_of(stem: str) -> structmeta.EosStructMetadata:
     fixture = next(f for f in HDFEOS2_FIXTURES if stem in f.stem)
     source = SD(str(fixture), SDC.READ)
     try:
-        parts = sorted(
-            name for name in source.attributes()
-            if name.startswith("StructMetadata")
-        )
-        text = "".join(source.attributes()[name] for name in parts)
+        text = structmetadata_text(source.attributes())
     finally:
         source.end()
     return structmeta.parse(text)
@@ -70,6 +66,35 @@ def test_parses_myd05_dimension_maps():
     "GROUP=A\njust some words\nEND_GROUP=A\nEND\n",          # malformed
 ])
 def test_malformed_odl_fails_loud(text):
+    with pytest.raises(EosParseError):
+        structmeta.parse(text)
+
+
+def test_structmetadata_parts_ordered_numerically():
+    # A >=11-part granule must concatenate .10 AFTER .2, not lexicographically.
+    from ncarnate.hdf4 import _structmetadata_text
+    attrs = {f"StructMetadata.{i}": f"[{i}]" for i in range(12)}
+    text = _structmetadata_text(attrs)
+    assert text == "".join(f"[{i}]" for i in range(12))
+
+
+def test_unbalanced_parentheses_bounded():
+    # A never-closing parenthesis must fail loud without accumulating the
+    # whole (hostile) body — O(n) with a continuation bound, not O(n^2).
+    text = "GROUP=A\nDimList=(\n" + "x\n" * 10000 + "END\n"
+    with pytest.raises(EosParseError):
+        structmeta.parse(text)
+
+
+@pytest.mark.parametrize("token", ["nan", "inf", "-inf", "1e999"])
+def test_non_finite_numbers_fail_loud(token):
+    # Untrusted StructMetadata numbers must not reach pyproj/numpy as
+    # nan/inf; the parser rejects them at the boundary.
+    text = (
+        "GROUP=GridStructure\n\tGROUP=GRID_1\n"
+        f"\t\tXDim=608\n\t\tYDim=896\n\t\tProjParams=({token},0,0)\n"
+        "\tEND_GROUP=GRID_1\nEND_GROUP=GridStructure\nEND\n"
+    )
     with pytest.raises(EosParseError):
         structmeta.parse(text)
 
@@ -116,6 +141,26 @@ def test_unsupported_projection_fails_loud():
         structmetadata_of("seaice").grids[0], projection="GCTP_SOM"
     )
     with pytest.raises(UnsupportedProjectionError, match="GCTP_SOM"):
+        projection_info(grid)
+
+
+def test_short_ps_projparams_fails_loud():
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0],
+        proj_params=(6378273.0, -0.006694),
+    )
+    with pytest.raises(UnsupportedProjectionError, match="at least 6"):
+        projection_info(grid)
+
+
+def test_invalid_eccentricity_fails_loud():
+    # ProjParams[1] = -e^2 below -1 means e^2 > 1 — not a valid ellipsoid;
+    # must fail loud, not sqrt() a negative and raise a bare ValueError.
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0],
+        proj_params=(6378273.0, -2.0, 0.0, 0.0, -45000000.0, 70000000.0),
+    )
+    with pytest.raises(UnsupportedProjectionError, match="eccentricity"):
         projection_info(grid)
 
 
@@ -177,6 +222,15 @@ def test_unsupported_grid_origin_fails_loud():
         structmetadata_of("seaice").grids[0], grid_origin="HDFE_GD_LL"
     )
     with pytest.raises(UnsupportedGeolocationError, match="HDFE_GD_LL"):
+        reconstruct(grid)
+
+
+@pytest.mark.parametrize("x_dim,y_dim", [(0, 896), (608, 0), (-1, 896)])
+def test_non_positive_dimensions_fail_loud(x_dim, y_dim):
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0], x_dim=x_dim, y_dim=y_dim
+    )
+    with pytest.raises(UnsupportedGeolocationError, match="non-positive"):
         reconstruct(grid)
 
 

@@ -36,6 +36,7 @@ from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedGeolocationError
 from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
+from ncarnate.limits import check_array_size
 
 # HDF4 DFNT type code -> numpy dtype for SDS payloads. CHAR8 *attributes*
 # become Python strings (handled before this table); CHAR8 *datasets* map
@@ -188,6 +189,23 @@ def _read_attributes(hdf_object, count : int) -> dict:
 
     attributes = {}
 
+    def put(key : str, value) -> None:
+
+        # Guard EVERY write — including the companion keys — so a hostile
+        # file cannot ship a real attribute whose name equals a generated
+        # companion (e.g. `foo/x` -> `foo_x__hdf4_name`, plus a real
+        # `foo_x__hdf4_name`) and silently overwrite it. Because
+        # verify_conversion re-reads the source through this same function,
+        # an unguarded overwrite would be invisible to verification.
+        if key in attributes:
+
+            raise NcarnateError(
+                f"Attribute name {key!r} collides with another attribute "
+                f"or a generated companion after sanitization."
+            )
+
+        attributes[key] = value
+
     for index in range(count):
 
         attribute          = hdf_object.attr(index)
@@ -199,42 +217,45 @@ def _read_attributes(hdf_object, count : int) -> dict:
         # name is recorded in a companion attribute.
         sanitized = sanitize_name(name)
 
-        if sanitized in attributes:
-
-            raise NcarnateError(
-                f"Attribute name {sanitized!r} collides after "
-                f"sanitization of {name!r}."
-            )
-
         if isinstance(value, str) and "\x00" in value:
 
             # Embedded NULs (MODIS PGE record-separator quirk) cannot
             # survive netCDF's C-string attributes; preserve the exact
             # bytes instead, with a self-describing companion.
-            attributes[sanitized] = np.frombuffer(
+            put(sanitized, np.frombuffer(
                 value.encode("latin-1"), dtype = np.uint8
-            )
-            attributes[f"{sanitized}__hdf4_encoding"] = (
+            ))
+            put(f"{sanitized}__hdf4_encoding",
                 "uint8 bytes of an HDF4 char8 attribute containing "
-                "embedded NUL bytes"
-            )
+                "embedded NUL bytes")
 
         else:
 
-            attributes[sanitized] = value
+            put(sanitized, value)
 
         if sanitized != name:
 
-            attributes[f"{sanitized}__hdf4_name"] = name
+            put(f"{sanitized}__hdf4_name", name)
 
     return attributes
+
+
+def _metadata_part_order(name : str) -> int:
+
+    # EOS metadata attributes are named "<Name>.N"; order by the integer
+    # suffix so that .10 follows .2 (a lexicographic sort would scramble a
+    # granule whose metadata spans >= 11 parts).
+    suffix = name.rsplit(".", 1)[-1]
+
+    return int(suffix) if suffix.isdigit() else 0
 
 
 def _structmetadata_text(file_attributes : dict) -> "str | None":
 
     parts = sorted(
-        name for name in file_attributes
-        if name.lower().startswith("structmetadata")
+        (name for name in file_attributes
+         if name.lower().startswith("structmetadata")),
+        key = _metadata_part_order,
     )
 
     if not parts:
@@ -402,6 +423,10 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
         group_name = None
         dim_names  = tuple(pyhdf_dims)
 
+    # `shape` is attacker-controlled; a tiny file can declare a giant SDS
+    # that only materializes on get(). Bound it before reading.
+    check_array_size(shape, dtype.itemsize, f"SDS {hdf4_name!r}")
+
     values = np.asarray(dataset.get())
 
     if values.dtype != dtype:
@@ -416,10 +441,28 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
 
     if name != hdf4_name:
 
+        if "hdf4_name" in attributes:
+
+            raise NcarnateError(
+                f"SDS {hdf4_name!r} carries an attribute named 'hdf4_name' "
+                f"that collides with the generated original-name companion."
+            )
+
         attributes["hdf4_name"] = hdf4_name
 
     group     = root if group_name is None else root.subgroup(group_name)
     dim_names = tuple(sanitize_name(dim) for dim in dim_names)
+
+    # Two SDS whose names sanitize to the same string (e.g. 'A B' and
+    # 'A/B' -> 'A_B') would otherwise both be appended and crash the writer
+    # with a raw netCDF RuntimeError on the duplicate createVariable; fail
+    # loud with a clear NcarnateError instead.
+    if group.variable(name) is not None:
+
+        raise NcarnateError(
+            f"SDS name {name!r} (from {hdf4_name!r}) collides with another "
+            f"dataset after sanitization in group {group.name or '/'!r}."
+        )
 
     for dim_name, size in zip(dim_names, values.shape):
 
