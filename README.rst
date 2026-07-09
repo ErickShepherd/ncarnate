@@ -64,11 +64,21 @@ Installation
 
    pip install ncarnate
 
-All dependencies install as binary wheels on CPython 3.10–3.13 for
-Linux (x86_64), macOS (arm64), and Windows — including ``pyhdf``, whose
-wheels bundle the HDF4 C library. On platforms without a ``pyhdf``
-wheel (e.g. Linux aarch64), building from sdist requires the system
-HDF4 library first (Debian/Ubuntu: ``apt install libhdf4-dev``).
+On **Linux (x86_64)** and **macOS (arm64)**, every dependency — including
+``pyhdf`` — installs as a self-contained binary wheel with no system
+libraries required (the ``pyhdf`` wheels there bundle the HDF4 C
+library). On platforms without a repaired ``pyhdf`` wheel (e.g. Linux
+aarch64), building from sdist requires the system HDF4 library first
+(Debian/Ubuntu: ``apt install libhdf4-dev``).
+
+**Windows:** the netCDF/HDF5 *recompression* path works from PyPI wheels
+out of the box, but the HDF4/HDF-EOS2 *conversion* path does **not** —
+``pyhdf``'s Windows wheel ships no HDF4 runtime, so ``import pyhdf`` fails
+with a DLL-load error. For HDF4 support on Windows, install
+``pyhdf`` from **conda-forge** first (``conda install -c conda-forge
+pyhdf``), which provides a properly linked build with the HDF4 runtime,
+then ``pip install ncarnate`` into that same environment — or use **WSL**
+and follow the Linux instructions.
 
 Command line usage
 ------------------

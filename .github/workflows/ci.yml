@@ -34,13 +34,13 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-        # Smoke the cross-platform binary-wheel install story (pyhdf +
-        # netCDF4 + pyproj wheels, no system HDF libs) that the README
-        # advertises — one Python each on macOS and Windows.
+        # Smoke the self-contained-wheel install story (pyhdf + netCDF4 +
+        # pyproj, no system HDF libs) on macOS too. Windows is deliberately
+        # excluded: pyhdf's Windows wheel ships no HDF4 runtime, so the
+        # HDF4 path can't import from PyPI wheels there (README documents
+        # the conda-forge / WSL route). The netCDF path works on Windows.
         include:
           - os: macos-latest
-            python-version: "3.12"
-          - os: windows-latest
             python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
