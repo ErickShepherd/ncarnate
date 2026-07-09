@@ -20,7 +20,9 @@ dependencies = [
     # tested range. Loosening below these is an out-of-loop decision.
     "netCDF4>=1.6",
     "numpy>=1.26",
-    "pyhdf>=0.11",
+    # >= 0.11.6: the first release whose manylinux/macOS/Windows wheels
+    # bundle libhdf4 (the no-system-HDF4 install story depends on it).
+    "pyhdf>=0.11.6",
     "pyproj>=3.6",
     "tqdm>=4.66",
 ]
