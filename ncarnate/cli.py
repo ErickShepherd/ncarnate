@@ -90,7 +90,11 @@ def _get_files(paths : list[str], recursive : bool) -> list[str]:
 
             raise NcarnateError(f"No such file or directory: {path}")
 
-    return files
+    # De-duplicate while preserving order: overlapping arguments (the same
+    # file twice, a directory plus a file inside it, or overlapping trees
+    # under -r) would otherwise recompress the same path more than once.
+    # Paths are already absolute, so equal files compare equal.
+    return list(dict.fromkeys(files))
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
