@@ -453,6 +453,17 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
     group     = root if group_name is None else root.subgroup(group_name)
     dim_names = tuple(sanitize_name(dim) for dim in dim_names)
 
+    # Two SDS whose names sanitize to the same string (e.g. 'A B' and
+    # 'A/B' -> 'A_B') would otherwise both be appended and crash the writer
+    # with a raw netCDF RuntimeError on the duplicate createVariable; fail
+    # loud with a clear NcarnateError instead.
+    if group.variable(name) is not None:
+
+        raise NcarnateError(
+            f"SDS name {name!r} (from {hdf4_name!r}) collides with another "
+            f"dataset after sanitization in group {group.name or '/'!r}."
+        )
+
     for dim_name, size in zip(dim_names, values.shape):
 
         group.add_dimension(dim_name, size)

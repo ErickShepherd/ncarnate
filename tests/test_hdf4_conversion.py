@@ -199,6 +199,23 @@ def test_packed_geolocation_fails_loud():
         _normalize_coordinate(packed, "degrees_north")
 
 
+def test_sanitized_sds_name_collision_fails_loud(workdir):
+    # Two SDS whose names sanitize to the same string must be refused with
+    # a clean NcarnateError, not crash the writer with a raw netCDF error.
+    from pyhdf.SD import SD, SDC
+
+    path = workdir / "collide.hdf"
+    source = SD(str(path), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    for name in ("A B", "A/B"):
+        sds = source.create(name, SDC.INT16, (2, 2))
+        sds[:] = np.ones((2, 2), np.int16)
+        sds.endaccess()
+    source.end()
+
+    with pytest.raises(NcarnateError, match="collides"):
+        recompress(str(path), geolocation=False)
+
+
 def test_companion_attribute_collision_fails_loud():
     # A real attribute whose name equals a generated companion
     # (`foo/x` -> `foo_x__hdf4_name`) must be caught, not silently
