@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ncarnate"
+abstract: >-
+  Reincarnate legacy scientific data as modern netCDF4: losslessly
+  recompress netCDF/HDF5 files and convert HDF4/HDF-EOS2 granules to
+  CF-annotated netCDF4 with reconstructed grid and swath geolocation.
+type: software
+authors:
+  - family-names: "Shepherd"
+    given-names: "Erick"
+    email: "dev@erickshepherd.com"
+version: "2.0.0"
+date-released: "2026-07-08"
+license: MIT
+repository-code: "https://github.com/ErickShepherd/ncarnate"
+url: "https://github.com/ErickShepherd/ncarnate"
+keywords:
+  - netCDF
+  - HDF4
+  - HDF-EOS2
+  - compression
+  - CF conventions
+  - atmospheric science
+  - remote sensing
