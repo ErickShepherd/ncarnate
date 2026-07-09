@@ -1,0 +1,20 @@
+# Python build/runtime artifacts.
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments.
+venv/
+.venv/
+
+# Tooling caches.
+.pytest_cache/
+.ruff_cache/
+
+# Runtime logs.
+ncarnate_log.txt
+
+# Local scratch.
+tmp/
