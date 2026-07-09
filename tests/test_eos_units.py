@@ -221,6 +221,15 @@ def test_unsupported_grid_origin_fails_loud():
         reconstruct(grid)
 
 
+@pytest.mark.parametrize("x_dim,y_dim", [(0, 896), (608, 0), (-1, 896)])
+def test_non_positive_dimensions_fail_loud(x_dim, y_dim):
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0], x_dim=x_dim, y_dim=y_dim
+    )
+    with pytest.raises(UnsupportedGeolocationError, match="non-positive"):
+        reconstruct(grid)
+
+
 # --- swath --------------------------------------------------------------
 
 def synthetic_geolocation(shape=(20, 30)):

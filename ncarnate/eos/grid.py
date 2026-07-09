@@ -98,6 +98,16 @@ def reconstruct(grid : EosGrid) -> GridGeolocation:
             f"HDFE_CENTER is supported (no fixture proves the variants)."
         )
 
+    # Dimensions come from untrusted StructMetadata; a zero divides by zero
+    # in _cell_centers (bare ZeroDivisionError) and a negative silently
+    # yields empty coordinate arrays instead of a refusal.
+    if grid.x_dim <= 0 or grid.y_dim <= 0:
+
+        raise UnsupportedGeolocationError(
+            f"Grid {grid.name!r} has non-positive dimensions "
+            f"(XDim={grid.x_dim}, YDim={grid.y_dim})."
+        )
+
     projection = projection_info(grid)
 
     if projection.crs is None:
