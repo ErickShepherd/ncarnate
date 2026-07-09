@@ -44,6 +44,18 @@ path = "ncarnate/constants.py"
 [tool.hatch.build.targets.wheel]
 packages = ["ncarnate"]
 
+[tool.hatch.build.targets.sdist]
+# The sdist ships the package, the tests + fixtures (so
+# `pip install <sdist> && pytest` works), and the fidelity contract; but
+# NOT the internal planning/design/checklist/audit docs, which are
+# development material, not part of the release.
+exclude = [
+    "docs/plans",
+    "docs/design",
+    "docs/owner-checklist-*.md",
+    "docs/audits",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
