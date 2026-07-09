@@ -1,0 +1,20 @@
+{
+  "fixture": "myd05_trim.hdf",
+  "source_granule": "MYD05_L2.A2020060.1635.061.2020061153519.hdf",
+  "source_sha256": "5f7c16cfd4f2f027312c36fb6a8bc745e8d51c114c61a996f084b0a356b801f2",
+  "source_notes": "see the local source-granule archive",
+  "sds_kept": [
+    "Latitude",
+    "Longitude",
+    "Water_Vapor_Near_Infrared"
+  ],
+  "trim": {
+    "mode": "along-track trim (dimension maps intact)",
+    "rows_kept_1km": 50,
+    "rows_kept_5km": 10,
+    "dimension_map": "offset=2, increment=5 (unchanged)",
+    "structmetadata_edit": "Size= rewritten for Cell_Along_Swath_1km/5km"
+  },
+  "generated": "2026-07-08",
+  "generator": "tests/fixtures/trim_hdfeos2.py"
+}

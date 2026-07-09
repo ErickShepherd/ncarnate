@@ -1,0 +1,15 @@
+{
+  "fixture": "amsre_seaice12km_trim.hdf",
+  "source_granule": "AMSR_E_L3_SeaIce12km_B02_20020619.hdf",
+  "source_sha256": "573b124843b481884043229a2887f6859341ca983f76505ed1a275422a6d31c6",
+  "source_notes": "see the local source-granule archive",
+  "sds_kept": [
+    "SI_12km_NH_ICECON_DAY",
+    "SI_12km_SH_ICECON_DAY"
+  ],
+  "trim": {
+    "mode": "full-resolution, SDS subset only"
+  },
+  "generated": "2026-07-08",
+  "generator": "tests/fixtures/trim_hdfeos2.py"
+}
