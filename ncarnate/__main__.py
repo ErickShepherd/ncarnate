@@ -10,9 +10,12 @@ top-level LICENSE file.
 
 '''
 
+# Standard library imports.
+import sys
+
 # Local application imports.
 from ncarnate.cli import main
 
 if __name__ == "__main__":
 
-    main()
+    sys.exit(main())

@@ -13,8 +13,5 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
-# Runtime logs.
-ncarnate_log.txt
-
 # Local scratch.
 tmp/

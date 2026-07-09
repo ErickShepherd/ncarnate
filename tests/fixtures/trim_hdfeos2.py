@@ -37,7 +37,6 @@ import re
 import sys
 from pathlib import Path
 
-import numpy as np
 from pyhdf.SD import SD, SDC
 
 DEFAULT_GRANULE_DIR = Path.home() / "ncarnate-data" / "granules"
