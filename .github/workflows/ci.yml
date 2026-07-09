@@ -27,12 +27,21 @@ jobs:
         run: ruff check .
 
   test:
-    name: pytest (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: pytest (${{ matrix.os }} py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        # Smoke the cross-platform binary-wheel install story (pyhdf +
+        # netCDF4 + pyproj wheels, no system HDF libs) that the README
+        # advertises — one Python each on macOS and Windows.
+        include:
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
