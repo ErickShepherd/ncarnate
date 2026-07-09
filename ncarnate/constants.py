@@ -12,8 +12,7 @@ top-level LICENSE file.
 
 # Constant definitions.
 PACKAGE_NAME         = "ncarnate"
-LOG_FILE             = f"{PACKAGE_NAME}_log.txt"
-SUPPORTED_EXTENSIONS = ["nc", "hdf"]
+SUPPORTED_EXTENSIONS = ["nc", "nc4", "hdf", "hdf5", "h5", "he5"]
 
 # Module dunder definitions.
 __author__  = "Erick Edward Shepherd"

@@ -15,47 +15,41 @@ top-level LICENSE file.
 import argparse
 import logging
 import os
-import sys
 
 # Third party imports.
 from tqdm import tqdm
 
 # Local application imports.
-from ncarnate.constants import LOG_FILE
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import SUPPORTED_EXTENSIONS
 from ncarnate.constants import __version__
 from ncarnate.core import recompress
+from ncarnate.errors import NcarnateError
 
 
-def _print_version() -> None:
+def _has_supported_extension(path : str) -> bool:
 
-    print(f"{PACKAGE_NAME} {__version__}")
+    extension = os.path.splitext(path)[1].lower().lstrip(".")
 
-
-def _validate_extension(path : str) -> bool:
-
-    filename, file_extension = os.path.splitext(path)
-
-    for extension in SUPPORTED_EXTENSIONS:
-
-        if extension.lower() in file_extension:
-
-            return True
-
-    else:
-
-        return False
+    return extension in SUPPORTED_EXTENSIONS
 
 
-def _files_to_paths(root : str, files : list) -> list:
+def _files_to_paths(root : str, files : list[str]) -> list[str]:
 
     paths = [os.path.join(root, file) for file in files]
 
     return paths
 
 
-def _get_files(paths : str, recursive : bool) -> int:
+def _get_files(paths : list[str], recursive : bool) -> list[str]:
+
+    '''
+
+    Expands the given paths into the list of files to process. Directories
+    are scanned (recursively with ``recursive``) for supported extensions;
+    explicitly named files must exist and carry a supported extension.
+
+    '''
 
     paths = [os.path.abspath(path) for path in paths]
     files = []
@@ -69,35 +63,42 @@ def _get_files(paths : str, recursive : bool) -> int:
                 for root, subdirectories, subfiles in os.walk(path):
 
                     subfiles    = _files_to_paths(root, subfiles)
-                    valid_files = list(filter(_validate_extension, subfiles))
+                    valid_files = filter(_has_supported_extension, subfiles)
 
-                    files += valid_files
+                    files += sorted(valid_files)
 
             else:
 
                 subfiles    = _files_to_paths(path, os.listdir(path))
-                subfiles    = list(filter(os.path.isfile, subfiles))
-                valid_files = list(filter(_validate_extension, subfiles))
+                subfiles    = filter(os.path.isfile, subfiles)
+                valid_files = filter(_has_supported_extension, subfiles)
 
-                files += valid_files
+                files += sorted(valid_files)
 
         elif os.path.isfile(path):
 
-            if _validate_extension(path):
+            if not _has_supported_extension(path):
 
-                files += [path]
+                raise NcarnateError(
+                    f"Unsupported file extension: {path} (supported: "
+                    f"{', '.join(sorted(SUPPORTED_EXTENSIONS))})"
+                )
+
+            files += [path]
 
         else:
 
-            raise ValueError
+            raise NcarnateError(f"No such file or directory: {path}")
 
     return files
 
 
-def _build_argument_parser():
+def _build_argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
-        description = "Alters the compression of HDF5/netCDF4 files."
+        prog        = PACKAGE_NAME,
+        description = "Losslessly rewrites netCDF4/HDF5 files with "
+                      "different compression settings."
     )
 
     parser.add_argument(
@@ -131,7 +132,7 @@ def _build_argument_parser():
         help   = "Disables zlib gzip compression."
     )
 
-    parser.set_defaults(**{"zlib" : True})
+    parser.set_defaults(zlib = True)
 
     group = parser.add_mutually_exclusive_group(required = False)
 
@@ -149,7 +150,7 @@ def _build_argument_parser():
         help   = "Disables the HDF5 shuffle filter."
     )
 
-    parser.set_defaults(**{"shuffle" : True})
+    parser.set_defaults(shuffle = True)
 
     group = parser.add_mutually_exclusive_group(required = False)
 
@@ -157,51 +158,45 @@ def _build_argument_parser():
         "--overwrite",
         dest   = "overwrite",
         action = "store_true",
-        help   = "Only the re/de-compressed file(s) is/are kept."
+        help   = "Replaces each source file with its recompressed copy "
+                 "(only after the copy verifies lossless)."
     )
 
     group.add_argument(
         "--no-overwrite",
         dest   = "overwrite",
         action = "store_false",
-        help   = "Both the re/de-compressed and original file(s) is/are kept."
+        help   = "Keeps the source file; writes the recompressed copy "
+                 "alongside it with a '_recompressed' suffix."
     )
 
-    parser.set_defaults(**{"overwrite" : True})
+    parser.set_defaults(overwrite = True)
 
     parser.add_argument(
         "-r",
         "--recursive",
-        dest   = "recursive",
-        action = "store_true",
-        help   = "Acts recursively on the given director(y/ies)."
+        dest    = "recursive",
+        action  = "store_true",
+        default = False,
+        help    = "Acts recursively on the given director(y/ies)."
     )
-
-    parser.set_defaults(**{"recursive" : False})
 
     parser.add_argument(
         "-V",
         "--version",
-        action  = "store_true",
+        action  = "version",
+        version = f"{PACKAGE_NAME} {__version__}",
         help    = "Prints the current package version."
     )
 
     return parser
 
 
-def _build_logger():
-
-    datefmt = "%Y-%m-%d, %H:%M:%S"
-
-    message  = "-" * 79 + "\n"
-    message += "Timestamp:              %(asctime)s\n"
-    message += "Level:                  %(levelname)s\n"
-    message += "System argument vector: " + " ".join(sys.argv) + "\n\n"
-    message += "Logged message:\n\n\t%(message)s\n\n"
+def _configure_logging() -> logging.Logger:
 
     logger    = logging.getLogger(PACKAGE_NAME)
-    handler   = logging.FileHandler(LOG_FILE)
-    formatter = logging.Formatter(message, datefmt = datefmt)
+    handler   = logging.StreamHandler()
+    formatter = logging.Formatter("%(levelname)s: %(message)s")
 
     handler.setFormatter(formatter)
     logger.addHandler(handler)
@@ -210,37 +205,63 @@ def _build_logger():
     return logger
 
 
-def main() -> None:
+def main() -> int:
 
-    parser    = _build_argument_parser()
-    args      = parser.parse_args()
-    kwargs    = vars(args)
-    paths     = kwargs.pop("path")
-    recursive = kwargs.pop("recursive")
-    version   = kwargs.pop("version")
-    logger    = _build_logger()
-    files     = _get_files(paths, recursive)
+    parser = _build_argument_parser()
+    args   = parser.parse_args()
+    logger = _configure_logging()
 
-    # TODO: Raises an error if path argument is not provided.
-    if version:
+    try:
 
-        _print_version()
+        files = _get_files(args.path, args.recursive)
 
-    for file in tqdm(files, desc = "Files re/de-compressed"):
+    except NcarnateError as error:
+
+        logger.error(str(error))
+
+        return 2
+
+    if not files:
+
+        logger.error("No supported input files found.")
+
+        return 2
+
+    failures = 0
+
+    for file in tqdm(files, desc = "Files recompressed"):
 
         try:
 
-            raise ValueError
-            recompress(file, **kwargs)
+            recompress(
+                file,
+                zlib      = args.zlib,
+                shuffle   = args.shuffle,
+                complevel = args.complevel,
+                overwrite = args.overwrite
+            )
+
+        except (NcarnateError, OSError) as error:
+
+            logger.error("%s", error)
+
+            failures += 1
 
         except Exception:
 
-            message = (f"An error occurred while attempting to recompress the "
-                       f"given file: {file}")
+            logger.exception(
+                "Unexpected error while recompressing the given file: %s",
+                file
+            )
 
-            logger.exception(message)
+            failures += 1
 
+    if failures:
 
-if __name__ == "__main__":
+        logger.error(
+            "%d of %d file(s) failed to recompress.", failures, len(files)
+        )
 
-    main()
+        return 1
+
+    return 0

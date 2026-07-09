@@ -14,5 +14,21 @@ top-level LICENSE file.
 from ncarnate.constants import __author__
 from ncarnate.constants import __version__
 from ncarnate.core import recompress
+from ncarnate.errors import NcarnateError
+from ncarnate.errors import UnsupportedFormatError
+from ncarnate.errors import UnsupportedTypeError
+from ncarnate.errors import VerificationError
+from ncarnate.formats import FileFormat
+from ncarnate.formats import detect_format
 
-__all__ = ["recompress", "__author__", "__version__"]
+__all__ = [
+    "recompress",
+    "detect_format",
+    "FileFormat",
+    "NcarnateError",
+    "UnsupportedFormatError",
+    "UnsupportedTypeError",
+    "VerificationError",
+    "__author__",
+    "__version__",
+]
