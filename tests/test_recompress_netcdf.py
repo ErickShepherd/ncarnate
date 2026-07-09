@@ -77,6 +77,23 @@ def test_failed_verification_never_touches_source(workdir, monkeypatch):
     assert list(workdir.glob("*.tmp")) == []
 
 
+def test_cleanup_error_does_not_mask_original(workdir, monkeypatch):
+    import os
+    fixture = next(f for f in NETCDF_FIXTURES if f.stem == "packed_fill")
+    src = stage(fixture, workdir)
+
+    def sabotage(src_path, tmp_path):
+        raise VerificationError("Verification failed: sabotaged")
+
+    monkeypatch.setattr(ncarnate.core, "_verify_lossless", sabotage)
+    monkeypatch.setattr(os, "unlink", lambda p: (_ for _ in ()).throw(
+        OSError("cleanup boom")))
+    # The real failure (VerificationError), not the cleanup OSError, must
+    # propagate.
+    with pytest.raises(VerificationError):
+        recompress(str(src))
+
+
 def test_user_defined_types_fail_loud(workdir):
     src = workdir / "vlen.nc"
     with nc.Dataset(src, "w") as f:

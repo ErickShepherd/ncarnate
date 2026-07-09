@@ -231,9 +231,18 @@ def _write_verified(src_path : str,
 
     except BaseException:
 
-        if os.path.exists(tmp_path):
+        # Best-effort cleanup that must never mask the original failure:
+        # a raised unlink (or a link-following exists check) would replace
+        # the real cause with a cleanup error.
+        try:
 
-            os.unlink(tmp_path)
+            if os.path.lexists(tmp_path):
+
+                os.unlink(tmp_path)
+
+        except OSError:
+
+            pass
 
         raise
 
