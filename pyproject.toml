@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ncarnate"
+dynamic = ["version"]
+description = "Losslessly rewrite netCDF4/HDF5 files with different compression settings."
+readme = "README.rst"
+requires-python = ">=3.10"
+authors = [
+    { name = "Erick Shepherd", email = "dev@erickshepherd.com" },
+]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["netCDF", "netCDF4", "HDF5", "HDF4", "HDF-EOS2", "compression", "recompression", "atmospheric science"]
+dependencies = [
+    # Floors track the versions the local build environment is verified
+    # against (netCDF4 1.7.x, numpy 2.x); the Phase-4 CI matrix pins the
+    # tested range. Loosening below these is an out-of-loop decision.
+    "netCDF4>=1.6",
+    "numpy>=1.26",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+ncarnate = "ncarnate.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ErickShepherd/ncarnate"
+Source = "https://github.com/ErickShepherd/ncarnate"
+"Bug Tracker" = "https://github.com/ErickShepherd/ncarnate/issues"
+
+[tool.hatch.version]
+path = "ncarnate/constants.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ncarnate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# Permissive: keep ruff's default lint set (pyflakes `F` + the core pycodestyle
+# `E4`/`E7`/`E9` groups), which catches real problems -- unused imports,
+# undefined names, comparison/statement bugs -- without fighting this
+# codebase's deliberate aligned-assignment and blank-line style (E1/E2 spacing
+# rules and E501 line length are intentionally NOT enforced).
+select = ["E4", "E7", "E9", "F"]
