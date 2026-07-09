@@ -118,7 +118,8 @@ declared CF: `units=degrees_north/degrees_east` set on the lat/lon coordinate va
 fields sharing the geo dims. For fields on dimension-mapped dims, build interpolated
 `lat/lon` at data resolution: geo pixel `g` sits at data index `offset + increment·g`;
 interior data pixels interpolate linearly between bracketing geo pixels, edge pixels
-extrapolate (MYD05: indices 0–1 and 1352–1353 lie outside the 5-km envelope) — all in ECEF
+extrapolate (MYD05: across-track 1-km columns 0–1 and 1348–1353 lie outside the 5-km
+envelope — the last of the 270 geo centers maps to column 2 + 5·269 = 1347) — all in ECEF
 (lat/lon → unit-sphere XYZ → interpolate → back), which is antimeridian- and pole-safe where
 bilinear on raw degrees is not. Geolocation `_FillValue` pixels propagate as fill in the
 interpolated output (never interpolated across).
@@ -221,8 +222,8 @@ by a committed script from the raw granules; raw granules stay outside the repo.
   The trim script must preserve StructMetadata verbatim and every geolocation-referenced
   object; the survey JSONs pin the expected structure and the tests open the trimmed fixture
   through the same parser.
-- **Edge extrapolation error at swath borders** (MYD05's first/last two 1-km columns lie
-  outside the 5-km envelope). Bounded and measured by oracle #3; documented in
+- **Edge extrapolation error at swath borders** (MYD05's first two and last six across-track
+  1-km columns lie outside the 5-km envelope). Bounded and measured by oracle #3; documented in
   `docs/fidelity-notes.md` as reconstruction (not measurement) pixels.
 - **pyproj/PROJ version drift changing distant-decimal results.** Pin a floor version; the
   tolerance-based tests are deliberately robust to last-ulp drift.
