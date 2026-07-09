@@ -83,6 +83,19 @@ def test_structmetadata_preserved_verbatim(workdir):
     assert actual == expected
 
 
+def test_conversion_refuses_to_clobber_existing_autoderived_output(workdir):
+    fixture = next(f for f in HDFEOS2_FIXTURES if "raingrid" in f.stem)
+    src = stage(fixture, workdir)
+    existing = workdir / f"{fixture.stem}.nc"
+    existing.write_text("precious unrelated data")
+    with pytest.raises(NcarnateError, match="Refusing to overwrite"):
+        recompress(str(src))
+    assert existing.read_text() == "precious unrelated data"
+    # An explicit dst still overwrites (the user named it).
+    out = recompress(str(src), dst=str(workdir / "explicit.nc"))
+    assert out == str(workdir / "explicit.nc")
+
+
 def test_hdf4_conversion_refuses_dst_equal_src(workdir):
     src = stage(HDFEOS2_FIXTURES[0], workdir)
     with pytest.raises(NcarnateError):

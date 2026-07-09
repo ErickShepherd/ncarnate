@@ -107,6 +107,8 @@ def recompress(src         : str,
             filename = os.path.splitext(src_path)[0]
             dst_path = filename + ".nc"
 
+            _guard_auto_destination(dst_path)
+
         if dst_path == src_path:
 
             raise NcarnateError(
@@ -146,6 +148,8 @@ def recompress(src         : str,
             filename, file_extension = os.path.splitext(src_path)
             dst_path = filename + "_recompressed" + file_extension
 
+            _guard_auto_destination(dst_path)
+
         def _write(tmp_path : str) -> None:
 
             with nc.Dataset(src_path, mode = "r") as src_file, \
@@ -161,6 +165,27 @@ def recompress(src         : str,
     _write_verified(src_path, dst_path, _write, _verify)
 
     return dst_path
+
+
+def _guard_auto_destination(dst_path : str) -> None:
+
+    '''
+
+    Refuses to overwrite a pre-existing file at an *auto-derived*
+    destination (the ``<stem>.nc`` conversion target or the
+    ``_recompressed`` sibling). The user never named this path, so
+    clobbering a file that happens to already sit there would be silent
+    data loss of something unrelated. An explicit ``dst`` bypasses this.
+
+    '''
+
+    if os.path.exists(dst_path):
+
+        raise NcarnateError(
+            f"Refusing to overwrite the existing file {dst_path}, which "
+            f"was auto-derived from the input name. Pass an explicit "
+            f"output path, or move/remove the existing file."
+        )
 
 
 def _write_verified(src_path : str,
