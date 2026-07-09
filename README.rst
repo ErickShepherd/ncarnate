@@ -60,25 +60,34 @@ clause live in ``docs/fidelity-notes.md``.
 Installation
 ------------
 
+**With conda** (from `conda-forge <https://anaconda.org/conda-forge/ncarnate>`_):
+
+.. code-block:: console
+
+   conda install -c conda-forge ncarnate
+
+This works on every platform and is the recommended install on
+**Windows** — conda-forge's ``pyhdf`` is built against a proper HDF4
+library everywhere, so the full HDF4/HDF-EOS2 converter runs on Windows,
+macOS, and Linux alike.
+
+**With pip** (from `PyPI <https://pypi.org/project/ncarnate/>`_):
+
 .. code-block:: console
 
    pip install ncarnate
 
 On **Linux (x86_64)** and **macOS (arm64)**, every dependency — including
 ``pyhdf`` — installs as a self-contained binary wheel with no system
-libraries required (the ``pyhdf`` wheels there bundle the HDF4 C
-library). On platforms without a repaired ``pyhdf`` wheel (e.g. Linux
-aarch64), building from sdist requires the system HDF4 library first
+libraries required. On platforms without a repaired ``pyhdf`` wheel (e.g.
+Linux aarch64), building from sdist requires the system HDF4 library first
 (Debian/Ubuntu: ``apt install libhdf4-dev``).
 
-**Windows:** the netCDF/HDF5 *recompression* path works from PyPI wheels
-out of the box, but the HDF4/HDF-EOS2 *conversion* path does **not** —
-``pyhdf``'s Windows wheel ships no HDF4 runtime, so ``import pyhdf`` fails
-with a DLL-load error. For HDF4 support on Windows, install
-``pyhdf`` from **conda-forge** first (``conda install -c conda-forge
-pyhdf``), which provides a properly linked build with the HDF4 runtime,
-then ``pip install ncarnate`` into that same environment — or use **WSL**
-and follow the Linux instructions.
+**Windows via pip:** the netCDF/HDF5 *recompression* path works from PyPI
+wheels out of the box, but the HDF4/HDF-EOS2 *conversion* path does
+**not** — ``pyhdf``'s Windows wheel ships no HDF4 runtime, so
+``import pyhdf`` fails with a DLL-load error. Use the conda-forge install
+above for HDF4 on Windows (or **WSL** with the pip instructions).
 
 Command line usage
 ------------------
