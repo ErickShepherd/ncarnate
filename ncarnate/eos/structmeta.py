@@ -15,6 +15,7 @@ top-level LICENSE file.
 
 # Standard library imports.
 import dataclasses
+import math
 
 # Local application imports.
 from ncarnate.errors import EosParseError
@@ -124,13 +125,23 @@ def _parse_scalar(text : str):
 
     try:
 
-        return float(text)
+        value = float(text)
 
     except ValueError:
 
-        pass
+        return text
 
-    return text
+    # Reject non-finite numbers (nan/inf/1e999): they flow from untrusted
+    # StructMetadata into pyproj and numpy allocation, where they yield
+    # silently-garbage coordinates or PROJ errors rather than a clear
+    # refusal.
+    if not math.isfinite(value):
+
+        raise EosParseError(
+            f"StructMetadata contains a non-finite number: {text!r}"
+        )
+
+    return value
 
 
 def _parse_value(text : str):

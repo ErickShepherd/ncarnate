@@ -74,6 +74,19 @@ def test_malformed_odl_fails_loud(text):
         structmeta.parse(text)
 
 
+@pytest.mark.parametrize("token", ["nan", "inf", "-inf", "1e999"])
+def test_non_finite_numbers_fail_loud(token):
+    # Untrusted StructMetadata numbers must not reach pyproj/numpy as
+    # nan/inf; the parser rejects them at the boundary.
+    text = (
+        "GROUP=GridStructure\n\tGROUP=GRID_1\n"
+        f"\t\tXDim=608\n\t\tYDim=896\n\t\tProjParams=({token},0,0)\n"
+        "\tEND_GROUP=GRID_1\nEND_GROUP=GridStructure\nEND\n"
+    )
+    with pytest.raises(EosParseError):
+        structmeta.parse(text)
+
+
 # --- gctp ---------------------------------------------------------------
 
 def test_packed_dms_decoding():
