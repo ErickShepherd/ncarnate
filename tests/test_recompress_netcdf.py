@@ -96,3 +96,21 @@ def test_dst_equal_to_src_is_rejected(workdir):
 def test_missing_source_is_rejected(workdir):
     with pytest.raises(NcarnateError):
         recompress(str(workdir / "missing.nc"))
+
+
+def test_in_place_through_symlink_replaces_real_file(workdir):
+    import os
+    fixture = next(f for f in NETCDF_FIXTURES if f.stem == "packed_fill")
+    real = stage(fixture, workdir)
+    real_target = workdir / "real.nc"
+    real.rename(real_target)
+    link = workdir / "link.nc"
+    os.symlink(real_target, link)
+    recompress(str(link), complevel=9)
+    # The symlink must still be a symlink pointing at the real file, and
+    # the real file (not a detached copy) must hold the recompressed data.
+    assert link.is_symlink()
+    assert os.path.realpath(link) == str(real_target)
+    with nc.Dataset(real_target) as f:
+        v = next(iter(f.variables.values()))
+        assert v.filters()["complevel"] == 9

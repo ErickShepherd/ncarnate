@@ -79,7 +79,12 @@ def recompress(src         : str,
 
     '''
 
-    src_path = os.path.abspath(src)
+    # Resolve symlinks: for in-place recompression `os.replace` onto a
+    # symlink would replace the link (orphaning its target with stale
+    # content) and the permission copy would stamp the target's mode onto
+    # the new file. Operating on the real path makes the atomic replace act
+    # on the actual file and keeps auto-derived outputs next to it.
+    src_path = os.path.realpath(src)
 
     if not os.path.isfile(src_path):
 
