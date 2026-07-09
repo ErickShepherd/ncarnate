@@ -173,6 +173,16 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.set_defaults(overwrite = True)
 
     parser.add_argument(
+        "--no-geolocation",
+        dest    = "geolocation",
+        action  = "store_false",
+        default = True,
+        help    = "Converts HDF-EOS2 files SDS-only, skipping CF "
+                  "geolocation reconstruction (the escape hatch for "
+                  "unsupported projections/layouts)."
+    )
+
+    parser.add_argument(
         "-r",
         "--recursive",
         dest    = "recursive",
@@ -241,10 +251,11 @@ def main() -> int:
 
             recompress(
                 file,
-                zlib      = args.zlib,
-                shuffle   = args.shuffle,
-                complevel = args.complevel,
-                overwrite = args.overwrite
+                zlib        = args.zlib,
+                shuffle     = args.shuffle,
+                complevel   = args.complevel,
+                overwrite   = args.overwrite,
+                geolocation = args.geolocation
             )
 
         except (NcarnateError, OSError) as error:

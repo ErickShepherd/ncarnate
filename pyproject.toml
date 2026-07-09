@@ -20,6 +20,8 @@ dependencies = [
     # tested range. Loosening below these is an out-of-loop decision.
     "netCDF4>=1.6",
     "numpy>=1.26",
+    "pyhdf>=0.11",
+    "pyproj>=3.6",
     "tqdm>=4.66",
 ]
 
