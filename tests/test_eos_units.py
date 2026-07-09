@@ -140,6 +140,26 @@ def test_unsupported_projection_fails_loud():
         projection_info(grid)
 
 
+def test_short_ps_projparams_fails_loud():
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0],
+        proj_params=(6378273.0, -0.006694),
+    )
+    with pytest.raises(UnsupportedProjectionError, match="at least 6"):
+        projection_info(grid)
+
+
+def test_invalid_eccentricity_fails_loud():
+    # ProjParams[1] = -e^2 below -1 means e^2 > 1 — not a valid ellipsoid;
+    # must fail loud, not sqrt() a negative and raise a bare ValueError.
+    grid = dataclasses.replace(
+        structmetadata_of("seaice").grids[0],
+        proj_params=(6378273.0, -2.0, 0.0, 0.0, -45000000.0, 70000000.0),
+    )
+    with pytest.raises(UnsupportedProjectionError, match="eccentricity"):
+        projection_info(grid)
+
+
 def test_sphere_code_table_fails_loud():
     grid = dataclasses.replace(
         structmetadata_of("seaice").grids[0],
