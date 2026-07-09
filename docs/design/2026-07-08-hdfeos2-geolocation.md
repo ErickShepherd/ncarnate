@@ -22,7 +22,7 @@ Grounding: the Phase-1 fixture survey (2026-07-08) over three representative gra
 
 | Granule | EOS type | Structure found |
 |---|---|---|
-| `AMSR_E_L3_SeaIce12km_B02_20020619.hdf` (60 MB, NSIDC AE_SI12) | 2× GRID | `NpPolarGrid12km` 608×896 + `SpPolarGrid12km` 632×664, both `GCTP_PS`, Hughes ellipsoid via `ProjParams=(6378273,-0.006694,0,0,±45000000,±70000000,…)`, `UpperLeftPointMtrs`/`LowerRightMtrs`, `GridOrigin=HDFE_GD_UL`; 62 int16 SDS, **zero SDS attributes** (no fill/scale — semantics live in the product doc) |
+| `AMSR_E_L3_SeaIce12km_B02_20020619.hdf` (60 MB, NSIDC AE_SI12) | 2× GRID | `NpPolarGrid12km` 608×896 + `SpPolarGrid12km` 632×664, both `GCTP_PS`, Hughes ellipsoid — NH `ProjParams=(6378273,-0.006694,0,0,-45000000,70000000,…)`, SH `(6378273,-0.006694,0,0,0,-70000000,…)` — `UpperLeftPointMtrs`/`LowerRightMtrs`, `GridOrigin=HDFE_GD_UL`; 62 int16 SDS, **zero SDS attributes** (no fill/scale — semantics live in the product doc) |
 | `MOD03.A2002299.0710.006.2012261211245.hdf` (29 MB, LAADS MOD03 C6) | SWATH | Full 1-km `Latitude`/`Longitude` float32 (2030×1354, `_FillValue=-999`), dimension maps `nscans*10→nscans*20`, `mframes→mframes*2` (offset 0, increment 2) feeding three int8 offset fields at 4060×2708; SDS names contain spaces and a slash (`Land/SeaMask`) |
 | `MYD05_L2.A2020060.1635.061.2020061153519.hdf` (7 MB, LAADS MYD05_L2 C6.1) | SWATH | 5-km `Latitude`/`Longitude` (406×270) with dimension maps `offset=2, increment=5` to 1-km data dims (2030×1354); packed int16 data (`scale_factor`/`add_offset`/`_FillValue`) |
 
