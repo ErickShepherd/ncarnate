@@ -1,0 +1,15 @@
+{
+  "fixture": "raingrid_trim.hdf",
+  "source_granule": "AMSR_E_L3_RainGrid_B05_200707.hdf",
+  "source_sha256": "2a84becd2d29c23dfb20d7f225585d794120aae32d835941e8087b84aa4e6982",
+  "source_notes": "see the local source-granule archive",
+  "sds_kept": [
+    "TbOceanRain",
+    "RrLandRain"
+  ],
+  "trim": {
+    "mode": "full-resolution, deflate recompress only"
+  },
+  "generated": "2026-07-08",
+  "generator": "tests/fixtures/trim_hdfeos2.py"
+}

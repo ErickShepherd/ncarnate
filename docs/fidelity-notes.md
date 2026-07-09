@@ -27,15 +27,36 @@ replaced until the new file has been written and re-opened successfully.
 
 ### HDF4 / HDF-EOS2 → netCDF4 (conversion)
 
-- every SDS's values bit-identical; dimensions (with their HDF4 names) and attributes
-  preserved; fill/scale carried as declarations;
-- `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** in the
-  output — reconstruction never becomes the only copy of the truth;
+- every SDS's values bit-identical (char8 SDS map to netCDF `NC_CHAR` and round-trip
+  byte-for-byte); dimensions (with their HDF4 names) and attributes preserved; fill/scale
+  carried as declarations;
+- `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** as
+  attributes of an `HDFEOS_INFORMATION` group — reconstruction never becomes the only copy
+  of the truth. Two storage-driven exceptions, both loss-free in information terms:
+  trailing NUL *padding* of HDF4 character attributes is stripped (C-string semantics —
+  netCDF cannot store it), and character attributes containing *embedded* NULs (a MODIS
+  PGE record-separator quirk) are preserved byte-exact as `uint8` arrays with a
+  self-describing `<name>__hdf4_encoding` companion attribute;
 - reconstructed geolocation (CF grid mappings, coordinates, interpolated swath lat/lon) is
   **additive** and verified by the five-check lattice in
   [docs/design/2026-07-08-hdfeos2-geolocation.md](design/2026-07-08-hdfeos2-geolocation.md);
-- names illegal in netCDF (e.g. `Land/SeaMask`) are sanitized with the original recorded in
-  an `hdf4_name` attribute.
+- names illegal or hostile in netCDF (`Land/SeaMask`, `Scan Offset`,
+  `Ephemeris/Attitude Source`, grid names with spaces) are sanitized (`/` and whitespace →
+  `_`) uniformly across variables, dimensions, attributes, and groups, with each original
+  recorded in a companion (`hdf4_name`, `<attr>__hdf4_name`, `hdf4_eos_name`);
+- the HDF4 source file is **never** replaced (conversion, not recompression): output goes
+  to `dst` or `<stem>.nc` regardless of `--overwrite`.
+
+**Dimension-map interpolation accuracy** (measured against the MOD03 decimation oracle on
+real swath geometry, 2026-07-08): interpolated coordinates are exact to ~1–25 m over the
+swath interior (nadir p99 < 12 m, overall median 22 m). Two data-limited regions carry
+larger error inherent to the format, matching the reference `SWinterpolate` semantics:
+scan-boundary rows (MODIS scans overlap — the bowtie effect; median ~0.4 km) and
+near-limb edge columns where ground spacing explodes (km-scale tails, worst ~31 km at the
+extreme swath edge — the same caveat NASA documents for using 5-km geolocation at swath
+edges). Interpolated variables carry a `comment` attribute saying they are interpolated;
+edge pixels outside the geolocation envelope are linearly extrapolated; geolocation fill
+propagates, never interpolated across.
 
 ### Guarantee boundary
 
@@ -66,6 +87,8 @@ v1 failed both (a crash and a silent re-quantization).
 | `tests/fixtures/data/hdfeos2/amsre_seaice12km_trim.hdf` (167 KB) | `trim_hdfeos2.py` | HDF-EOS2 GRID ×2 (N/S polar stereographic GCTP_PS), verbatim `StructMetadata.0`, attribute-less SDS |
 | `tests/fixtures/data/hdfeos2/mod03_trim.hdf` (83 KB) | `trim_hdfeos2.py` | HDF-EOS2 SWATH, full-res 1 km geolocation, dimension maps (inc=2), fill in geolocation |
 | `tests/fixtures/data/hdfeos2/myd05_trim.hdf` (188 KB) | `trim_hdfeos2.py` | HDF-EOS2 SWATH, 5 km→1 km dimension maps (offset=2, inc=5), packed int16 data |
+| `tests/fixtures/data/hdfeos2/raingrid_trim.hdf` (43 KB) | `trim_hdfeos2.py` | HDF-EOS2 GRID, geographic GCTP_GEO (corners in packed DMS → 1-D lat/lon) |
+| `tests/fixtures/data/hdfeos2/amsre_5daysnow_trim.hdf` (124 KB) | `trim_hdfeos2.py` | HDF-EOS2 GRID ×2, EASE-Grid GCTP_LAMAZ (spherical LAEA), grid names with spaces, off-Earth corner cells → fill |
 
 All fixtures respect the plan's < 200 KB Phase-1 budget. Attribute *types* are preserved
 exactly (written with each source attribute's true HDF4 type code via `attr.info()`, never

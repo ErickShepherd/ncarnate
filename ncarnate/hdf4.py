@@ -99,11 +99,22 @@ class TreeGroup:
 
     def subgroup(self, name : str) -> "TreeGroup":
 
-        if name not in self.groups:
+        # Group names follow the same sanitization policy as variables
+        # (5DaySnow grids are named 'Northern Hemisphere'); the original
+        # is recorded as a group attribute.
+        sanitized = sanitize_name(name)
 
-            self.groups[name] = TreeGroup.empty(name)
+        if sanitized not in self.groups:
 
-        return self.groups[name]
+            group = TreeGroup.empty(sanitized)
+
+            if sanitized != name:
+
+                group.attributes["hdf4_eos_name"] = name
+
+            self.groups[sanitized] = group
+
+        return self.groups[sanitized]
 
     def variable(self, name : str) -> "TreeVariable | None":
 
@@ -517,6 +528,21 @@ def _decorate_projected_grid(group          : TreeGroup,
         f"Grid {group.name!r}"
     )
 
+    # Cells outside the projection's valid domain (EASE-Grid corner
+    # cells lie off the Earth disk) inverse-project to non-finite
+    # values; emit them as declared fill instead.
+    latitude    = reconstruction.latitude
+    longitude   = reconstruction.longitude
+    off_earth   = ~np.isfinite(latitude) | ~np.isfinite(longitude)
+    fill_attrs  = {}
+
+    if off_earth.any():
+
+        fill_value = np.float64(nc.default_fillvals["f8"])
+        latitude   = np.where(off_earth, fill_value, latitude)
+        longitude  = np.where(off_earth, fill_value, longitude)
+        fill_attrs = {"_FillValue" : fill_value}
+
     group.variables.append(TreeVariable(
         name       = "x",
         dimensions = ("XDim",),
@@ -541,27 +567,33 @@ def _decorate_projected_grid(group          : TreeGroup,
         },
     ))
 
+    comment = (
+        "inverse-projected from the reconstructed grid coordinates"
+        + ("; cells outside the projection's valid Earth domain are fill"
+           if fill_attrs else "")
+    )
+
     group.variables.append(TreeVariable(
         name       = "lat",
         dimensions = ("YDim", "XDim"),
-        values     = reconstruction.latitude,
+        values     = latitude,
         attributes = {
             "standard_name" : "latitude",
             "units"         : "degrees_north",
-            "comment"       : "inverse-projected from the reconstructed "
-                              "grid coordinates",
+            "comment"       : comment,
+            **fill_attrs,
         },
     ))
 
     group.variables.append(TreeVariable(
         name       = "lon",
         dimensions = ("YDim", "XDim"),
-        values     = reconstruction.longitude,
+        values     = longitude,
         attributes = {
             "standard_name" : "longitude",
             "units"         : "degrees_east",
-            "comment"       : "inverse-projected from the reconstructed "
-                              "grid coordinates",
+            "comment"       : comment,
+            **fill_attrs,
         },
     ))
 
@@ -616,7 +648,7 @@ def _decorate_swaths(root     : TreeGroup,
                 f"convert with --no-geolocation."
             )
 
-        group     = root.groups.get(eos_swath_.name)
+        group     = root.groups.get(sanitize_name(eos_swath_.name))
         geo_names = {field.name for field in eos_swath_.geo_fields}
 
         if not {"Latitude", "Longitude"} <= geo_names:

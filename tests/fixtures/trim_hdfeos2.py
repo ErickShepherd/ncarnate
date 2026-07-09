@@ -45,6 +45,8 @@ DEFAULT_OUT = Path(__file__).parent / "data" / "hdfeos2"
 AMSRE = "AMSR_E_L3_SeaIce12km_B02_20020619.hdf"
 MOD03 = "MOD03.A2002299.0710.006.2012261211245.hdf"
 MYD05 = "MYD05_L2.A2020060.1635.061.2020061153519.hdf"
+RAINGRID = "AMSR_E_L3_RainGrid_B05_200707.hdf"
+SNOW5DAY = "AMSR_E_L3_5DaySnow_V09_20050126.hdf"
 
 N_SCANS_1KM = 20   # MOD03: 2 scans x 10 lines (along-track)
 N_FRAMES_1KM = 270  # MOD03: across-track frames kept (mframes*2 -> 540)
@@ -229,6 +231,39 @@ def trim_myd05(granule_dir: Path, out_dir: Path) -> Path:
     return out
 
 
+def trim_raingrid(granule_dir: Path, out_dir: Path) -> Path:
+    """GEO-projection GRID case (Phase 3b): both SDS, full resolution."""
+    source = granule_dir / RAINGRID
+    out = out_dir / "raingrid_trim.hdf"
+    kept = ["TbOceanRain", "RrLandRain"]
+    src = SD(str(source), SDC.READ)
+    dst = SD(str(out), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    copy_file_attrs(src, dst)  # StructMetadata verbatim: grid dims unchanged
+    for name in kept:
+        copy_sds(src, dst, name)
+    dst.end()
+    src.end()
+    provenance(out, source, kept, {"mode": "full-resolution, deflate recompress only"})
+    return out
+
+
+def trim_5daysnow(granule_dir: Path, out_dir: Path) -> Path:
+    """LAMAZ (EASE-Grid) GRID case (Phase 3b): one SWE field per hemisphere,
+    full 721x721 resolution; grid names contain spaces (sanitization case)."""
+    source = granule_dir / SNOW5DAY
+    out = out_dir / "amsre_5daysnow_trim.hdf"
+    kept = ["SWE_NorthernPentad", "SWE_SouthernPentad"]
+    src = SD(str(source), SDC.READ)
+    dst = SD(str(out), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    copy_file_attrs(src, dst)  # StructMetadata verbatim: grid dims unchanged
+    for name in kept:
+        copy_sds(src, dst, name)
+    dst.end()
+    src.end()
+    provenance(out, source, kept, {"mode": "full-resolution, SDS subset only"})
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--granule-dir", type=Path, default=DEFAULT_GRANULE_DIR)
@@ -237,7 +272,8 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
 
     status = 0
-    for trimmer in (trim_amsre, trim_mod03, trim_myd05):
+    for trimmer in (trim_amsre, trim_mod03, trim_myd05, trim_raingrid,
+                    trim_5daysnow):
         path = trimmer(args.granule_dir, args.out)
         size = path.stat().st_size
         print(f"wrote {path} ({size:,} bytes)")

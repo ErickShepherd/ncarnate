@@ -1,0 +1,15 @@
+{
+  "fixture": "amsre_5daysnow_trim.hdf",
+  "source_granule": "AMSR_E_L3_5DaySnow_V09_20050126.hdf",
+  "source_sha256": "c728c793a8a77062427016a02ccffb137ddcab14e1d1d85e61252150b1f15fc2",
+  "source_notes": "see the local source-granule archive",
+  "sds_kept": [
+    "SWE_NorthernPentad",
+    "SWE_SouthernPentad"
+  ],
+  "trim": {
+    "mode": "full-resolution, SDS subset only"
+  },
+  "generated": "2026-07-08",
+  "generator": "tests/fixtures/trim_hdfeos2.py"
+}
