@@ -36,6 +36,7 @@ from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedGeolocationError
 from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
+from ncarnate.limits import check_array_size
 
 # HDF4 DFNT type code -> numpy dtype for SDS payloads. CHAR8 *attributes*
 # become Python strings (handled before this table); CHAR8 *datasets* map
@@ -401,6 +402,10 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
 
         group_name = None
         dim_names  = tuple(pyhdf_dims)
+
+    # `shape` is attacker-controlled; a tiny file can declare a giant SDS
+    # that only materializes on get(). Bound it before reading.
+    check_array_size(shape, dtype.itemsize, f"SDS {hdf4_name!r}")
 
     values = np.asarray(dataset.get())
 

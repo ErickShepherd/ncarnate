@@ -36,6 +36,7 @@ from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
 from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
+from ncarnate.limits import check_array_size
 
 # A netCDF4 group or file object (netCDF4.Dataset subclasses Group).
 _Group: TypeAlias = "nc.Dataset | nc.Group"
@@ -330,8 +331,16 @@ def _copy_variables(src_obj   : _Group,
         _copy_attributes(src_var, dst_var, exclude = ("_FillValue",))
 
         # Copies the variable's stored values, raw. Zero-size variables
-        # (an empty unlimited dimension) have nothing to write.
+        # (an empty unlimited dimension) have nothing to write. The whole
+        # variable is materialized in memory, so bound its declared size
+        # first — a tiny, highly compressible crafted file can otherwise
+        # declare a variable that expands to terabytes on read.
         if 0 not in src_var.shape:
+
+            check_array_size(
+                src_var.shape, src_var.dtype.itemsize,
+                f"Variable {name!r}"
+            )
 
             dst_var[...] = src_var[...]
 
