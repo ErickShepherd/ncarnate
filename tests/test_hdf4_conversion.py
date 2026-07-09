@@ -212,6 +212,40 @@ def test_packed_geolocation_fails_loud():
         _normalize_coordinate(packed, "degrees_north")
 
 
+@pytest.mark.parametrize("raw,expected", [
+    ("Land/SeaMask", "Land_SeaMask"),
+    ("Scan Offset", "Scan_Offset"),
+    ("Ephemeris/Attitude Source", "Ephemeris_Attitude_Source"),
+    ("a  b\tc", "a_b_c"),
+    ("already_ok", "already_ok"),
+    ("nscans*10", "nscans*10"),  # '*' is legal in netCDF, preserved
+])
+def test_sanitize_name_direct(raw, expected):
+    assert sanitize_name(raw) == expected
+
+
+def test_hostile_sds_name_converts_with_companion(workdir):
+    # A single SDS whose name is illegal in netCDF converts to the
+    # sanitized name, values intact, original recorded under hdf4_name.
+    from pyhdf.SD import SD, SDC
+
+    path = workdir / "hostile.hdf"
+    source = SD(str(path), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
+    data = np.arange(6, dtype=np.int16).reshape(2, 3)
+    sds = source.create("Sea Ice/Snow", SDC.INT16, (2, 3))
+    sds[:] = data
+    sds.endaccess()
+    source.end()
+
+    dst = recompress(str(path), geolocation=False)
+    with nc.Dataset(dst) as output:
+        assert "Sea Ice/Snow" not in output.variables
+        variable = output.variables["Sea_Ice_Snow"]
+        variable.set_auto_maskandscale(False)
+        assert np.array_equal(variable[...], data)
+        assert variable.getncattr("hdf4_name") == "Sea Ice/Snow"
+
+
 def test_sanitized_sds_name_collision_fails_loud(workdir):
     # Two SDS whose names sanitize to the same string must be refused with
     # a clean NcarnateError, not crash the writer with a raw netCDF error.
