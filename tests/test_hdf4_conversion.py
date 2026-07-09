@@ -197,6 +197,21 @@ def test_sanitized_attribute_names_carry_companions(workdir):
         ) == "Ephemeris/Attitude Source"
 
 
+def test_embedded_nul_attribute_preserved_as_uint8(workdir):
+    # MODIS ships globals with embedded NUL record separators (e.g.
+    # 'Ephemeris Input Files.1'); they cannot survive netCDF's C-string
+    # attributes, so the reader keeps the exact bytes as uint8 with a
+    # self-describing __hdf4_encoding companion. The mod03 fixture carries
+    # these (its generator preserves them via the typed accessor).
+    fixture = next(f for f in HDFEOS2_FIXTURES if "mod03" in f.stem)
+    _, dst = convert(fixture, workdir)
+    with nc.Dataset(dst) as output:
+        encoded = [a for a in output.ncattrs() if a.endswith("__hdf4_encoding")]
+        assert encoded, "expected at least one embedded-NUL uint8 attribute"
+        base = encoded[0][: -len("__hdf4_encoding")]
+        assert output.getncattr(base).dtype == np.uint8
+
+
 def test_packed_geolocation_fails_loud():
     from ncarnate.errors import UnsupportedGeolocationError
     from ncarnate.hdf4 import TreeVariable, _normalize_coordinate
