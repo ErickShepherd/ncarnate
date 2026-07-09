@@ -162,8 +162,8 @@ by a committed script from the raw granules; raw granules stay outside the repo.
   `HDFEOS_INFORMATION` group attribute, mirroring HDF-EOS5 practice). If our geolocation were
   ever found wrong, the original information is still all there — the conversion never
   becomes the only copy of the truth.
-- **Group-per-EOS-structure output layout.** The AMSR-E fixture has two same-shaped grids
-  whose dims (`YDim` 896 vs 664) collide in a flat namespace; THG's reference dodged this by
+- **Group-per-EOS-structure output layout.** The AMSR-E fixture has two grids that reuse the
+  same dimension names at different sizes (`YDim` 896 vs 664), colliding in a flat namespace; THG's reference dodged this by
   emitting one file per grid. Groups keep one-input→one-output, keep EOS dim names, and are
   first-class in netCDF4/xarray. Cost: strict-classic-model consumers need `--flatten`-style
   handling, deferred as a non-goal until asked for.
