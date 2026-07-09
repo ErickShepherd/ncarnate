@@ -44,6 +44,17 @@ packages = ["ncarnate"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    # Cross-checks against the raw multi-MB granules kept outside the
+    # repo (the local source-granule archive/); they self-skip where that store
+    # is absent, so CI never runs them.
+    "raw_granules: local-only cross-checks against raw granules",
+]
+filterwarnings = [
+    # netCDF4-python assigns .shape internally, which numpy 2.5
+    # deprecates; upstream noise, not ours to fix.
+    "ignore:Setting the shape on a NumPy array:DeprecationWarning",
+]
 
 [tool.ruff]
 target-version = "py310"
