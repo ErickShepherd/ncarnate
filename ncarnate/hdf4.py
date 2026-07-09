@@ -189,6 +189,23 @@ def _read_attributes(hdf_object, count : int) -> dict:
 
     attributes = {}
 
+    def put(key : str, value) -> None:
+
+        # Guard EVERY write — including the companion keys — so a hostile
+        # file cannot ship a real attribute whose name equals a generated
+        # companion (e.g. `foo/x` -> `foo_x__hdf4_name`, plus a real
+        # `foo_x__hdf4_name`) and silently overwrite it. Because
+        # verify_conversion re-reads the source through this same function,
+        # an unguarded overwrite would be invisible to verification.
+        if key in attributes:
+
+            raise NcarnateError(
+                f"Attribute name {key!r} collides with another attribute "
+                f"or a generated companion after sanitization."
+            )
+
+        attributes[key] = value
+
     for index in range(count):
 
         attribute          = hdf_object.attr(index)
@@ -200,33 +217,25 @@ def _read_attributes(hdf_object, count : int) -> dict:
         # name is recorded in a companion attribute.
         sanitized = sanitize_name(name)
 
-        if sanitized in attributes:
-
-            raise NcarnateError(
-                f"Attribute name {sanitized!r} collides after "
-                f"sanitization of {name!r}."
-            )
-
         if isinstance(value, str) and "\x00" in value:
 
             # Embedded NULs (MODIS PGE record-separator quirk) cannot
             # survive netCDF's C-string attributes; preserve the exact
             # bytes instead, with a self-describing companion.
-            attributes[sanitized] = np.frombuffer(
+            put(sanitized, np.frombuffer(
                 value.encode("latin-1"), dtype = np.uint8
-            )
-            attributes[f"{sanitized}__hdf4_encoding"] = (
+            ))
+            put(f"{sanitized}__hdf4_encoding",
                 "uint8 bytes of an HDF4 char8 attribute containing "
-                "embedded NUL bytes"
-            )
+                "embedded NUL bytes")
 
         else:
 
-            attributes[sanitized] = value
+            put(sanitized, value)
 
         if sanitized != name:
 
-            attributes[f"{sanitized}__hdf4_name"] = name
+            put(f"{sanitized}__hdf4_name", name)
 
     return attributes
 
@@ -431,6 +440,13 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
     name       = sanitize_name(hdf4_name)
 
     if name != hdf4_name:
+
+        if "hdf4_name" in attributes:
+
+            raise NcarnateError(
+                f"SDS {hdf4_name!r} carries an attribute named 'hdf4_name' "
+                f"that collides with the generated original-name companion."
+            )
 
         attributes["hdf4_name"] = hdf4_name
 

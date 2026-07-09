@@ -199,6 +199,38 @@ def test_packed_geolocation_fails_loud():
         _normalize_coordinate(packed, "degrees_north")
 
 
+def test_companion_attribute_collision_fails_loud():
+    # A real attribute whose name equals a generated companion
+    # (`foo/x` -> `foo_x__hdf4_name`) must be caught, not silently
+    # overwritten (verify_conversion re-reads through the same code, so an
+    # overwrite would be invisible).
+    from ncarnate.errors import NcarnateError
+    from ncarnate.hdf4 import _read_attributes
+
+    class _FakeAttr:
+        def __init__(self, name, value):
+            self._name, self._value = name, value
+
+        def info(self):
+            from pyhdf.SD import SDC
+            return self._name, SDC.CHAR, len(self._value)
+
+        def get(self):
+            return self._value
+
+    class _FakeObj:
+        def __init__(self, attrs):
+            self._attrs = attrs
+
+        def attr(self, index):
+            name, value = self._attrs[index]
+            return _FakeAttr(name, value)
+
+    hostile = _FakeObj([("foo/x", "a"), ("foo_x__hdf4_name", "b")])
+    with pytest.raises(NcarnateError, match="collides"):
+        _read_attributes(hostile, 2)
+
+
 def test_no_geolocation_is_sds_only(workdir):
     fixture = next(f for f in HDFEOS2_FIXTURES if "seaice" in f.stem)
     _, dst = convert(fixture, workdir, geolocation=False)
