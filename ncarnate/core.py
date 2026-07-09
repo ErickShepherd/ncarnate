@@ -21,6 +21,7 @@ top-level LICENSE file.
 # Standard library imports.
 import os
 import tempfile
+from typing import TypeAlias
 
 # Third party imports.
 import netCDF4 as nc
@@ -35,7 +36,7 @@ from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
 
 # A netCDF4 group or file object (netCDF4.Dataset subclasses Group).
-_Group = "nc.Dataset | nc.Group"
+_Group: TypeAlias = "nc.Dataset | nc.Group"
 
 
 def recompress(src       : str,
@@ -126,8 +127,9 @@ def recompress(src       : str,
         _verify_lossless(src_path, tmp_path)
 
         # `mkstemp` creates the file 0o600; carry the source's permission
-        # bits over so the output isn't unreadable to the user's group.
-        os.chmod(tmp_path, os.stat(src_path).st_mode & 0o7777)
+        # bits over so the output isn't unreadable to the user's group
+        # (masking off setuid/setgid/sticky — no reason to propagate them).
+        os.chmod(tmp_path, os.stat(src_path).st_mode & 0o777)
 
         # The temporary file lives in the target's directory, so the
         # replace is a same-filesystem atomic rename.
@@ -178,13 +180,18 @@ def _copy_dimensions(src_obj : _Group, dst_obj : _Group) -> None:
         dst_obj.createDimension(name, size)
 
 
-def _copy_attributes(src_obj : _Group, dst_obj : _Group) -> None:
+def _copy_attributes(src_obj : _Group,
+                     dst_obj : _Group,
+                     exclude : tuple[str, ...] = ()) -> None:
 
     # Copies the attributes of the source file, group, or variable.
-    # `_FillValue` is never among these for variables — it is declared at
-    # `createVariable` time by `_copy_variables`.
-    attributes = {attr : src_obj.getncattr(attr) for attr in src_obj.ncattrs()}
-    attributes.pop("_FillValue", None)
+    # `_copy_variables` excludes `_FillValue`, which it declares at
+    # `createVariable` time instead; group/global attributes copy verbatim.
+    attributes = {
+        attr : src_obj.getncattr(attr)
+        for attr in src_obj.ncattrs()
+        if attr not in exclude
+    }
 
     dst_obj.setncatts(attributes)
 
@@ -207,8 +214,10 @@ def _copy_variables(src_obj   : _Group,
 
         if not isinstance(dtype, np.dtype):
 
+            group_path = src_var.group().path.rstrip("/")
+
             raise UnsupportedTypeError(
-                f"Variable {src_var.group().path}/{name} uses a "
+                f"Variable {group_path}/{name} uses a "
                 f"user-defined type ({dtype!r}); compound, VLen, enum, and "
                 f"opaque types are outside the v2 fidelity guarantee."
             )
@@ -257,7 +266,7 @@ def _copy_variables(src_obj   : _Group,
         dst_var.set_auto_maskandscale(False)
 
         # Copies the variable attributes (minus the declared `_FillValue`).
-        _copy_attributes(src_var, dst_var)
+        _copy_attributes(src_var, dst_var, exclude = ("_FillValue",))
 
         # Copies the variable's stored values, raw. Zero-size variables
         # (an empty unlimited dimension) have nothing to write.

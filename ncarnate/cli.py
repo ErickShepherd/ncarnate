@@ -194,12 +194,18 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 def _configure_logging() -> logging.Logger:
 
-    logger    = logging.getLogger(PACKAGE_NAME)
-    handler   = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s: %(message)s")
+    logger = logging.getLogger(PACKAGE_NAME)
 
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    # Idempotent: repeated main() calls in one process (e.g. under tests)
+    # must not stack duplicate handlers.
+    if not logger.handlers:
+
+        handler   = logging.StreamHandler()
+        formatter = logging.Formatter("%(levelname)s: %(message)s")
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
     logger.setLevel(logging.WARNING)
 
     return logger
