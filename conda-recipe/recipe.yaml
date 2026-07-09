@@ -1,50 +1,53 @@
-{% set name = "ncarnate" %}
-{% set version = "2.0.0" %}
-{% set python_min = "3.10" %}
+schema_version: 1
+
+context:
+  version: "2.0.0"
 
 package:
-  name: {{ name|lower }}
-  version: {{ version }}
+  name: ncarnate
+  version: ${{ version }}
 
 source:
-  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  url: https://pypi.org/packages/source/n/ncarnate/ncarnate-${{ version }}.tar.gz
   sha256: 5d97943f26a7e8899301e16c79c9ae7571f5840abf7723ca7bd53a71fe32fbde
 
 build:
-  noarch: python
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
-  entry_points:
-    - ncarnate = ncarnate.cli:main
+  noarch: python
+  script: ${{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  python:
+    entry_points:
+      - ncarnate = ncarnate.cli:main
 
 requirements:
   host:
-    - python {{ python_min }}
+    - python >=3.10
     - hatchling >=1.27
     - pip
   run:
-    - python >={{ python_min }}
+    - python >=3.10
     - netcdf4 >=1.6
     - numpy >=1.26
     - pyhdf >=0.11.6
     - pyproj >=3.6
     - tqdm >=4.66
 
-test:
-  imports:
-    - ncarnate
-    - ncarnate.eos
-  commands:
-    - pip check
-    - ncarnate --help
-    - ncarnate --version
-  requires:
-    - python {{ python_min }}
-    - pip
+tests:
+  - python:
+      imports:
+        - ncarnate
+        - ncarnate.eos
+      pip_check: true
+  - requirements:
+      run:
+        - pip
+        - python
+    script:
+      - ncarnate --help
+      - ncarnate --version
 
 about:
-  home: https://github.com/ErickShepherd/ncarnate
-  summary: 'Losslessly recompress netCDF/HDF5 and convert HDF4/HDF-EOS2 granules to CF-annotated netCDF4 with reconstructed geolocation'
+  summary: Losslessly recompress netCDF/HDF5 and convert HDF4/HDF-EOS2 granules to CF-annotated netCDF4 with reconstructed geolocation
   description: |
     ncarnate reads legacy scientific data — HDF4/HDF-EOS2 granules (AMSR-E,
     MODIS) and netCDF3/netCDF4/HDF5 — and writes recompressed, CF-annotated
@@ -61,8 +64,9 @@ about:
     its source before it replaces anything.
   license: MIT
   license_file: LICENSE
-  doc_url: https://github.com/ErickShepherd/ncarnate#readme
-  dev_url: https://github.com/ErickShepherd/ncarnate
+  homepage: https://github.com/ErickShepherd/ncarnate
+  repository: https://github.com/ErickShepherd/ncarnate
+  documentation: https://github.com/ErickShepherd/ncarnate#readme
 
 extra:
   recipe-maintainers:
