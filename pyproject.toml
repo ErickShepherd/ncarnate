@@ -36,8 +36,10 @@ dependencies = [
     # tested range. Loosening below these is an out-of-loop decision.
     "netCDF4>=1.6",
     "numpy>=1.26",
-    # >= 0.11.6: the first release whose manylinux/macOS/Windows wheels
-    # bundle libhdf4 (the no-system-HDF4 install story depends on it).
+    # >= 0.11.6: the first release whose manylinux/macOS wheels bundle
+    # libhdf4 (the no-system-HDF4 install story depends on it). The Windows
+    # wheel ships no HDF4 runtime — see the README for the conda-forge/WSL
+    # route.
     "pyhdf>=0.11.6",
     "pyproj>=3.6",
     "tqdm>=4.66",
