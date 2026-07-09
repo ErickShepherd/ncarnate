@@ -620,11 +620,11 @@ def _attach_grid_coordinates(group        : TreeGroup,
 
         if "XDim" in variable.dimensions and "YDim" in variable.dimensions:
 
-            variable.attributes["coordinates"] = "lon lat"
+            _set_reversible(variable, "coordinates", "lon lat")
 
             if grid_mapping is not None:
 
-                variable.attributes["grid_mapping"] = grid_mapping
+                _set_reversible(variable, "grid_mapping", grid_mapping)
 
 
 def _decorate_swaths(root     : TreeGroup,
@@ -679,19 +679,40 @@ def _decorate_swaths(root     : TreeGroup,
         _attach_swath_coordinates(group, eos_swath_, latitude, longitude)
 
 
+def _set_reversible(variable : TreeVariable, name : str, value) -> None:
+
+    # CF normalization is confined and reversible: any differing original
+    # value is kept under original_<name>.
+    original = variable.attributes.get(name)
+
+    if original is not None and str(original) != str(value):
+
+        variable.attributes[f"original_{name}"] = original
+
+    variable.attributes[name] = value
+
+
 def _normalize_coordinate(variable : TreeVariable, units : str) -> None:
 
-    # CF normalization is confined and reversible: the original value is
-    # kept under original_units whenever it differs.
-    original = variable.attributes.get("units")
+    standard_name = ("latitude" if units == "degrees_north"
+                     else "longitude")
 
-    if original is not None and str(original) != units:
+    _set_reversible(variable, "units", units)
+    _set_reversible(variable, "standard_name", standard_name)
 
-        variable.attributes["original_units"] = original
+    # Packed geolocation would make every derived coordinate silently
+    # wrong; no surveyed product packs it, so fail loud if one does.
+    scale  = variable.attributes.get("scale_factor")
+    offset = variable.attributes.get("add_offset")
 
-    variable.attributes["units"] = units
-    variable.attributes["standard_name"] = units.split("_")[1].replace(
-        "north", "latitude").replace("east", "longitude")
+    if (scale is not None and float(scale) != 1.0) \
+       or (offset is not None and float(offset) != 0.0):
+
+        raise UnsupportedGeolocationError(
+            f"Geolocation field {variable.name!r} is packed "
+            f"(scale_factor={scale}, add_offset={offset}), which is not "
+            f"supported; convert with --no-geolocation."
+        )
 
 
 def _axis_specification(eos_swath_ : structmeta.EosSwath,
@@ -762,9 +783,8 @@ def _attach_swath_coordinates(group      : TreeGroup,
 
         if all(spec is None for spec in specifications):
 
-            variable.attributes["coordinates"] = (
-                f"{longitude.name} {latitude.name}"
-            )
+            _set_reversible(variable, "coordinates",
+                            f"{longitude.name} {latitude.name}")
 
             continue
 
@@ -779,7 +799,7 @@ def _attach_swath_coordinates(group      : TreeGroup,
 
         lon_name, lat_name = interpolated[target_dims]
 
-        variable.attributes["coordinates"] = f"{lon_name} {lat_name}"
+        _set_reversible(variable, "coordinates", f"{lon_name} {lat_name}")
 
 
 def _build_interpolated(group          : TreeGroup,
