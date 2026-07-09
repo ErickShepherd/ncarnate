@@ -47,11 +47,12 @@ AMSRE = "AMSR_E_L3_SeaIce12km_B02_20020619.hdf"
 MOD03 = "MOD03.A2002299.0710.006.2012261211245.hdf"
 MYD05 = "MYD05_L2.A2020060.1635.061.2020061153519.hdf"
 
-N_SCANS_1KM = 20   # MOD03: 2 scans x 10 lines
+N_SCANS_1KM = 20   # MOD03: 2 scans x 10 lines (along-track)
+N_FRAMES_1KM = 270  # MOD03: across-track frames kept (mframes*2 -> 540)
 N_LINES_1KM = 50   # MYD05: 1km along-track lines kept
 N_LINES_5KM = 10   # MYD05: 5km along-track lines kept (offset=2, inc=5 -> covers 47)
 
-FIXTURE_BUDGET = 400_000  # bytes; grid fixture carries two full grids
+FIXTURE_BUDGET = 200_000  # bytes; the plan's Phase-1 "< 200 KB each" DoD
 
 
 def sha256(path: Path) -> str:
@@ -63,9 +64,13 @@ def sha256(path: Path) -> str:
 
 
 def structmetadata(sd: SD) -> str:
-    parts = [v for k, v in sorted(sd.attributes().items())
-             if k.startswith("StructMetadata")]
-    return "".join(parts)
+    def suffix(key: str) -> int:
+        m = re.search(r"\.(\d+)$", key)
+        return int(m.group(1)) if m else 0
+
+    keys = sorted((k for k in sd.attributes() if k.startswith("StructMetadata")),
+                  key=suffix)
+    return "".join(sd.attributes()[k] for k in keys)
 
 
 def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) -> None:
@@ -84,42 +89,41 @@ def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) ->
         # Non-string globals (none in the surveyed granules) are skipped.
 
 
-def copy_sds(src: SD, dst: SD, name: str, rows: int | None = None) -> None:
-    """Copy one SDS (optionally the first ``rows`` along axis 0), deflated."""
+def copy_attrs_typed(src_obj, dst_obj, n_attrs: int) -> None:
+    """Copy attributes preserving each one's exact source HDF4 type code.
+
+    pyhdf's ``attributes()`` type-erases values to Python scalars; inferring
+    the output type from those would silently widen (e.g. INT16 -> INT32).
+    ``attr(index).info()`` reports the true stored type, so we write with it.
+    """
+    for idx in range(n_attrs):
+        attr = src_obj.attr(idx)
+        attr_name, attr_type, _n = attr.info()
+        dst_obj.attr(attr_name).set(attr_type, attr.get())
+
+
+def copy_sds(src: SD, dst: SD, name: str,
+             rows: int | None = None, cols: int | None = None) -> None:
+    """Copy one SDS (optionally trimmed along axes 0/1), deflated."""
     ds = src.select(name)
-    _, rank, dims, dtype, _ = ds.info()
+    _, rank, dims, dtype, n_attrs = ds.info()
     dims = [dims] if rank == 1 else list(dims)
-    data = ds[:] if rows is None else ds[0:rows]
+    data = ds[:]
     if rows is not None:
+        data = data[0:rows]
         dims[0] = rows
+    if cols is not None:
+        data = data[:, 0:cols]
+        dims[1] = cols
     out = dst.create(name, dtype, tuple(dims))
     for axis in range(rank):
         dim_name = ds.dim(axis).info()[0]
         out.dim(axis).setname(dim_name)
     out.setcompress(SDC.COMP_DEFLATE, 9)
-    for attr_name, attr_value in ds.attributes().items():
-        if isinstance(attr_value, str):
-            out.attr(attr_name).set(SDC.CHAR, attr_value)
-        else:
-            arr = np.atleast_1d(np.asarray(attr_value))
-            if arr.dtype == np.int64:
-                # pyhdf returns Python ints; HDF4 has no 64-bit attribute type.
-                if arr.max() > np.iinfo(np.int32).max or arr.min() < np.iinfo(np.int32).min:
-                    raise ValueError(f"attribute {attr_name!r} exceeds int32 range")
-                arr = arr.astype(np.int32)
-            out.attr(attr_name).set(_hdf_type(arr.dtype), attr_value)
+    copy_attrs_typed(ds, out, n_attrs)
     out[:] = data
     out.endaccess()
     ds.endaccess()
-
-
-def _hdf_type(dtype: np.dtype) -> int:
-    return {
-        np.dtype("int8"): SDC.INT8, np.dtype("uint8"): SDC.UINT8,
-        np.dtype("int16"): SDC.INT16, np.dtype("uint16"): SDC.UINT16,
-        np.dtype("int32"): SDC.INT32, np.dtype("uint32"): SDC.UINT32,
-        np.dtype("float32"): SDC.FLOAT32, np.dtype("float64"): SDC.FLOAT64,
-    }[np.dtype(dtype)]
 
 
 def rewrite_dim_sizes(sm: str, new_sizes: dict[str, int]) -> str:
@@ -173,21 +177,28 @@ def trim_mod03(granule_dir: Path, out_dir: Path) -> Path:
     kept = ["Latitude", "Longitude", "SensorZenith"]
     src = SD(str(source), SDC.READ)
     # MOD03 declares exactly four EOS dimensions (no bare "nscans"):
-    # nscans*10, mframes, nscans*20, mframes*2 — only along-track ones change.
+    # nscans*10, mframes, nscans*20, mframes*2. Both directions are trimmed
+    # to meet the < 200 KB fixture budget; the DimensionMap offsets and
+    # increments are untouched (0/2 stays consistent with the new sizes:
+    # geo index g maps to data index 2g <= 2*(N-1) < 2N).
     sm = rewrite_dim_sizes(structmetadata(src), {
         "nscans*10": N_SCANS_1KM,
         "nscans*20": N_SCANS_1KM * 2,
+        "mframes": N_FRAMES_1KM,
+        "mframes*2": N_FRAMES_1KM * 2,
     })
     dst = SD(str(out), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
     copy_file_attrs(src, dst, structmeta_override=sm)
     for name in kept:
-        copy_sds(src, dst, name, rows=N_SCANS_1KM)
+        copy_sds(src, dst, name, rows=N_SCANS_1KM, cols=N_FRAMES_1KM)
     dst.end()
     src.end()
     provenance(out, source, kept, {
-        "mode": "along-track trim",
+        "mode": "along-track + across-track trim",
         "rows_kept_1km": N_SCANS_1KM,
-        "structmetadata_edit": "Size= rewritten for nscans*10, nscans*20",
+        "cols_kept_1km": N_FRAMES_1KM,
+        "structmetadata_edit":
+            "Size= rewritten for nscans*10, nscans*20, mframes, mframes*2",
     })
     return out
 

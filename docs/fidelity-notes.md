@@ -64,18 +64,24 @@ v1 failed both (a crash and a silent re-quantization).
 | `tests/fixtures/data/netcdf/unlimited_dim.nc` (13 KB) | `make_fixtures.py` | unlimited dimension with 7 records |
 | `tests/fixtures/data/netcdf/endianness.nc` (7 KB) | `make_fixtures.py` | explicit big- and little-endian variables |
 | `tests/fixtures/data/hdfeos2/amsre_seaice12km_trim.hdf` (167 KB) | `trim_hdfeos2.py` | HDF-EOS2 GRID ×2 (N/S polar stereographic GCTP_PS), verbatim `StructMetadata.0`, attribute-less SDS |
-| `tests/fixtures/data/hdfeos2/mod03_trim.hdf` (231 KB) | `trim_hdfeos2.py` | HDF-EOS2 SWATH, full-res 1 km geolocation, dimension maps (inc=2), fill in geolocation |
+| `tests/fixtures/data/hdfeos2/mod03_trim.hdf` (83 KB) | `trim_hdfeos2.py` | HDF-EOS2 SWATH, full-res 1 km geolocation, dimension maps (inc=2), fill in geolocation |
 | `tests/fixtures/data/hdfeos2/myd05_trim.hdf` (188 KB) | `trim_hdfeos2.py` | HDF-EOS2 SWATH, 5 km→1 km dimension maps (offset=2, inc=5), packed int16 data |
+
+All fixtures respect the plan's < 200 KB Phase-1 budget. Attribute *types* are preserved
+exactly (written with each source attribute's true HDF4 type code via `attr.info()`, never
+inferred from type-erased Python values — e.g. an INT16 `_FillValue` stays INT16).
 
 HDF-EOS2 fixtures are trimmed from real granules kept outside the repo
 (`the local source-granule archive/` + `PROVENANCE.md` there); each fixture has a
 `.provenance.json` sidecar (source granule, SHA-256, trim parameters). Trim rules: the
 AMSR-E grid fixture keeps `StructMetadata.0` **verbatim** (grid dims unchanged; metadata
 lists DataFields not carried over — readers must tolerate that, as with subsetted granules
-in the wild); the swath fixtures rewrite only the along-track `Size=` values to the trimmed
-counts (recorded in the sidecar), leaving dimension maps untouched. Generation was
-validated against the sources: 16/16 checks (structure parse, dimension/dimension-map
-integrity, bit-identical values on kept rows, fill/scale attributes) passed 2026-07-08.
+in the wild); the swath fixtures rewrite only the trimmed dimensions' `Size=` values
+(MOD03 along- and across-track: 20×270 at 1 km; MYD05 along-track only: 50/10 lines),
+recorded in the sidecars, leaving dimension-map offsets/increments untouched. Generation
+was validated against the sources: 15/15 checks (verbatim/structural StructMetadata,
+dimension + dimension-map integrity, bit-identical values on kept rows/columns, attribute
+values *and* HDF4 type codes preserved) passed 2026-07-08.
 
 Raw-granule cross-checks (the 29–60 MB originals) stay in a local, non-CI test mark.
 

@@ -9,9 +9,10 @@
     "SensorZenith"
   ],
   "trim": {
-    "mode": "along-track trim",
+    "mode": "along-track + across-track trim",
     "rows_kept_1km": 20,
-    "structmetadata_edit": "Size= rewritten for nscans*10, nscans*20"
+    "cols_kept_1km": 270,
+    "structmetadata_edit": "Size= rewritten for nscans*10, nscans*20, mframes, mframes*2"
   },
   "generated": "2026-07-08",
   "generator": "tests/fixtures/trim_hdfeos2.py"
