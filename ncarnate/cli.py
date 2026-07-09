@@ -173,6 +173,16 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.set_defaults(overwrite = True)
 
     parser.add_argument(
+        "--no-geolocation",
+        dest    = "geolocation",
+        action  = "store_false",
+        default = True,
+        help    = "Converts HDF-EOS2 files SDS-only, skipping CF "
+                  "geolocation reconstruction (the escape hatch for "
+                  "unsupported projections/layouts)."
+    )
+
+    parser.add_argument(
         "-r",
         "--recursive",
         dest    = "recursive",
@@ -194,12 +204,18 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 def _configure_logging() -> logging.Logger:
 
-    logger    = logging.getLogger(PACKAGE_NAME)
-    handler   = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s: %(message)s")
+    logger = logging.getLogger(PACKAGE_NAME)
 
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    # Idempotent: repeated main() calls in one process (e.g. under tests)
+    # must not stack duplicate handlers.
+    if not logger.handlers:
+
+        handler   = logging.StreamHandler()
+        formatter = logging.Formatter("%(levelname)s: %(message)s")
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
     logger.setLevel(logging.WARNING)
 
     return logger
@@ -235,10 +251,11 @@ def main() -> int:
 
             recompress(
                 file,
-                zlib      = args.zlib,
-                shuffle   = args.shuffle,
-                complevel = args.complevel,
-                overwrite = args.overwrite
+                zlib        = args.zlib,
+                shuffle     = args.shuffle,
+                complevel   = args.complevel,
+                overwrite   = args.overwrite,
+                geolocation = args.geolocation
             )
 
         except (NcarnateError, OSError) as error:

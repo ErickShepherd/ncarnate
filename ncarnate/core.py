@@ -21,12 +21,15 @@ top-level LICENSE file.
 # Standard library imports.
 import os
 import tempfile
+from typing import Callable
+from typing import TypeAlias
 
 # Third party imports.
 import netCDF4 as nc
 import numpy as np
 
 # Local application imports.
+from ncarnate import hdf4
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
 from ncarnate.errors import UnsupportedTypeError
@@ -35,22 +38,23 @@ from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
 
 # A netCDF4 group or file object (netCDF4.Dataset subclasses Group).
-_Group = "nc.Dataset | nc.Group"
+_Group: TypeAlias = "nc.Dataset | nc.Group"
 
 
-def recompress(src       : str,
-               dst       : str | None = None,
-               zlib      : bool       = True,
-               shuffle   : bool       = True,
-               complevel : int        = 7,
-               overwrite : bool       = True) -> str:
+def recompress(src         : str,
+               dst         : str | None = None,
+               zlib        : bool       = True,
+               shuffle     : bool       = True,
+               complevel   : int        = 7,
+               overwrite   : bool       = True,
+               geolocation : bool       = True) -> str:
 
     '''
 
     Rewrites the file at ``src`` as a netCDF4 file with the given
     compression settings, losslessly, and returns the output path.
 
-    The output target is resolved as follows:
+    For netCDF3/netCDF4/HDF5 input the output target is resolved as:
 
     - ``dst`` given: the output is written to ``dst`` and the source is
       left untouched (``overwrite`` is ignored).
@@ -59,6 +63,13 @@ def recompress(src       : str,
       written and verified lossless against it.
     - ``dst`` omitted, ``overwrite`` false: the output is written next to
       the source with a ``_recompressed`` suffix.
+
+    HDF4/HDF-EOS2 input is a format *conversion*: the output is written
+    to ``dst`` (default: the source path with a ``.nc`` extension) and
+    the source file is never replaced, regardless of ``overwrite``. When
+    ``geolocation`` is true (the default), HDF-EOS2 grid/swath
+    coordinates are reconstructed additively per the geolocation design;
+    ``geolocation=False`` converts the SDS payload only.
 
     The new file is always written to a temporary path in the target's
     directory, verified value-for-value against the source, and only then
@@ -75,13 +86,6 @@ def recompress(src       : str,
 
     file_format = detect_format(src_path)
 
-    if file_format is FileFormat.HDF4:
-
-        raise UnsupportedFormatError(
-            f"{src_path} is HDF4/HDF-EOS2, which this version cannot read "
-            f"yet (the pyhdf ingest path lands in Phase 3b of the v2 plan)."
-        )
-
     if file_format is FileFormat.UNKNOWN:
 
         raise UnsupportedFormatError(
@@ -89,24 +93,88 @@ def recompress(src       : str,
             f"HDF4 file."
         )
 
-    if dst is not None:
+    if file_format is FileFormat.HDF4:
 
-        dst_path = os.path.abspath(dst)
+        # Conversion, not recompression: the .hdf original is a different
+        # format and is never destroyed.
+        if dst is not None:
+
+            dst_path = os.path.abspath(dst)
+
+        else:
+
+            filename = os.path.splitext(src_path)[0]
+            dst_path = filename + ".nc"
 
         if dst_path == src_path:
 
             raise NcarnateError(
-                "dst must differ from src; omit dst to recompress in place."
+                "The netCDF output of an HDF4 conversion cannot replace "
+                "the HDF4 source; give dst a different path."
             )
 
-    elif overwrite:
+        tree = hdf4.read_hdf4(src_path, geolocation = geolocation)
 
-        dst_path = src_path
+        def _write(tmp_path : str) -> None:
+
+            hdf4.write_netcdf(tree, tmp_path, zlib, shuffle, complevel)
+
+        def _verify(tmp_path : str) -> None:
+
+            hdf4.verify_conversion(src_path, tmp_path)
 
     else:
 
-        filename, file_extension = os.path.splitext(src_path)
-        dst_path = filename + "_recompressed" + file_extension
+        if dst is not None:
+
+            dst_path = os.path.abspath(dst)
+
+            if dst_path == src_path:
+
+                raise NcarnateError(
+                    "dst must differ from src; omit dst to recompress "
+                    "in place."
+                )
+
+        elif overwrite:
+
+            dst_path = src_path
+
+        else:
+
+            filename, file_extension = os.path.splitext(src_path)
+            dst_path = filename + "_recompressed" + file_extension
+
+        def _write(tmp_path : str) -> None:
+
+            with nc.Dataset(src_path, mode = "r") as src_file, \
+                 nc.Dataset(tmp_path, mode = "w",
+                            format = "NETCDF4") as dst_file:
+
+                _copy_group(src_file, dst_file, zlib, shuffle, complevel)
+
+        def _verify(tmp_path : str) -> None:
+
+            _verify_lossless(src_path, tmp_path)
+
+    _write_verified(src_path, dst_path, _write, _verify)
+
+    return dst_path
+
+
+def _write_verified(src_path : str,
+                    dst_path : str,
+                    write    : "Callable[[str], None]",
+                    verify   : "Callable[[str], None]") -> None:
+
+    '''
+
+    The safe-overwrite scaffold shared by both read paths: write to a
+    temporary file in the target's directory, verify it against the
+    source, then atomically replace the target. On any failure the
+    source and target are untouched and the temporary file is removed.
+
+    '''
 
     descriptor, tmp_path = tempfile.mkstemp(
         dir    = os.path.dirname(dst_path),
@@ -118,16 +186,13 @@ def recompress(src       : str,
 
     try:
 
-        with nc.Dataset(src_path, mode = "r") as src_file, \
-             nc.Dataset(tmp_path, mode = "w", format = "NETCDF4") as dst_file:
-
-            _copy_group(src_file, dst_file, zlib, shuffle, complevel)
-
-        _verify_lossless(src_path, tmp_path)
+        write(tmp_path)
+        verify(tmp_path)
 
         # `mkstemp` creates the file 0o600; carry the source's permission
-        # bits over so the output isn't unreadable to the user's group.
-        os.chmod(tmp_path, os.stat(src_path).st_mode & 0o7777)
+        # bits over so the output isn't unreadable to the user's group
+        # (masking off setuid/setgid/sticky — no reason to propagate them).
+        os.chmod(tmp_path, os.stat(src_path).st_mode & 0o777)
 
         # The temporary file lives in the target's directory, so the
         # replace is a same-filesystem atomic rename.
@@ -140,8 +205,6 @@ def recompress(src       : str,
             os.unlink(tmp_path)
 
         raise
-
-    return dst_path
 
 
 def _copy_group(src_obj   : _Group,
@@ -178,13 +241,18 @@ def _copy_dimensions(src_obj : _Group, dst_obj : _Group) -> None:
         dst_obj.createDimension(name, size)
 
 
-def _copy_attributes(src_obj : _Group, dst_obj : _Group) -> None:
+def _copy_attributes(src_obj : _Group,
+                     dst_obj : _Group,
+                     exclude : tuple[str, ...] = ()) -> None:
 
     # Copies the attributes of the source file, group, or variable.
-    # `_FillValue` is never among these for variables — it is declared at
-    # `createVariable` time by `_copy_variables`.
-    attributes = {attr : src_obj.getncattr(attr) for attr in src_obj.ncattrs()}
-    attributes.pop("_FillValue", None)
+    # `_copy_variables` excludes `_FillValue`, which it declares at
+    # `createVariable` time instead; group/global attributes copy verbatim.
+    attributes = {
+        attr : src_obj.getncattr(attr)
+        for attr in src_obj.ncattrs()
+        if attr not in exclude
+    }
 
     dst_obj.setncatts(attributes)
 
@@ -207,8 +275,10 @@ def _copy_variables(src_obj   : _Group,
 
         if not isinstance(dtype, np.dtype):
 
+            group_path = src_var.group().path.rstrip("/")
+
             raise UnsupportedTypeError(
-                f"Variable {src_var.group().path}/{name} uses a "
+                f"Variable {group_path}/{name} uses a "
                 f"user-defined type ({dtype!r}); compound, VLen, enum, and "
                 f"opaque types are outside the v2 fidelity guarantee."
             )
@@ -257,7 +327,7 @@ def _copy_variables(src_obj   : _Group,
         dst_var.set_auto_maskandscale(False)
 
         # Copies the variable attributes (minus the declared `_FillValue`).
-        _copy_attributes(src_var, dst_var)
+        _copy_attributes(src_var, dst_var, exclude = ("_FillValue",))
 
         # Copies the variable's stored values, raw. Zero-size variables
         # (an empty unlimited dimension) have nothing to write.
