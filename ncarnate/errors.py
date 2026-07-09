@@ -40,6 +40,40 @@ class UnsupportedTypeError(NcarnateError):
     '''
 
 
+class EosParseError(NcarnateError):
+
+    '''
+
+    Raised when a file's ``StructMetadata`` text cannot be parsed as the
+    ODL structure HDF-EOS2 defines.
+
+    '''
+
+
+class UnsupportedProjectionError(NcarnateError):
+
+    '''
+
+    Raised when an HDF-EOS2 grid uses a GCTP projection ncarnate has not
+    verified against a fixture. A wrong coordinate is worse than a
+    refused conversion; ``--no-geolocation`` converts the SDS payload
+    without reconstruction.
+
+    '''
+
+
+class UnsupportedGeolocationError(NcarnateError):
+
+    '''
+
+    Raised when an HDF-EOS2 structure uses a geolocation construct
+    outside the v2 scope (index dimension maps, merged fields, missing
+    geolocation fields). ``--no-geolocation`` converts the SDS payload
+    without reconstruction.
+
+    '''
+
+
 class VerificationError(NcarnateError):
 
     '''
