@@ -30,6 +30,24 @@ recompressed, CF-annotated netCDF4. It does two jobs:
   is attached as CF coordinates, and dimension-mapped (e.g. 5 km → 1 km)
   geolocation is interpolated through ECEF space.
 
+Problems this solves
+--------------------
+
+Reach for ncarnate if you are trying to:
+
+- **Convert HDF4 / HDF-EOS2 granules (MODIS, AMSR-E, and kin) to netCDF4** so
+  they open cleanly in xarray, QGIS, or Panoply.
+- **Read an HDF-EOS2 swath or grid that has no usable lat/lon** — ncarnate
+  reconstructs CF ``lat``/``lon`` coordinates and grid mappings so the data is
+  actually georeferenced, instead of an unplottable array.
+- **Recompress a netCDF4 / HDF5 file** — change the compression level or shuffle
+  filter without altering a single stored value.
+- **Shrink an archive of scientific files** without risking the science: every
+  output is verified value-for-value against its source before it replaces
+  anything, and stored values round-trip bit-identically.
+- **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
+  command.
+
 The fidelity contract
 ---------------------
 

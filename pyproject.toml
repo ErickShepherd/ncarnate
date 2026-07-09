@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ncarnate"
 dynamic = ["version"]
-description = "Losslessly rewrite netCDF4/HDF5 files with different compression settings."
+description = "Convert HDF4/HDF-EOS2 (MODIS, AMSR-E) to CF-annotated netCDF4 and losslessly recompress netCDF/HDF5 files."
 readme = "README.rst"
 requires-python = ">=3.10"
 authors = [
@@ -15,7 +15,12 @@ authors = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["netCDF", "netCDF4", "HDF5", "HDF4", "HDF-EOS2", "compression", "recompression", "atmospheric science"]
+keywords = [
+    "netCDF", "netCDF4", "HDF5", "HDF4", "HDF-EOS", "HDF-EOS2",
+    "compression", "recompression", "CF conventions", "geolocation",
+    "swath", "grid", "MODIS", "AMSR-E", "xarray", "remote sensing",
+    "GIS", "atmospheric science",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
