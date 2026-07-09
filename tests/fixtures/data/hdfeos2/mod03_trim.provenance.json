@@ -1,0 +1,19 @@
+{
+  "fixture": "mod03_trim.hdf",
+  "source_granule": "MOD03.A2002299.0710.006.2012261211245.hdf",
+  "source_sha256": "aa3f7bbb40957bdb1516a9190b0d1caeaa1698e2dbe9f656c9af3d86a82a67ef",
+  "source_notes": "see the local source-granule archive",
+  "sds_kept": [
+    "Latitude",
+    "Longitude",
+    "SensorZenith"
+  ],
+  "trim": {
+    "mode": "along-track + across-track trim",
+    "rows_kept_1km": 20,
+    "cols_kept_1km": 270,
+    "structmetadata_edit": "Size= rewritten for nscans*10, nscans*20, mframes, mframes*2"
+  },
+  "generated": "2026-07-08",
+  "generator": "tests/fixtures/trim_hdfeos2.py"
+}
