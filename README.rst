@@ -120,9 +120,10 @@ HDF-EOS2 → netCDF4 (+ reconstructed lat/lon)     60.2 MB     35.5 MB
 
 Both outputs re-read bit-identically to their sources; the conversion
 additionally carries CF ``polar_stereographic`` grid mappings and
-coordinates for both hemispheric grids, verified against The HDF
-Group's independent conversion of the same granule to within
-10\ :sup:`-13` degrees.
+coordinates for both hemispheric grids. The northern grid's
+reconstructed latitudes/longitudes agree with The HDF Group's
+independent conversion of the same granule to within 10\ :sup:`-5`
+degrees (about a metre), the tolerance the test suite enforces.
 
 Supported inputs
 ----------------

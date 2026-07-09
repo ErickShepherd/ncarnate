@@ -41,7 +41,7 @@ relative to the notional 1.x behavior; there are no downstream users
   loud with named errors.
 - File-type dispatch by magic bytes (netCDF3 / netCDF4-HDF5 / HDF4),
   independent of file extension.
-- pytest suite (65 tests) pinning the fidelity contract over committed
+- pytest suite (66 tests) pinning the fidelity contract over committed
   fixtures trimmed from real granules, plus a five-check geolocation
   verification lattice; CI across CPython 3.10–3.13.
 - Modern packaging: hatchling `pyproject.toml`, console entry point
