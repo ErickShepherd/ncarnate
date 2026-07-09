@@ -4,6 +4,51 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.1] - 2026-07-09
+
+Catches the PyPI release up to `master`. Bundles the 2026-07-09 read-only
+audit remediation (security + correctness hardening), the conda-forge install
+path, and the discoverability docs/metadata. There is no on-disk format change;
+the only behavior changes are defensive — an auto-derived destination now
+refuses to clobber an existing file, and an allocation cap rejects implausibly
+large arrays.
+
+### Security
+- Cap attacker-declared allocation sizes so a crafted or corrupt granule cannot
+  exhaust memory before validation (new `ncarnate/limits.py`).
+- Reject non-finite numbers and non-positive grid dimensions in HDF-EOS
+  metadata, and guard GCTP `ProjParams` arity and ellipsoid domain — fail loud
+  rather than compute wrong geolocation.
+- Bound the ODL/StructMetadata parser (O(1) parenthesis tracking and a
+  continuation limit) against pathological input.
+
+### Fixed
+- Auto-derived output destinations now refuse to clobber an existing file.
+- Symlinked sources are resolved so an in-place replace targets the real file,
+  not the link.
+- Cleanup after a failed run no longer masks the original error.
+- HDF4: fail loud on SDS names that collide after sanitization; guard the
+  companion-attribute namespace against collision; order StructMetadata parts by
+  numeric suffix.
+- CLI: de-duplicate the input file worklist.
+
+### Changed
+- Added a "Problems this solves" section to the README mapping common
+  natural-language queries (converting HDF4/HDF-EOS2 MODIS/AMSR-E granules to
+  netCDF4, reconstructing CF lat/lon, recompressing netCDF/HDF5) to the tool;
+  led the package description with the HDF4/HDF-EOS2→netCDF4 conversion; and
+  broadened discovery keywords (MODIS, AMSR-E, xarray, CF conventions).
+- Packaging: added trove classifiers, pinned the hatchling build floor, and
+  excluded internal planning/audit docs from the sdist.
+- Supply chain: pinned the PyPI publish action to an immutable commit SHA.
+- Dropped Windows from CI and documented the `pyhdf`-on-Windows limitation
+  (recompression works from PyPI wheels; HDF4 conversion needs conda-forge or
+  WSL).
+
+### Added
+- conda-forge install path (`conda install -c conda-forge ncarnate`) and an
+  in-repo reference recipe.
+
 ## [2.0.0] - 2026-07-08
 
 A ground-up rebuild of the 2020 utility, renamed from
