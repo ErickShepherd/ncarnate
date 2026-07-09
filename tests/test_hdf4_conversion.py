@@ -193,6 +193,21 @@ def test_sanitized_attribute_names_carry_companions(workdir):
         ) == "Ephemeris/Attitude Source"
 
 
+def test_packed_geolocation_fails_loud():
+    from ncarnate.errors import UnsupportedGeolocationError
+    from ncarnate.hdf4 import TreeVariable, _normalize_coordinate
+
+    packed = TreeVariable(
+        name="Latitude",
+        dimensions=("y", "x"),
+        values=np.zeros((2, 2), dtype=np.int16),
+        attributes={"scale_factor": np.float64(0.01),
+                    "add_offset": np.float64(0.0)},
+    )
+    with pytest.raises(UnsupportedGeolocationError, match="packed"):
+        _normalize_coordinate(packed, "degrees_north")
+
+
 def test_no_geolocation_is_sds_only(workdir):
     fixture = next(f for f in HDFEOS2_FIXTURES if "seaice" in f.stem)
     _, dst = convert(fixture, workdir, geolocation=False)
