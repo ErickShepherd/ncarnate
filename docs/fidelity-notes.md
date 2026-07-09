@@ -38,8 +38,12 @@ replaced until the new file has been written and re-opened successfully.
   PGE record-separator quirk) are preserved byte-exact as `uint8` arrays with a
   self-describing `<name>__hdf4_encoding` companion attribute;
 - reconstructed geolocation (CF grid mappings, coordinates, interpolated swath lat/lon) is
-  **additive** and verified by the five-check lattice in
-  [docs/design/2026-07-08-hdfeos2-geolocation.md](design/2026-07-08-hdfeos2-geolocation.md);
+  **additive** and verified by the verification lattice in
+  [docs/design/2026-07-08-hdfeos2-geolocation.md](design/2026-07-08-hdfeos2-geolocation.md) —
+  four of its five checks are implemented as tests (#1 same-granule THG reference, #3
+  decimation oracle, #4 round-trip invariant, #5 corner anchors); the #2 `eos2dump`
+  same-grid external reference is **not** implemented (the #1 reference independently
+  covers the same grid);
 - names illegal or hostile in netCDF (`Land/SeaMask`, `Scan Offset`,
   `Ephemeris/Attitude Source`, grid names with spaces) are sanitized (`/` and whitespace →
   `_`) uniformly across variables, dimensions, attributes, and groups, with each original
