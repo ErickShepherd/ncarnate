@@ -1,4 +1,4 @@
-# Documentation build dependencies (GitHub Actions / local `sphinx-build`).
+# Documentation build dependencies (Read the Docs / local `sphinx-build`).
 # The package itself is NOT installed for the docs build; its heavy C-extension
 # dependencies are mocked in conf.py (autodoc_mock_imports), so only Sphinx and
 # the theme/parser are needed here.
