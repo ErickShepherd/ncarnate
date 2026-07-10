@@ -1,7 +1,7 @@
 ncarnate
 ========
 
-|ci| |license| |python|
+|ci| |license| |python| |doi|
 
 .. |ci| image:: https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml/badge.svg
    :target: https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml
@@ -14,6 +14,10 @@ ncarnate
 .. |python| image:: https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg
    :target: https://pypi.org/project/ncarnate/
    :alt: Python 3.10-3.13
+
+.. |doi| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.21288802.svg
+   :target: https://doi.org/10.5281/zenodo.21288802
+   :alt: DOI
 
 Reincarnate legacy scientific data as modern netCDF4.
 
