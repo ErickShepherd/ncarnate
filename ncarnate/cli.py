@@ -15,6 +15,7 @@ top-level LICENSE file.
 import argparse
 import logging
 import os
+import sys
 
 # Third party imports.
 from tqdm import tqdm
@@ -233,8 +234,28 @@ def _configure_logging() -> logging.Logger:
 
 def main() -> int:
 
+    # Pre-dispatch shim (design §CLI integration): the CLI is a flat
+    # argparse command with no subparsers, so subcommands are dispatched
+    # here, *before* argparse, to keep every existing `ncarnate <path>`
+    # invocation working unchanged.
+    argv = sys.argv[1:]
+
+    if argv and argv[0] == "audit":
+
+        # Imported lazily: ncarnate.audit imports cli._get_files, so a
+        # top-level import here would be circular.
+        from ncarnate.audit import main as audit_main
+
+        return audit_main(argv[1:])
+
+    if argv and argv[0] == "convert":
+
+        # An explicit alias for today's flat behavior; strip the verb and
+        # fall through to the legacy parser unchanged. Not deprecated.
+        argv = argv[1:]
+
     parser = _build_argument_parser()
-    args   = parser.parse_args()
+    args   = parser.parse_args(argv)
     logger = _configure_logging()
 
     try:
