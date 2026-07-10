@@ -178,9 +178,66 @@ class AuditReport:
     mode  : str
     files : list[AuditResult] = field(default_factory=list)
 
+    @property
+    def summary(self) -> "AuditSummary":
+
+        '''
+
+        The per-status census, computed from the files. Both a file count
+        and a byte total are tallied per status so readiness can be read
+        "by files *and* bytes" (design §CLI integration).
+
+        '''
+
+        files_by_status : dict[str, int] = {}
+        bytes_by_status : dict[str, int] = {}
+        total_bytes     = 0
+
+        for result in self.files:
+
+            files_by_status[result.status] = (
+                files_by_status.get(result.status, 0) + 1
+            )
+            bytes_by_status[result.status] = (
+                bytes_by_status.get(result.status, 0) + result.size_bytes
+            )
+            total_bytes += result.size_bytes
+
+        return AuditSummary(
+            total_files     = len(self.files),
+            total_bytes     = total_bytes,
+            files_by_status = files_by_status,
+            bytes_by_status = bytes_by_status,
+        )
+
     def to_record(self) -> dict[str, Any]:
         return {
             "root" : self.root,
             "mode" : self.mode,
             "files": [f.to_record() for f in self.files],
+        }
+
+
+@dataclass
+class AuditSummary:
+
+    '''
+
+    A whole-run readiness census: totals plus a per-status breakdown by
+    both file count and byte total. ``ready_bytes`` (design §Python API) is
+    simply ``bytes_by_status.get("ready", 0)`` once increment 2 emits it.
+
+    '''
+
+    total_files     : int
+    total_bytes     : int
+    files_by_status : dict[str, int] = field(default_factory=dict)
+    bytes_by_status : dict[str, int] = field(default_factory=dict)
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "total_files"    : self.total_files,
+            "total_bytes"    : self.total_bytes,
+            "files_by_status": self.files_by_status,
+            "bytes_by_status": self.bytes_by_status,
         }
