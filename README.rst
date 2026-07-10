@@ -194,4 +194,4 @@ store is absent.
 License
 -------
 
-MIT — see ``LICENSE``.
+MIT — see ``LICENSE``. Built by `Erick Shepherd <https://erickshepherd.com>`_.

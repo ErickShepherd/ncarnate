@@ -61,3 +61,14 @@ exclude_patterns = [
 
 html_theme = "furo"
 html_title = f"ncarnate {release}"
+html_theme_options = {
+    # Backlink to the author's site in the page footer.
+    "footer_icons": [
+        {
+            "name": "erickshepherd.com",
+            "url": "https://erickshepherd.com",
+            "html": "erickshepherd.com",
+            "class": "",
+        },
+    ],
+}
