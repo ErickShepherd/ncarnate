@@ -21,6 +21,7 @@ top-level LICENSE file.
 
 # Standard library imports.
 import dataclasses
+import logging
 import re
 
 # Third party imports.
@@ -63,6 +64,9 @@ _EOS_METADATA_PREFIXES = (
 )
 
 _EOS_INFORMATION_GROUP = "HDFEOS_INFORMATION"
+
+# Child of the package logger the CLI configures ("ncarnate.hdf4").
+_logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -800,8 +804,25 @@ def _attach_swath_coordinates(group      : TreeGroup,
             f"({latitude.dimensions} vs {longitude.dimensions})."
         )
 
-    fill_value   = latitude.attributes.get("_FillValue")
-    fill_value   = None if fill_value is None else float(fill_value)
+    lat_fill = latitude.attributes.get("_FillValue")
+    lon_fill = longitude.attributes.get("_FillValue")
+    lat_fill = None if lat_fill is None else float(lat_fill)
+    lon_fill = None if lon_fill is None else float(lon_fill)
+
+    # One fill mask is applied to BOTH fields downstream; if Longitude
+    # declares a fill Latitude's mask would not cover, its finite fill
+    # values (e.g. -999) would be interpolated into neighboring pixels —
+    # silently wrong coordinates, so fail loud. (Every surveyed product
+    # declares the same fill on both fields.)
+    if lon_fill is not None and lon_fill != lat_fill:
+
+        raise UnsupportedGeolocationError(
+            f"Swath {eos_swath_.name!r}: Latitude/Longitude declare "
+            f"different _FillValue ({lat_fill} vs {lon_fill}), which is "
+            f"not supported; convert with --no-geolocation."
+        )
+
+    fill_value   = lat_fill
     interpolated = {}
 
     for variable in list(group.variables):
@@ -821,6 +842,25 @@ def _attach_swath_coordinates(group      : TreeGroup,
         )
 
         if "unrelated" in specifications:
+
+            # Coordinates are only attached to variables whose FIRST TWO
+            # axes are the swath axes. If both swath axes appear at other
+            # positions (e.g. MOD35's byte-segment-first Cloud_Mask or
+            # MOD02's band-first radiances), the variable is skipped —
+            # say so instead of staying silent.
+            if all(
+                any(_axis_specification(eos_swath_, geo_dim, var_dim)
+                    != "unrelated" for var_dim in variable.dimensions)
+                for geo_dim in geo_dims
+            ):
+
+                _logger.warning(
+                    "Swath %r: variable %r has the swath axes at "
+                    "non-leading positions; coordinates are attached only "
+                    "to variables whose first two axes are the swath "
+                    "axes, so it gets none.",
+                    eos_swath_.name, variable.name,
+                )
 
             continue
 
