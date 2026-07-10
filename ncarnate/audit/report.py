@@ -14,6 +14,10 @@ top-level LICENSE file.
 
 from __future__ import annotations
 
+# Standard library imports.
+import csv
+import json
+
 # Local application imports.
 from ncarnate.audit.models import AuditReport
 
@@ -88,3 +92,65 @@ def render_summary(report : AuditReport) -> str:
             )
 
     return "\n".join(lines)
+
+
+def write_jsonl(report : AuditReport, stream) -> None:
+
+    '''
+
+    Writes the migration manifest: one file record (the v1 schema) per line,
+    with **no header and no trailer**. This uniformity keeps per-line schema
+    validation and ``CSV rows == JSONL lines`` trivially true.
+
+    '''
+
+    for result in report.files:
+
+        stream.write(json.dumps(result.to_record()) + "\n")
+
+
+# The flat CSV projection of a record (design §One record schema): the
+# scalar fields plus the top blocker inline. The nested structures/issues/
+# plan objects are the JSONL contract's job, not the spreadsheet view's.
+_CSV_COLUMNS = [
+    "root", "path", "status", "format", "size_bytes", "sha256", "mode",
+    "schema_version", "ncarnate_version", "ruleset_version",
+    "top_blocker_code", "top_blocker_message",
+]
+
+
+def write_csv(report : AuditReport, stream) -> None:
+
+    '''
+
+    Writes a flat CSV projection of the same records — one row per file, the
+    top blocker inline — for spreadsheet triage. One data row per file, so
+    the data-row count equals the JSONL line count.
+
+    '''
+
+    writer = csv.DictWriter(stream, fieldnames=_CSV_COLUMNS)
+    writer.writeheader()
+
+    for result in report.files:
+
+        record  = result.to_record()
+        blocker = next(
+            (issue for issue in result.issues if issue.severity == "blocker"),
+            None,
+        )
+
+        writer.writerow({
+            "root"               : record["root"],
+            "path"               : record["path"],
+            "status"             : record["status"],
+            "format"             : record["format"],
+            "size_bytes"         : record["size_bytes"],
+            "sha256"             : record["sha256"],
+            "mode"               : record["mode"],
+            "schema_version"     : record["schema_version"],
+            "ncarnate_version"   : record["ncarnate_version"],
+            "ruleset_version"    : record["ruleset_version"],
+            "top_blocker_code"   : blocker.code if blocker else "",
+            "top_blocker_message": blocker.message if blocker else "",
+        })

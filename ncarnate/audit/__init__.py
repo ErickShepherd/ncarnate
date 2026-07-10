@@ -32,7 +32,7 @@ from ncarnate.constants import __version__
 from ncarnate.errors import NcarnateError
 from ncarnate.formats import FileFormat, detect_format
 from ncarnate.audit.models import AuditOptions, AuditReport, AuditResult
-from ncarnate.audit.report import render_summary
+from ncarnate.audit.report import render_summary, write_csv, write_jsonl
 
 __all__ = ["audit_path", "AuditOptions", "main"]
 
@@ -180,7 +180,26 @@ def _build_audit_parser() -> argparse.ArgumentParser:
         version = f"{PACKAGE_NAME} {__version__}"
     )
 
+    parser.add_argument(
+        "--output",
+        type    = str,
+        default = None,
+        help    = "Write the per-file manifest to this path (format inferred "
+                  "from the extension: '.csv' for the flat CSV view, else the "
+                  "JSONL contract). JSONL is byte-for-byte what "
+                  "'ncarnate convert --manifest' consumes."
+    )
+
     return parser
+
+
+def _write_manifest(report : AuditReport, path : str) -> None:
+
+    writer = write_csv if path.lower().endswith(".csv") else write_jsonl
+
+    with open(path, "w", newline="") as stream:
+
+        writer(report, stream)
 
 
 def main(argv : list[str]) -> int:
@@ -212,6 +231,10 @@ def main(argv : list[str]) -> int:
         logger.error(str(error))
 
         return 2
+
+    if args.output:
+
+        _write_manifest(report, args.output)
 
     print(render_summary(report))
 
