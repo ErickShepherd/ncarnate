@@ -23,6 +23,7 @@ from __future__ import annotations
 # Standard library imports.
 import argparse
 import datetime
+import hashlib
 import os
 
 # Local application imports.
@@ -82,6 +83,27 @@ def _scaffold_status(file_format : FileFormat) -> str:
     return "unknown"
 
 
+def _sha256(file_path : str) -> str:
+
+    '''
+
+    The file's SHA-256, read in chunks so a terabyte granule never lands in
+    memory. This reads the raw file bytes (for the manifest's integrity
+    check), never the decoded science arrays.
+
+    '''
+
+    hasher = hashlib.sha256()
+
+    with open(file_path, "rb") as stream:
+
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+
+            hasher.update(chunk)
+
+    return hasher.hexdigest()
+
+
 def _audit_file(
     file_path : str, root : str, options : AuditOptions, audited_at : str
 ) -> AuditResult:
@@ -96,7 +118,8 @@ def _audit_file(
         status     = _scaffold_status(file_format),
         mode       = options.mode,
         audited_at = audited_at,
-        sha256     = None,          # opt-in --checksum arrives in increment 3
+        sha256     = _sha256(file_path) if options.checksum == "sha256"
+                     else None,
         structures = [],            # metadata inspection arrives in increment 2
         issues     = [],
         plan       = None,
