@@ -318,12 +318,13 @@ def test_no_geolocation_is_sds_only(workdir):
         assert set(group.variables) == {"SI_12km_NH_ICECON_DAY"}
 
 
-def _swath_scaffold(lat_attrs, lon_attrs, data_dims):
+def _swath_scaffold(lat_attrs, lon_attrs, data_dims, dimension_maps=None):
     from ncarnate.eos.structmeta import EosSwath
     from ncarnate.hdf4 import TreeGroup, TreeVariable
 
     group = TreeGroup.empty("MySwath")
-    group.dimensions = {"along": 4, "across": 3, "band": 2}
+    group.dimensions = {"along": 4, "across": 3, "band": 2,
+                        "along_hi": 8, "across_hi": 3}
 
     latitude = TreeVariable(
         name="Latitude", dimensions=("along", "across"),
@@ -343,16 +344,27 @@ def _swath_scaffold(lat_attrs, lon_attrs, data_dims):
 
     swath = EosSwath(
         name="MySwath", dimensions=dict(group.dimensions),
-        dimension_maps=[], geo_fields=[], data_fields=[],
-        has_index_maps=False, has_merged_fields=False,
+        dimension_maps=list(dimension_maps or []), geo_fields=[],
+        data_fields=[], has_index_maps=False, has_merged_fields=False,
     )
     return group, swath, latitude, longitude, data
 
 
-def test_mismatched_geolocation_fill_values_fail_loud():
-    # One fill mask is applied to both fields; differing declared fills
-    # would interpolate Longitude's finite fill values into neighboring
-    # pixels, so the converter must refuse.
+def _hi_res_maps():
+    from ncarnate.eos.structmeta import EosDimensionMap
+
+    return [
+        EosDimensionMap(geo_dimension="along", data_dimension="along_hi",
+                        offset=0, increment=2),
+        EosDimensionMap(geo_dimension="across", data_dimension="across_hi",
+                        offset=0, increment=1),
+    ]
+
+
+def test_mismatched_fill_values_fail_loud_on_interpolation():
+    # Interpolation applies one fill mask (Latitude's) to both fields;
+    # differing declared fills would interpolate Longitude's finite fill
+    # values into neighboring pixels, so the converter must refuse.
     from ncarnate.errors import UnsupportedGeolocationError
     from ncarnate.hdf4 import _attach_swath_coordinates
 
@@ -361,9 +373,23 @@ def test_mismatched_geolocation_fill_values_fail_loud():
         ({}, {"_FillValue": np.float32(-999.0)}),  # Longitude-only
     ):
         group, swath, latitude, longitude, _ = _swath_scaffold(
-            lat_attrs, lon_attrs, ("along", "across"))
+            lat_attrs, lon_attrs, ("along_hi", "across_hi"),
+            dimension_maps=_hi_res_maps())
         with pytest.raises(UnsupportedGeolocationError, match="_FillValue"):
             _attach_swath_coordinates(group, swath, latitude, longitude)
+
+
+def test_mismatched_fill_values_tolerated_at_native_resolution():
+    # Native-resolution attachment only names the coordinate variables;
+    # the fills never interact, so differing fills must NOT refuse the
+    # conversion (the guard is scoped to the interpolation path).
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    group, swath, latitude, longitude, data = _swath_scaffold(
+        {"_FillValue": np.float32(-999.0)}, {"_FillValue": np.float32(-9999.0)},
+        ("along", "across"))
+    _attach_swath_coordinates(group, swath, latitude, longitude)
+    assert data.attributes["coordinates"] == "Longitude Latitude"
 
 
 def test_matching_geolocation_fill_values_accepted():
@@ -378,6 +404,20 @@ def test_matching_geolocation_fill_values_accepted():
             lat_attrs, lon_attrs, ("along", "across"))
         _attach_swath_coordinates(group, swath, latitude, longitude)
         assert data.attributes["coordinates"] == "Longitude Latitude"
+
+
+def test_nan_fill_values_agree_and_interpolate():
+    # NaN is a legitimate geolocation fill; both-NaN must count as
+    # matching (nan != nan under plain equality) and interpolation must
+    # proceed.
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    group, swath, latitude, longitude, data = _swath_scaffold(
+        {"_FillValue": np.float32(np.nan)}, {"_FillValue": np.float32(np.nan)},
+        ("along_hi", "across_hi"), dimension_maps=_hi_res_maps())
+    _attach_swath_coordinates(group, swath, latitude, longitude)
+    assert data.attributes["coordinates"] == \
+        "Longitude_interpolated Latitude_interpolated"
 
 
 def test_nonleading_swath_axes_skip_warns(caplog):

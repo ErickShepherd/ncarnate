@@ -22,6 +22,7 @@ top-level LICENSE file.
 # Standard library imports.
 import dataclasses
 import logging
+import math
 import re
 
 # Third party imports.
@@ -311,23 +312,16 @@ def read_hdf4(path : str, geolocation : bool = True) -> TreeGroup:
 
     try:
 
-        root = _read_payload(source)
+        root, metadata = _read_payload(source)
 
     finally:
 
         source.end()
 
-    if geolocation:
+    if geolocation and metadata is not None:
 
-        text = _eos_metadata(root).attributes
-        text = _structmetadata_text(text)
-
-        if text is not None:
-
-            metadata = structmeta.parse(text)
-
-            _decorate_grids(root, metadata)
-            _decorate_swaths(root, metadata)
+        _decorate_grids(root, metadata)
+        _decorate_swaths(root, metadata)
 
     return root
 
@@ -338,7 +332,9 @@ def _eos_metadata(root : TreeGroup) -> TreeGroup:
                            TreeGroup.empty(_EOS_INFORMATION_GROUP))
 
 
-def _read_payload(source : SD) -> TreeGroup:
+def _read_payload(
+    source : SD,
+) -> "tuple[TreeGroup, structmeta.EosStructMetadata | None]":
 
     root = TreeGroup.empty("")
 
@@ -358,11 +354,15 @@ def _read_payload(source : SD) -> TreeGroup:
         _eos_metadata(root).attributes
     )
 
+    # Parsed once here and returned so read_hdf4 can decorate without
+    # re-parsing the (potentially many-part) ODL text.
+    metadata    = None
     field_index = {}
 
     if metadata_text is not None:
 
-        field_index = _field_index(structmeta.parse(metadata_text))
+        metadata    = structmeta.parse(metadata_text)
+        field_index = _field_index(metadata)
 
     for index in range(dataset_count):
 
@@ -376,7 +376,7 @@ def _read_payload(source : SD) -> TreeGroup:
 
             dataset.endaccess()
 
-    return root
+    return root, metadata
 
 
 def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
@@ -809,19 +809,6 @@ def _attach_swath_coordinates(group      : TreeGroup,
     lat_fill = None if lat_fill is None else float(lat_fill)
     lon_fill = None if lon_fill is None else float(lon_fill)
 
-    # One fill mask is applied to BOTH fields downstream; if Longitude
-    # declares a fill Latitude's mask would not cover, its finite fill
-    # values (e.g. -999) would be interpolated into neighboring pixels —
-    # silently wrong coordinates, so fail loud. (Every surveyed product
-    # declares the same fill on both fields.)
-    if lon_fill is not None and lon_fill != lat_fill:
-
-        raise UnsupportedGeolocationError(
-            f"Swath {eos_swath_.name!r}: Latitude/Longitude declare "
-            f"different _FillValue ({lat_fill} vs {lon_fill}), which is "
-            f"not supported; convert with --no-geolocation."
-        )
-
     fill_value   = lat_fill
     interpolated = {}
 
@@ -874,6 +861,31 @@ def _attach_swath_coordinates(group      : TreeGroup,
         target_dims = variable.dimensions[:2]
 
         if target_dims not in interpolated:
+
+            # Interpolation applies ONE fill mask (Latitude's) to both
+            # fields; if Longitude declares a fill that mask would not
+            # cover, its finite fill values (e.g. -999) would be
+            # interpolated into neighboring pixels — silently wrong
+            # coordinates, so fail loud. Native-resolution attachment
+            # never touches the fills, so only this path checks. NaN
+            # fills compare unequal under ==, so test them explicitly.
+            fills_agree = (
+                lon_fill is None
+                or (lat_fill is not None
+                    and (lon_fill == lat_fill
+                         or (math.isnan(lon_fill)
+                             and math.isnan(lat_fill))))
+            )
+
+            if not fills_agree:
+
+                raise UnsupportedGeolocationError(
+                    f"Swath {eos_swath_.name!r}: Latitude/Longitude "
+                    f"declare different _FillValue ({lat_fill} vs "
+                    f"{lon_fill}), so dimension-mapped geolocation "
+                    f"cannot be interpolated; convert with "
+                    f"--no-geolocation."
+                )
 
             interpolated[target_dims] = _build_interpolated(
                 group, eos_swath_, latitude, longitude,
