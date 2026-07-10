@@ -72,7 +72,8 @@ def decode_packed_dms(value : float) -> float:
 
         raise UnsupportedProjectionError(
             f"Angle {sign * value} is not valid packed DMS "
-            f"(minutes={minutes}, seconds={seconds})."
+            f"(minutes={minutes}, seconds={seconds}).",
+            code="EOS_UNSUPPORTED_PROJECTION",
         )
 
     return sign * (degrees + minutes / 60.0 + seconds / 3600.0)
@@ -95,7 +96,8 @@ def _ellipsoid(params : tuple[float, ...]) -> tuple[float, float]:
         # which no fixture exercises yet.
         raise UnsupportedProjectionError(
             "Grid relies on the GCTP sphere-code table "
-            "(ProjParams[0] == 0), which is not supported yet."
+            "(ProjParams[0] == 0), which is not supported yet.",
+            code="EOS_UNSUPPORTED_PROJECTION",
         )
 
     if second > 0:
@@ -113,7 +115,8 @@ def _ellipsoid(params : tuple[float, ...]) -> tuple[float, float]:
 
             raise UnsupportedProjectionError(
                 f"ProjParams[1]={second} implies eccentricity-squared "
-                f">= 1, which is not a valid ellipsoid."
+                f">= 1, which is not a valid ellipsoid.",
+                code="EOS_UNSUPPORTED_PROJECTION",
             )
 
         semi_minor = semi_major * math.sqrt(1.0 - eccentricity_squared)
@@ -137,7 +140,8 @@ def _polar_stereographic(grid : EosGrid) -> ProjectionInfo:
 
         raise UnsupportedProjectionError(
             f"Grid {grid.name!r} declares GCTP_PS but ProjParams has only "
-            f"{len(params)} entries (need at least 6): {params}."
+            f"{len(params)} entries (need at least 6): {params}.",
+            code="EOS_UNSUPPORTED_PROJECTION",
         )
 
     semi_major, semi_minor = _ellipsoid(params)
@@ -195,7 +199,8 @@ def _lambert_azimuthal(grid : EosGrid) -> ProjectionInfo:
 
         raise UnsupportedProjectionError(
             f"GCTP_LAMAZ grid {grid.name!r} lacks a usable sphere radius "
-            f"in ProjParams[0]."
+            f"in ProjParams[0].",
+            code="EOS_UNSUPPORTED_PROJECTION",
         )
 
     # GCTP LAMAZ is spherical: ProjParams[0] is the sphere radius
@@ -254,7 +259,8 @@ def projection_info(grid : EosGrid) -> ProjectionInfo:
         raise UnsupportedProjectionError(
             f"Grid {grid.name!r} uses unsupported projection "
             f"{grid.projection} (ProjParams={grid.proj_params}); "
-            f"convert with --no-geolocation to skip reconstruction."
+            f"convert with --no-geolocation to skip reconstruction.",
+            code="EOS_UNSUPPORTED_PROJECTION",
         )
 
     return decoder(grid)

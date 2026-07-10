@@ -320,7 +320,8 @@ def _copy_variables(src_obj   : _Group,
             raise UnsupportedTypeError(
                 f"Variable {group_path}/{name} uses a "
                 f"user-defined type ({dtype!r}); compound, VLen, enum, and "
-                f"opaque types are outside the v2 fidelity guarantee."
+                f"opaque types are outside the v2 fidelity guarantee.",
+                code="UNSUPPORTED_TYPE",
             )
 
         if dtype.isnative:

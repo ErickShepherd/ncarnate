@@ -182,7 +182,8 @@ def _attribute_value(dfnt_code : int, value):
     if dtype is None:
 
         raise UnsupportedTypeError(
-            f"Attribute uses unsupported HDF4 type code {dfnt_code}."
+            f"Attribute uses unsupported HDF4 type code {dfnt_code}.",
+            code="UNSUPPORTED_TYPE",
         )
 
     array = np.asarray(value, dtype = dtype)
@@ -394,7 +395,8 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
         raise UnsupportedTypeError(
             f"SDS {hdf4_name!r} uses unsupported HDF4 type code "
             f"{dfnt_code} (character and non-numeric SDS are outside the "
-            f"v2 guarantee)."
+            f"v2 guarantee).",
+            code="UNSUPPORTED_TYPE",
         )
 
     pyhdf_dims = [dataset.dim(axis).info()[0] for axis in range(rank)]
@@ -437,7 +439,8 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
 
         raise UnsupportedTypeError(
             f"SDS {hdf4_name!r}: pyhdf returned dtype {values.dtype}, "
-            f"expected {dtype} from the declared HDF4 type."
+            f"expected {dtype} from the declared HDF4 type.",
+            code="UNSUPPORTED_TYPE",
         )
 
     attributes = _read_attributes(dataset, attribute_count)
@@ -491,7 +494,8 @@ def _reserve_names(group : TreeGroup, names : tuple, context : str) -> None:
             raise UnsupportedGeolocationError(
                 f"{context}: cannot add reconstructed variable {name!r}; "
                 f"the name already exists in the file. Convert with "
-                f"--no-geolocation."
+                f"--no-geolocation.",
+                code="NETCDF_NAME_COLLISION",
             )
 
 
@@ -685,14 +689,16 @@ def _decorate_swaths(root     : TreeGroup,
 
             raise UnsupportedGeolocationError(
                 f"{context} uses index dimension maps, which are not "
-                f"supported; convert with --no-geolocation."
+                f"supported; convert with --no-geolocation.",
+                code="SWATH_GEOLOCATION_UNSUPPORTED",
             )
 
         if eos_swath_.has_merged_fields:
 
             raise UnsupportedGeolocationError(
                 f"{context} uses merged fields, which are not supported; "
-                f"convert with --no-geolocation."
+                f"convert with --no-geolocation.",
+                code="SWATH_GEOLOCATION_UNSUPPORTED",
             )
 
         group     = root.groups.get(sanitize_name(eos_swath_.name))
@@ -703,7 +709,8 @@ def _decorate_swaths(root     : TreeGroup,
             raise UnsupportedGeolocationError(
                 f"{context} lacks Latitude/Longitude geolocation fields "
                 f"(found: {sorted(geo_names)}); convert with "
-                f"--no-geolocation."
+                f"--no-geolocation.",
+                code="SWATH_GEOLOCATION_UNSUPPORTED",
             )
 
         if group is None \
@@ -712,7 +719,8 @@ def _decorate_swaths(root     : TreeGroup,
 
             raise UnsupportedGeolocationError(
                 f"{context}: the Latitude/Longitude SDS are missing from "
-                f"the file; convert with --no-geolocation."
+                f"the file; convert with --no-geolocation.",
+                code="SWATH_GEOLOCATION_UNSUPPORTED",
             )
 
         latitude  = group.variable("Latitude")
@@ -758,7 +766,8 @@ def _normalize_coordinate(variable : TreeVariable, units : str) -> None:
         raise UnsupportedGeolocationError(
             f"Geolocation field {variable.name!r} is packed "
             f"(scale_factor={scale}, add_offset={offset}), which is not "
-            f"supported; convert with --no-geolocation."
+            f"supported; convert with --no-geolocation.",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
 
@@ -801,7 +810,8 @@ def _attach_swath_coordinates(group      : TreeGroup,
         raise UnsupportedGeolocationError(
             f"Swath {eos_swath_.name!r}: Latitude/Longitude dimensions "
             f"disagree or are not 2-D "
-            f"({latitude.dimensions} vs {longitude.dimensions})."
+            f"({latitude.dimensions} vs {longitude.dimensions}).",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     lat_fill = latitude.attributes.get("_FillValue")
@@ -884,7 +894,8 @@ def _attach_swath_coordinates(group      : TreeGroup,
                     f"declare different _FillValue ({lat_fill} vs "
                     f"{lon_fill}), so dimension-mapped geolocation "
                     f"cannot be interpolated; convert with "
-                    f"--no-geolocation."
+                    f"--no-geolocation.",
+                    code="SWATH_GEOLOCATION_UNSUPPORTED",
                 )
 
             interpolated[target_dims] = _build_interpolated(
