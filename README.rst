@@ -8,7 +8,7 @@ ncarnate
    :alt: CI status
 
 .. |license| image:: https://img.shields.io/badge/license-MIT-blue.svg
-   :target: https://github.com/ErickShepherd/ncarnate/blob/master/LICENSE
+   :target: https://github.com/ErickShepherd/ncarnate/blob/main/LICENSE
    :alt: MIT License
 
 .. |python| image:: https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg
