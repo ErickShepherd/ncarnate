@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.3] - 2026-07-10
+
+Discoverability + review-driven fixes: ships the Read the Docs site
+configuration in a tag (fixing RTD's tag-based "stable" build), the
+Markdown README with DOI badge and Documentation URL on PyPI, and a
+small set of fixes adopted from an independent multi-model review.
+
+### Added
+- Sphinx documentation site hosted on Read the Docs
+  (<https://ncarnate.readthedocs.io/>), with the API reference generated
+  from the docstrings; `Documentation` URL in the PyPI project links.
+- Warning when a swath variable's geolocation axes are not its first two
+  dimensions (e.g. band-first MOD02, byte-segment-first MOD35): the
+  variable converts intact but gets no `coordinates` attribute, and the
+  skip is now said out loud. The attachment rule is documented in the
+  README.
+- JOSS paper draft and community health files (`CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`) in the repository (not part of the wheel).
+
+### Fixed
+- Swath geolocation interpolation now fails loud when Latitude and
+  Longitude declare different `_FillValue`s (previously Longitude's fill
+  could be silently interpolated into neighboring pixels); NaN fills that
+  match on both fields are accepted, and native-resolution attachment —
+  where the fills never interact — is unaffected.
+- `ncarnate --help` now describes the headline HDF4/HDF-EOS2 → netCDF4
+  conversion, not just recompression, and scopes `--overwrite`/
+  `--no-overwrite` to recompression.
+- README: Markdown (renders on PyPI as `text/markdown`), shields.io DOI
+  badge (the zenodo.org badge 502s behind GitHub's image proxy),
+  absolute `docs/fidelity-notes.md` link, `erickshepherd.com` backlink.
+
+### Changed
+- StructMetadata is parsed once per file instead of twice.
+- Default branch renamed `master` → `main`; in-repo links updated.
+- conda recipe's documentation URL points at Read the Docs.
+
 ## [2.0.2] - 2026-07-10
 
 Citation metadata only — no code changes.
