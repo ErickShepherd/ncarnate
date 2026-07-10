@@ -364,9 +364,13 @@ def main(argv : list[str]) -> int:
 
         report = audit_path(args.path, options)
 
-    except NcarnateError as error:
+    except (NcarnateError, OSError) as error:
 
-        logger.error(str(error))
+        # NcarnateError: a bad target (no such path, etc.). OSError: discovery
+        # I/O failed at the root (e.g. a permission-denied directory in
+        # --no-recursive mode) — that is a run-level failure the per-file guard
+        # cannot reach, so degrade to a clean error exit, never a traceback.
+        logger.error("%s", error)
 
         return 2
 

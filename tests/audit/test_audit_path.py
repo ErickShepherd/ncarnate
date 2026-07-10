@@ -8,11 +8,21 @@ issues, structures, and the conversion plan from the engine — not the empty
 scaffold record it emitted before the engine was wired in.
 """
 
+import os
+
 import netCDF4 as nc
+import pytest
 
 from ncarnate.audit import AuditOptions, audit_path
+from ncarnate.audit import main as audit_main
 
 from conftest import BLOCKER_FIXTURES, HDFEOS2_FIXTURES, NETCDF_FIXTURES
+
+# chmod-based permission tests are meaningless as root (root bypasses them).
+_skip_if_root = pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="root bypasses directory permissions",
+)
 
 
 def _opts():
@@ -108,3 +118,47 @@ def test_audit_path_survives_an_unreadable_file(workdir):
         for issue in by_name["dangling.nc"].issues
     )
     assert by_name["good.nc"].status == "already_modern"
+
+
+@_skip_if_root
+def test_audit_cli_survives_unreadable_directory(workdir):
+    # Discovery I/O (os.listdir in --no-recursive) can fail at the root before
+    # any per-file guard is reached. The CLI must degrade to a clean error
+    # exit (2), never propagate an OSError as a traceback.
+    denied = workdir / "denied"
+    denied.mkdir()
+    (denied / "granule.nc").write_bytes(b"\x89HDF\r\n\x1a\ndata")
+    denied.chmod(0o000)
+    try:
+        rc = audit_main([str(denied), "--no-recursive"])
+    finally:
+        denied.chmod(0o755)   # restore so tmp cleanup can remove it
+    assert rc == 2
+
+
+@_skip_if_root
+def test_recursive_scan_warns_on_unreadable_subtree(workdir, caplog):
+    # A permission-denied subdirectory in a recursive scan is skipped, but the
+    # omission must be surfaced (an auditor silently dropping a subtree gives
+    # false confidence), and healthy siblings elsewhere are still classified.
+    good = workdir / "good.nc"
+    with nc.Dataset(good, "w") as dataset:
+        dataset.createDimension("x", 2)
+        dataset.createVariable("v", "f4", ("x",))[:] = [1.0, 2.0]
+
+    denied = workdir / "denied"
+    denied.mkdir()
+    (denied / "buried.nc").write_bytes(b"\x89HDF\r\n\x1a\ndata")
+    denied.chmod(0o000)
+    try:
+        import logging
+        with caplog.at_level(logging.WARNING, logger="ncarnate"):
+            report = audit_path(str(workdir), _opts())
+    finally:
+        denied.chmod(0o755)
+
+    names = {result.path.rsplit("/", 1)[-1] for result in report.files}
+    assert "good.nc" in names        # healthy sibling still scanned
+    assert "buried.nc" not in names  # unreadable subtree omitted...
+    assert any("unreadable directory" in record.message.lower()
+               for record in caplog.records)   # ...but surfaced, not silent

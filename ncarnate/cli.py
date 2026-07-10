@@ -42,6 +42,22 @@ def _files_to_paths(root : str, files : list[str]) -> list[str]:
     return paths
 
 
+def _log_walk_error(error : OSError) -> None:
+
+    '''
+
+    ``os.walk`` swallows directory-enumeration errors by default, silently
+    dropping an unreadable subtree from the scan. For an auditor that is
+    invisible data loss, so surface it as a warning (the files are still
+    omitted — this only makes the omission visible, never fatal).
+
+    '''
+
+    logging.getLogger(PACKAGE_NAME).warning(
+        "Skipping unreadable directory during scan: %s", error
+    )
+
+
 def _get_files(paths : list[str], recursive : bool) -> list[str]:
 
     '''
@@ -61,7 +77,9 @@ def _get_files(paths : list[str], recursive : bool) -> list[str]:
 
             if recursive:
 
-                for root, subdirectories, subfiles in os.walk(path):
+                for root, subdirectories, subfiles in os.walk(
+                    path, onerror = _log_walk_error
+                ):
 
                     subfiles    = _files_to_paths(root, subfiles)
                     valid_files = filter(_has_supported_extension, subfiles)
