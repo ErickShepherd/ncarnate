@@ -15,7 +15,7 @@ ncarnate
    :target: https://pypi.org/project/ncarnate/
    :alt: Python 3.10-3.13
 
-.. |doi| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.21288802.svg
+.. |doi| image:: https://img.shields.io/badge/DOI-10.5281%2Fzenodo.21288802-blue
    :target: https://doi.org/10.5281/zenodo.21288802
    :alt: DOI
 
