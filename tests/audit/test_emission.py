@@ -19,6 +19,7 @@ import json
 
 from ncarnate.audit import AuditOptions, audit_path
 from ncarnate.audit import main as audit_main
+from ncarnate.audit.models import AuditIssue, AuditReport, AuditResult
 from ncarnate.audit.report import write_csv, write_jsonl
 
 from conftest import NETCDF_FIXTURES, stage
@@ -99,3 +100,33 @@ def test_output_flag_writes_jsonl_manifest(workdir):
     assert len(lines) == 2
     for line in lines:
         assert set(json.loads(line)) == MANIFEST_KEYS
+
+
+# --- CSV formula-injection guard (CWE-1236) ---------------------------
+
+def test_csv_neutralises_formula_injection_in_free_text_cells():
+    # A crafted archive filename / blocker message beginning with a formula
+    # trigger must render as inert text in a spreadsheet, not execute.
+    result = AuditResult(
+        root="=cmd|'/c calc'!A1",
+        path="@SUM(1+1)*payload.hdf",
+        size_bytes=1,
+        format="HDF4",
+        status="unsupported",
+        mode="metadata",
+        audited_at="2026-07-10T00:00:00Z",
+        issues=[AuditIssue(
+            code="UNSUPPORTED_TYPE", severity="blocker",
+            message="=HYPERLINK(evil)", context={},
+        )],
+    )
+    report = AuditReport(root=result.root, mode="metadata", files=[result])
+
+    stream = io.StringIO()
+    write_csv(report, stream)
+    row = next(csv.DictReader(io.StringIO(stream.getvalue())))
+
+    for cell in (row["root"], row["path"], row["top_blocker_message"]):
+        assert cell[0] == "'", f"formula cell not guarded: {cell!r}"
+    # The fixed-registry code cell is a known-safe value, left as-is.
+    assert row["top_blocker_code"] == "UNSUPPORTED_TYPE"

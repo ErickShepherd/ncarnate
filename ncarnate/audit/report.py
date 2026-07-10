@@ -118,6 +118,29 @@ _CSV_COLUMNS = [
     "top_blocker_code", "top_blocker_message",
 ]
 
+# Characters that make a spreadsheet cell a live formula (CWE-1236).
+_CSV_INJECTION_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value):
+
+    '''
+
+    Neutralises spreadsheet formula injection: a text cell that begins with
+    ``= + - @`` (or a control character) is evaluated as a live formula by
+    Excel / Google Sheets. Since the CSV is *for* spreadsheet triage and its
+    ``path`` / ``root`` / blocker-``message`` cells carry attacker-influenced
+    archive filenames, prefix any such value with an apostrophe so it renders
+    as inert text. Non-string / empty values pass through unchanged.
+
+    '''
+
+    if isinstance(value, str) and value and value[0] in _CSV_INJECTION_PREFIXES:
+
+        return "'" + value
+
+    return value
+
 
 def write_csv(report : AuditReport, stream) -> None:
 
@@ -141,8 +164,10 @@ def write_csv(report : AuditReport, stream) -> None:
         )
 
         writer.writerow({
-            "root"               : record["root"],
-            "path"               : record["path"],
+            # Free-text, attacker-influenceable cells are formula-guarded; the
+            # rest are constrained values (enums, ints, hashes, fixed codes).
+            "root"               : _csv_safe(record["root"]),
+            "path"               : _csv_safe(record["path"]),
             "status"             : record["status"],
             "format"             : record["format"],
             "size_bytes"         : record["size_bytes"],
@@ -152,5 +177,6 @@ def write_csv(report : AuditReport, stream) -> None:
             "ncarnate_version"   : record["ncarnate_version"],
             "ruleset_version"    : record["ruleset_version"],
             "top_blocker_code"   : blocker.code if blocker else "",
-            "top_blocker_message": blocker.message if blocker else "",
+            "top_blocker_message": _csv_safe(blocker.message) if blocker
+                                   else "",
         })

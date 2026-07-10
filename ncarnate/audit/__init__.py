@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import hashlib
+import logging
 import os
 
 # Third party imports.
@@ -135,18 +136,32 @@ def _inspect_and_classify(
 
     except (OSError, HDF4Error) as error:
 
-        issue = AuditIssue(
-            code     = codes.MALFORMED_CONTAINER,
-            severity = "blocker",
-            message  = f"Unreadable {file_format.name} container: {error}",
-            context  = {},
+        return _blocked_record(
+            file_format,
+            _unreadable_issue(f"Unreadable {file_format.name} container: {error}"),
         )
-
-        return _blocked_record(file_format, issue)
 
     status, issues = classify(facts)
 
     return status, facts.structures, issues, _plan_for(status)
+
+
+def _unreadable_issue(message : str) -> AuditIssue:
+
+    '''
+
+    A ``MALFORMED_CONTAINER`` blocker issue for a file that could not be read
+    (a corrupt/unreadable container, an I/O error, or an unexpected reader
+    failure). The status folds to ``malformed``.
+
+    '''
+
+    return AuditIssue(
+        code     = codes.MALFORMED_CONTAINER,
+        severity = "blocker",
+        message  = message,
+        context  = {},
+    )
 
 
 def _blocked_record(
@@ -213,14 +228,26 @@ def _audit_file(
 
     except (OSError, HDF4Error) as error:
 
-        issue = AuditIssue(
-            code     = codes.MALFORMED_CONTAINER,
-            severity = "blocker",
-            message  = f"Unreadable file: {error}",
-            context  = {},
+        status, structures, issues, plan = _blocked_record(
+            FileFormat.UNKNOWN, _unreadable_issue(f"Unreadable file: {error}")
+        )
+        format_name = FileFormat.UNKNOWN.name
+        size_bytes  = 0
+        sha256      = None
+
+    except Exception as error:  # noqa: BLE001 — deliberate scan-survival belt
+
+        # Belt-and-braces, mirroring the convert path's outer guard
+        # (`cli.main`): a pathological-but-openable file could raise something
+        # unexpected from a reader library. Log the traceback so a genuine bug
+        # stays visible, then record the file `malformed` so one surprise never
+        # aborts a whole-archive scan.
+        logging.getLogger(PACKAGE_NAME).exception(
+            "Unexpected error auditing %s; recording it malformed", file_path
         )
         status, structures, issues, plan = _blocked_record(
-            FileFormat.UNKNOWN, issue
+            FileFormat.UNKNOWN,
+            _unreadable_issue(f"Unexpected audit error: {error}"),
         )
         format_name = FileFormat.UNKNOWN.name
         size_bytes  = 0

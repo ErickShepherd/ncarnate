@@ -120,6 +120,36 @@ def test_audit_path_survives_an_unreadable_file(workdir):
     assert by_name["good.nc"].status == "already_modern"
 
 
+def test_audit_path_belt_survives_unexpected_inspection_error(workdir, monkeypatch):
+    # Belt-and-braces: even a non-OSError from a reader library (here forced
+    # via monkeypatch) must not abort the scan — the file is recorded
+    # `malformed` and a healthy sibling is still classified.
+    good = workdir / "good.nc"
+    with nc.Dataset(good, "w") as dataset:
+        dataset.createDimension("x", 2)
+        dataset.createVariable("v", "f4", ("x",))[:] = [1.0, 2.0]
+    boom = workdir / "boom.nc"
+    with nc.Dataset(boom, "w") as dataset:
+        dataset.createDimension("x", 1)
+        dataset.createVariable("v", "f4", ("x",))[:] = [1.0]
+
+    import ncarnate.audit as audit_pkg
+    real_inspect = audit_pkg.inspect_file
+
+    def flaky(path):
+        if path.endswith("boom.nc"):
+            raise ValueError("unexpected reader failure")
+        return real_inspect(path)
+
+    monkeypatch.setattr(audit_pkg, "inspect_file", flaky)
+
+    report = audit_path(str(workdir), _opts())
+    by_name = {result.path.rsplit("/", 1)[-1]: result for result in report.files}
+
+    assert by_name["boom.nc"].status == "malformed"
+    assert by_name["good.nc"].status == "already_modern"
+
+
 def test_audit_cli_bad_output_path_exits_cleanly(workdir):
     # Writing the manifest to an unwritable --output path (here, into a
     # nonexistent directory) is a run-level I/O failure: exit 2, not a
