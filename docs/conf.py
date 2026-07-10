@@ -31,8 +31,8 @@ extensions = [
     "myst_parser",
 ]
 
-# The heavy C-extension dependencies are mocked so the docs build (e.g. on
-# Read the Docs) needs no system HDF4/netCDF/PROJ libraries — autodoc only has
+# The heavy C-extension dependencies are mocked so the docs build (in CI or
+# locally) needs no system HDF4/netCDF/PROJ libraries — autodoc only has
 # to import the package to read its docstrings.
 autodoc_mock_imports = ["netCDF4", "pyhdf", "pyproj", "numpy", "tqdm"]
 
