@@ -20,9 +20,13 @@ from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
 from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
+from ncarnate.audit import AuditOptions
+from ncarnate.audit import audit_path
 
 __all__ = [
     "recompress",
+    "audit_path",
+    "AuditOptions",
     "detect_format",
     "FileFormat",
     "NcarnateError",

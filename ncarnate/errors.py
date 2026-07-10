@@ -17,7 +17,20 @@ class NcarnateError(Exception):
 
     The base class for all errors raised deliberately by ncarnate.
 
+    Carries an optional structured ``code`` (a ``ncarnate.audit.codes``
+    registry string) so the audit can disambiguate raise sites that share
+    one exception type — e.g. ``UnsupportedGeolocationError`` is both a
+    packed-geolocation blocker and a name collision. The code is set **at
+    the raise site**, never intrinsic to the type; ``code`` defaults to
+    ``None`` and the message is unchanged.
+
     '''
+
+    def __init__(self, *args, code : "str | None" = None):
+
+        super().__init__(*args)
+
+        self.code = code
 
 
 class UnsupportedFormatError(NcarnateError):

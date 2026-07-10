@@ -60,5 +60,6 @@ def check_array_size(shape     : "tuple[int, ...]",
             f"{context}: declared array of shape {tuple(shape)} at "
             f"{itemsize} bytes/element is {total_bytes} bytes, exceeding "
             f"the {max_bytes}-byte safety ceiling; refusing to allocate. "
-            f"This usually means a malformed or hostile input file."
+            f"This usually means a malformed or hostile input file.",
+            code="DECLARED_ALLOCATION_TOO_LARGE",
         )

@@ -114,16 +114,41 @@ ncarnate -r /data/archive
 Exit codes: `0` success, `1` one or more files failed, `2` bad input paths or
 arguments.
 
+## Audit an archive in 5 minutes
+
+Before converting a terabyte archive, run a **read-only audit**: it never opens
+science arrays, never touches the network, and never writes to the files it
+inspects. It discovers files, detects formats, inspects metadata, classifies
+each file into a readiness taxonomy, and prints a summary by files *and* bytes.
+
+```console
+# Assess an archive (recursive, read-only) and print a readiness summary.
+ncarnate audit /data/archive
+
+# Write the per-file migration manifest (JSONL is the contract; .csv gives a
+# flat spreadsheet view). Add --checksum sha256 for a manifest you intend to
+# execute later.
+ncarnate audit /data/archive --output manifest.jsonl --checksum sha256
+```
+
+Each JSONL line is one versioned, schema-validated file record — path,
+checksum, status, blockers, and the conversion plan — designed so a later
+`ncarnate convert --manifest` (and every downstream tool) consumes it unchanged.
+The bare `ncarnate <path>` and `ncarnate convert <path>` forms are unchanged.
+
 ## Library usage
 
 ```python
-from ncarnate import recompress
+from ncarnate import recompress, audit_path, AuditOptions
 
 # Lossless recompression; returns the output path.
 recompress("observations.nc", complevel=9)
 
 # HDF-EOS2 conversion; the .hdf source is never replaced.
 recompress("granule.hdf", dst="granule.nc")
+
+# Read-only archive audit; returns an AuditReport (report.summary, report.files).
+report = audit_path("/data/archive", AuditOptions(recursive=True))
 ```
 
 ## Example

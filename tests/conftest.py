@@ -12,6 +12,11 @@ import pytest
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "data"
 NETCDF_FIXTURES = sorted((FIXTURE_ROOT / "netcdf").glob("*.nc"))
 HDFEOS2_FIXTURES = sorted((FIXTURE_ROOT / "hdfeos2").glob("*.hdf"))
+# Deliberately-unconvertible fixtures for the *blocker* direction of the
+# audit/convert agreement oracle (audit predicts a blocker ⇒ recompress
+# raises). Kept out of the globs above, which the round-trip tests assume are
+# all convertible. Provenance: fixtures/make_blocker_fixtures.py.
+BLOCKER_FIXTURES = sorted((FIXTURE_ROOT / "blockers").glob("*.nc"))
 
 # These globs back the parametrized round-trip/conversion tests. If the
 # data tree ever moves or empties, an empty parameter set would make
@@ -23,6 +28,7 @@ _EXPECTED_HDFEOS2 = {
     "amsre_seaice12km_trim", "mod03_trim", "myd05_trim",
     "raingrid_trim", "amsre_5daysnow_trim",
 }
+_EXPECTED_BLOCKERS = {"compound_type"}
 
 if {f.stem for f in NETCDF_FIXTURES} != _EXPECTED_NETCDF:
     raise RuntimeError(
@@ -36,6 +42,13 @@ if {f.stem for f in HDFEOS2_FIXTURES} != _EXPECTED_HDFEOS2:
         f"HDF-EOS2 fixture inventory drifted: found "
         f"{sorted(f.stem for f in HDFEOS2_FIXTURES)}, expected "
         f"{sorted(_EXPECTED_HDFEOS2)}"
+    )
+
+if {f.stem for f in BLOCKER_FIXTURES} != _EXPECTED_BLOCKERS:
+    raise RuntimeError(
+        f"blocker fixture inventory drifted: found "
+        f"{sorted(f.stem for f in BLOCKER_FIXTURES)}, expected "
+        f"{sorted(_EXPECTED_BLOCKERS)}"
     )
 
 # Raw multi-MB granules live outside the repo; the tests marked

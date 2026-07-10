@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - Unreleased
+
+Adds a read-only archive audit and the migration-manifest contract — the
+planning substrate later tooling (`convert --manifest`, dashboards,
+catalogs) builds on.
+
+### Added
+- `ncarnate audit <path>`: a read-only subcommand that discovers files,
+  detects formats, inspects metadata **without reading science arrays**,
+  classifies each file into a stable status taxonomy (`ready`,
+  `ready_no_geolocation`, `already_modern`, `unsupported`, `malformed`,
+  `unsafe`, `unknown`), and prints a readiness summary by files and bytes.
+  Never writes to audited files, never accesses the network.
+- The **migration-manifest contract**: a versioned per-file JSONL record
+  schema (`--output manifest.jsonl`) that freezes path, checksum, status,
+  issues, and conversion plan; a flat CSV projection for triage; a
+  checked-in JSON Schema and append-only issue-code registry.
+- Opt-in `--checksum sha256` per-file hashing for manifests intended to be
+  executed.
+- `ncarnate convert <path>` as an explicit alias for the legacy flat
+  behavior; the bare `ncarnate <path>` form is unchanged.
+- Public API: `audit_path` and `AuditOptions`, exported from the top-level
+  `ncarnate` package and documented in the API reference.
+- Structured `code` on `NcarnateError` so the audit disambiguates raise
+  sites that share one exception type (behavior-preserving; messages
+  unchanged).
+
 ## [2.0.3] - 2026-07-10
 
 Discoverability + review-driven fixes: ships the Read the Docs site

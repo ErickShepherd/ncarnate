@@ -138,7 +138,8 @@ def _parse_scalar(text : str):
     if not math.isfinite(value):
 
         raise EosParseError(
-            f"StructMetadata contains a non-finite number: {text!r}"
+            f"StructMetadata contains a non-finite number: {text!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
         )
 
     return value
@@ -196,7 +197,8 @@ def _logical_lines(text : str) -> list[str]:
 
                 raise EosParseError(
                     "StructMetadata has an unterminated parenthesized "
-                    "value (exceeded the continuation-line limit)."
+                    "value (exceeded the continuation-line limit).",
+                    code="EOS_STRUCTMETADATA_MALFORMED",
                 )
 
             continue
@@ -209,7 +211,8 @@ def _logical_lines(text : str) -> list[str]:
 
         raise EosParseError(
             f"StructMetadata ends with unbalanced parentheses: "
-            f"{' '.join(pending)!r}"
+            f"{' '.join(pending)!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
         )
 
     return lines
@@ -228,7 +231,10 @@ def _parse_odl(text : str) -> _Node:
 
         if "=" not in line:
 
-            raise EosParseError(f"Malformed StructMetadata line: {line!r}")
+            raise EosParseError(
+                f"Malformed StructMetadata line: {line!r}",
+                code="EOS_STRUCTMETADATA_MALFORMED",
+            )
 
         key, _, value = line.partition("=")
         key   = key.strip()
@@ -247,7 +253,8 @@ def _parse_odl(text : str) -> _Node:
 
                 raise EosParseError(
                     f"Mismatched {key}={value} (open block: "
-                    f"{stack[-1].name!r})"
+                    f"{stack[-1].name!r})",
+                    code="EOS_STRUCTMETADATA_MALFORMED",
                 )
 
             stack.pop()
@@ -259,7 +266,8 @@ def _parse_odl(text : str) -> _Node:
     if len(stack) != 1:
 
         raise EosParseError(
-            f"Unclosed StructMetadata block: {stack[-1].name!r}"
+            f"Unclosed StructMetadata block: {stack[-1].name!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
         )
 
     return root
@@ -269,7 +277,10 @@ def _require_attr(node : _Node, key : str, context : str):
 
     if key not in node.attributes:
 
-        raise EosParseError(f"{context}: missing required {key}")
+        raise EosParseError(
+            f"{context}: missing required {key}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
+        )
 
     return node.attributes[key]
 
