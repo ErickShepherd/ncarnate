@@ -39,7 +39,7 @@ HDF4 library first (see the README).
 
 ## Making a change
 
-1. Fork the repository and create a topic branch off `master`.
+1. Fork the repository and create a topic branch off `main`.
 2. Make your change with a focused commit history.
 3. **Add or update tests.** The suite runs entirely offline against small
    committed fixtures trimmed from real granules; a new format or fix should
