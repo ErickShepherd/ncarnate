@@ -1,32 +1,30 @@
-# API reference
+API reference
+=============
 
-The public API is small: a single {py:func}`~ncarnate.recompress` entry point, a
+The public API is small: a single :func:`~ncarnate.recompress` entry point, a
 file-format detector, and the exception hierarchy. Everything below is imported
-directly from the top-level `ncarnate` package.
+directly from the top-level ``ncarnate`` package.
 
-## Conversion and recompression
+Conversion and recompression
+----------------------------
 
-```{eval-rst}
 .. autofunction:: ncarnate.recompress
-```
 
-## Format detection
+Format detection
+----------------
 
-```{eval-rst}
 .. autoclass:: ncarnate.FileFormat
    :members:
    :undoc-members:
 
 .. autofunction:: ncarnate.detect_format
-```
 
-## Exceptions
+Exceptions
+----------
 
 All errors ncarnate raises deliberately derive from
-{py:class}`~ncarnate.errors.NcarnateError`.
+:class:`~ncarnate.errors.NcarnateError`.
 
-```{eval-rst}
 .. automodule:: ncarnate.errors
    :members:
    :show-inheritance:
-```
