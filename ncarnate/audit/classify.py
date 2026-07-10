@@ -24,6 +24,9 @@ top-level LICENSE file.
 
 from __future__ import annotations
 
+# Third party imports.
+import numpy as np
+
 # Local application imports.
 from ncarnate.audit import codes
 from ncarnate.audit.models import AuditIssue
@@ -64,6 +67,22 @@ _CODE_STATUS = {
 _STATUS_PRIORITY = [
     "malformed", "unsafe", "unsupported", "unknown", "ready_no_geolocation",
 ]
+
+
+def _is_unsupported_type(dtype) -> bool:
+
+    '''
+
+    Mirrors the converter's type predicate (``hdf4._read_dataset`` /
+    ``core._copy_variables`` at ``core.py:320``): a supported variable has a
+    concrete ``numpy`` dtype. An HDF4 type code outside the v2 set (``dtype``
+    is ``None``) or a netCDF4 user-defined type (compound / VLen / enum /
+    opaque — its ``datatype`` is not an ``np.dtype``) is exactly what
+    ``recompress`` rejects as ``UNSUPPORTED_TYPE``.
+
+    '''
+
+    return not isinstance(dtype, np.dtype)
 
 
 def _type_default_code(exception : NcarnateError) -> "str | None":
@@ -154,11 +173,12 @@ def classify(facts) -> "tuple[str, list[AuditIssue]]":
 
         return status_for(facts, issues), issues
 
-    # A variable whose declared HDF4 type is outside the v2 set (dtype is
-    # None) is what _read_dataset would reject as UNSUPPORTED_TYPE.
+    # A variable whose declared type is outside the v2 set — an HDF4 code
+    # with no numpy mapping, or a netCDF4 user-defined type — is what the
+    # converter rejects as UNSUPPORTED_TYPE.
     for variable in facts.variables:
 
-        if variable.dtype is None:
+        if _is_unsupported_type(variable.dtype):
 
             issues.append(AuditIssue(
                 code     = codes.UNSUPPORTED_TYPE,

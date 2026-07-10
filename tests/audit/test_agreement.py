@@ -14,9 +14,9 @@ classify agrees with recompress) is the circular discharge the loop must
 never do. There is no `verify:`; an out-of-loop reviewer discharges it with
 `python -m pytest tests/audit/test_agreement.py -q`.
 
-The prediction is taken from `classify(inspect_file(...))` — the real
-increment-2 taxonomy engine. (`audit_path` itself is not yet wired to this
-engine; see LOOP_LEARNINGS.)
+The prediction is taken from `classify(inspect_file(...))` — the same
+taxonomy engine `audit_path` drives (see `tests/audit/test_audit_path.py`
+for the through-`audit_path` integration check).
 """
 
 import pytest
@@ -33,9 +33,15 @@ from ncarnate.errors import (
     UnsupportedTypeError,
 )
 
-from conftest import HDFEOS2_FIXTURES, NETCDF_FIXTURES, stage
+from conftest import BLOCKER_FIXTURES, HDFEOS2_FIXTURES, NETCDF_FIXTURES, stage
 
-ALL_FIXTURES = list(HDFEOS2_FIXTURES) + list(NETCDF_FIXTURES)
+# Convertible fixtures + deliberately-unconvertible blocker fixtures, so the
+# oracle exercises BOTH directions: the ready/already_modern path AND the
+# blocker path (predicts a blocker code ⇒ recompress raises the mapped
+# exception). Without a blocker fixture the raise-mapping branch is dead.
+ALL_FIXTURES = (
+    list(HDFEOS2_FIXTURES) + list(NETCDF_FIXTURES) + list(BLOCKER_FIXTURES)
+)
 
 # The exception each blocker code predicts `recompress` will raise.
 _CODE_EXCEPTION = {

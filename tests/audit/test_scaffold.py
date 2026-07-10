@@ -18,8 +18,13 @@ from ncarnate.audit import AuditOptions, audit_path
 
 from conftest import FIXTURE_ROOT, HDFEOS2_FIXTURES, NETCDF_FIXTURES
 
-# The only statuses the scaffold classifier emits at this depth.
-SCAFFOLD_STATUSES = {"already_modern", "unknown", "unsafe"}
+# audit_path drives the full inspection + classification engine, so records
+# carry any of the seven taxonomy statuses (not just the increment-1 scaffold
+# subset).
+TAXONOMY = {
+    "ready", "ready_no_geolocation", "already_modern",
+    "unsupported", "malformed", "unsafe", "unknown",
+}
 
 
 def _metadata_opts(recursive):
@@ -40,14 +45,13 @@ def test_fixture_tree_discovery_and_statuses():
     for fixture in NETCDF_FIXTURES:
         assert by_name[fixture.name].status == "already_modern"
 
-    # Legacy HDF4/HDF-EOS2 is never "already modern"; at scaffold depth its
-    # readiness is one of the three scaffold statuses (the full taxonomy,
-    # which distinguishes ready/unsupported/malformed, is increment 2).
+    # Legacy HDF4/HDF-EOS2 is never "already modern"; it classifies into the
+    # convertible side of the taxonomy (ready / ready_no_geolocation).
     for fixture in HDFEOS2_FIXTURES:
         assert by_name[fixture.name].status != "already_modern"
 
-    # The scaffold emits only its three statuses.
-    assert {f.status for f in report.files} <= SCAFFOLD_STATUSES
+    # Every emitted status is a real taxonomy member.
+    assert {f.status for f in report.files} <= TAXONOMY
 
 
 def test_records_carry_root_and_relative_path():

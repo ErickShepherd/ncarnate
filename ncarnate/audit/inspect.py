@@ -37,7 +37,6 @@ from ncarnate.eos import structmeta
 from ncarnate.formats import FileFormat, detect_format
 from ncarnate.hdf4 import (
     _DFNT_DTYPES,
-    _field_index,
     _read_attributes,
     _structmetadata_text,
 )
@@ -183,9 +182,13 @@ def _walk_netcdf_group(
 
         variables.append(VariableFacts(
             name       = name,
+            # `.datatype` (not `.dtype`) so a user-defined type surfaces as a
+            # CompoundType/VLType/EnumType object, exactly what
+            # core._copy_variables rejects; `.dtype` would flatten a compound
+            # to a structured np.dtype and hide it from classify.
             rank       = len(variable.dimensions),
             shape      = tuple(variable.shape),
-            dtype      = variable.dtype,
+            dtype      = variable.datatype,
             attributes = {a: variable.getncattr(a) for a in variable.ncattrs()},
         ))
 

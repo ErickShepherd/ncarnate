@@ -9,9 +9,10 @@ taxonomy, and the versioned migration-manifest record schema.
 
 This module is the public API (``audit_path``, ``AuditOptions``) and the
 ``ncarnate audit`` CLI entry (``main``), which the ``ncarnate/cli.py``
-pre-dispatch shim routes to. At this (increment-1 scaffold) depth the
-classifier emits only ``already_modern`` / ``unknown`` / ``unsafe``; the
-full taxonomy and metadata inspection arrive in increment 2.
+pre-dispatch shim routes to. ``audit_path`` drives the metadata-only
+inspection (``inspect.py``) and predicate classification (``classify.py``)
+engine, emitting the full status taxonomy, named issues, structures, and a
+conversion plan per file.
 
 Copyright (c) 2020-2026 Erick Edward Shepherd. MIT License — see the
 top-level LICENSE file.
@@ -32,7 +33,14 @@ from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__
 from ncarnate.errors import NcarnateError
 from ncarnate.formats import FileFormat, detect_format
-from ncarnate.audit.models import AuditOptions, AuditReport, AuditResult
+from ncarnate.audit.classify import classify, issue_for_exception, status_for
+from ncarnate.audit.inspect import FileFacts, inspect_file
+from ncarnate.audit.models import (
+    AuditOptions,
+    AuditReport,
+    AuditResult,
+    ConversionPlan,
+)
 from ncarnate.audit.report import render_summary, write_csv, write_jsonl
 
 __all__ = ["audit_path", "AuditOptions", "main"]
@@ -65,22 +73,62 @@ def _discover(path : str, recursive : bool) -> tuple[str, list[str]]:
     raise NcarnateError(f"No such file or directory: {path}")
 
 
-def _scaffold_status(file_format : FileFormat) -> str:
+def _plan_for(status : str) -> "ConversionPlan | None":
 
     '''
 
-    The increment-1 classifier: modern netCDF3/HDF5 is ``already_modern``;
-    everything else (legacy HDF4, not yet inspectable at this depth, and
-    unrecognized formats) reads as ``unknown``. Increment 2 refines HDF4
-    into the full taxonomy (``ready`` / ``unsupported`` / ``malformed`` …).
+    The manifest's conversion plan, derived from the predicted status. Only
+    the operation is fixed at metadata depth; the exact geolocation
+    reconstruction method is depth-limited (finalised by ``--mode sample``)
+    and left ``None`` except where the status itself says geolocation is
+    skipped. A blocking status has no safe operation, so its plan is ``None``.
 
     '''
 
-    if file_format in (FileFormat.NETCDF3, FileFormat.HDF5):
+    if status == "already_modern":
 
-        return "already_modern"
+        return ConversionPlan(operation="recompress")
 
-    return "unknown"
+    if status == "ready":
+
+        return ConversionPlan(operation="convert")
+
+    if status == "ready_no_geolocation":
+
+        return ConversionPlan(operation="convert", geolocation_method="none")
+
+    return None
+
+
+def _inspect_and_classify(
+    file_path : str, file_format : FileFormat
+) -> "tuple[str, list, list, ConversionPlan | None]":
+
+    '''
+
+    Runs the metadata inspection + predicate classification engine for one
+    file, returning ``(status, structures, issues, plan)``. A converter
+    predicate that *raises* during inspection (e.g. a malformed
+    ``StructMetadata`` → ``EosParseError``) is caught and mapped to a blocker
+    issue rather than aborting the whole scan — an archive auditor must
+    survive one bad granule.
+
+    '''
+
+    try:
+
+        facts = inspect_file(file_path)
+
+    except NcarnateError as error:
+
+        issue = issue_for_exception(error)
+        facts = FileFacts(format=file_format.name, already_modern=False)
+
+        return status_for(facts, [issue]), [], [issue], None
+
+    status, issues = classify(facts)
+
+    return status, facts.structures, issues, _plan_for(status)
 
 
 def _sha256(file_path : str) -> str:
@@ -110,19 +158,23 @@ def _audit_file(
 
     file_format = detect_format(file_path)
 
+    status, structures, issues, plan = _inspect_and_classify(
+        file_path, file_format
+    )
+
     return AuditResult(
         root       = root,
         path       = os.path.relpath(file_path, root),
         size_bytes = os.path.getsize(file_path),
         format     = file_format.name,
-        status     = _scaffold_status(file_format),
+        status     = status,
         mode       = options.mode,
         audited_at = audited_at,
         sha256     = _sha256(file_path) if options.checksum == "sha256"
                      else None,
-        structures = [],            # metadata inspection arrives in increment 2
-        issues     = [],
-        plan       = None,
+        structures = structures,
+        issues     = issues,
+        plan       = plan,
     )
 
 
