@@ -58,6 +58,7 @@ ncarnate = "ncarnate.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ErickShepherd/ncarnate"
+Documentation = "https://ncarnate.readthedocs.io/en/latest/"
 Source = "https://github.com/ErickShepherd/ncarnate"
 "Bug Tracker" = "https://github.com/ErickShepherd/ncarnate/issues"
 
