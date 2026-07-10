@@ -60,18 +60,27 @@ def test_audit_path_modern_netcdf_plans_recompress():
     assert result.plan.operation == "recompress"
 
 
-def test_audit_path_survives_a_malformed_granule(workdir):
-    # An archive auditor must not abort the whole scan on one bad file: a
-    # granule with corrupt StructMetadata classifies `malformed` and the scan
-    # continues rather than raising out of audit_path.
-    bad = workdir / "broken.nc"
-    with nc.Dataset(bad, "w") as dataset:
+def test_audit_path_survives_a_corrupt_container(workdir):
+    # An archive auditor must NOT abort the whole scan on one unreadable file.
+    # A file whose HDF5 magic bytes match but whose body is garbage makes
+    # netCDF4.Dataset raise OSError; the audit must record it `malformed`
+    # (MALFORMED_CONTAINER) and STILL classify a healthy sibling in the same
+    # scan — proving the exception did not abort audit_path.
+    corrupt = workdir / "corrupt.nc"
+    corrupt.write_bytes(b"\x89HDF\r\n\x1a\n" + b"not a real superblock" * 8)
+
+    good = workdir / "good.nc"
+    with nc.Dataset(good, "w") as dataset:
         dataset.createDimension("x", 2)
         dataset.createVariable("v", "f4", ("x",))[:] = [1.0, 2.0]
-    # Not HDF-EOS2, but exercises the non-crashing contract over a real file.
-    report = audit_path(str(bad), _opts())
-    assert len(report.files) == 1
-    assert report.files[0].status in (
-        "ready", "ready_no_geolocation", "already_modern",
-        "unsupported", "malformed", "unsafe", "unknown",
+
+    report = audit_path(str(workdir), _opts())
+    by_name = {result.path.rsplit("/", 1)[-1]: result for result in report.files}
+
+    assert by_name["corrupt.nc"].status == "malformed"
+    assert any(
+        issue.code == "MALFORMED_CONTAINER"
+        for issue in by_name["corrupt.nc"].issues
     )
+    # The healthy sibling was still reached and classified — no scan abort.
+    assert by_name["good.nc"].status == "already_modern"

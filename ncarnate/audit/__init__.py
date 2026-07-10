@@ -27,15 +27,20 @@ import datetime
 import hashlib
 import os
 
+# Third party imports.
+from pyhdf.error import HDF4Error
+
 # Local application imports.
 from ncarnate.cli import _configure_logging, _get_files
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__
 from ncarnate.errors import NcarnateError
 from ncarnate.formats import FileFormat, detect_format
+from ncarnate.audit import codes
 from ncarnate.audit.classify import classify, issue_for_exception, status_for
 from ncarnate.audit.inspect import FileFacts, inspect_file
 from ncarnate.audit.models import (
+    AuditIssue,
     AuditOptions,
     AuditReport,
     AuditResult,
@@ -107,11 +112,16 @@ def _inspect_and_classify(
     '''
 
     Runs the metadata inspection + predicate classification engine for one
-    file, returning ``(status, structures, issues, plan)``. A converter
-    predicate that *raises* during inspection (e.g. a malformed
-    ``StructMetadata`` → ``EosParseError``) is caught and mapped to a blocker
-    issue rather than aborting the whole scan — an archive auditor must
-    survive one bad granule.
+    file, returning ``(status, structures, issues, plan)``. Inspection can
+    fail two ways, both caught per-file so one bad granule never aborts a
+    whole-archive scan (an auditor's core job is surveying messy archives):
+
+    * a converter *predicate* raises (e.g. a malformed ``StructMetadata`` →
+      ``EosParseError``) — mapped to its registry code; and
+    * the container itself is unreadable — the magic bytes matched a science
+      format but the file is truncated/corrupt (``OSError`` from
+      ``netCDF4.Dataset``, ``HDF4Error`` from ``pyhdf``) — mapped to
+      ``MALFORMED_CONTAINER`` (status ``malformed``).
 
     '''
 
@@ -121,14 +131,39 @@ def _inspect_and_classify(
 
     except NcarnateError as error:
 
-        issue = issue_for_exception(error)
-        facts = FileFacts(format=file_format.name, already_modern=False)
+        return _blocked_record(file_format, issue_for_exception(error))
 
-        return status_for(facts, [issue]), [], [issue], None
+    except (OSError, HDF4Error) as error:
+
+        issue = AuditIssue(
+            code     = codes.MALFORMED_CONTAINER,
+            severity = "blocker",
+            message  = f"Unreadable {file_format.name} container: {error}",
+            context  = {},
+        )
+
+        return _blocked_record(file_format, issue)
 
     status, issues = classify(facts)
 
     return status, facts.structures, issues, _plan_for(status)
+
+
+def _blocked_record(
+    file_format : FileFormat, issue : AuditIssue
+) -> "tuple[str, list, list, ConversionPlan | None]":
+
+    '''
+
+    The ``(status, structures, issues, plan)`` tuple for a file that could not
+    be inspected: a single blocker issue, no structures, no conversion plan.
+    The status is folded from the issue's code (e.g. ``malformed``).
+
+    '''
+
+    facts = FileFacts(format=file_format.name, already_modern=False)
+
+    return status_for(facts, [issue]), [], [issue], None
 
 
 def _sha256(file_path : str) -> str:

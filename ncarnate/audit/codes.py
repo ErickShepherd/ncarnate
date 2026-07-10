@@ -18,7 +18,9 @@ top-level LICENSE file.
 '''
 
 # The ruleset version. Bump on any classification-semantics change.
-RULESET_VERSION = 1
+# v2 (2026-07-10): added MALFORMED_CONTAINER (a recognized container whose
+# structure is unreadable — a corrupt/truncated file).
+RULESET_VERSION = 2
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -32,6 +34,13 @@ UNSUPPORTED_TYPE              = "UNSUPPORTED_TYPE"
 DECLARED_ALLOCATION_TOO_LARGE = "DECLARED_ALLOCATION_TOO_LARGE"
 FORMAT_UNRECOGNIZED           = "FORMAT_UNRECOGNIZED"
 
+# Post-v1, append-only additions (each bumped RULESET_VERSION).
+# MALFORMED_CONTAINER: the magic bytes matched a science container but its
+# structure could not be read (truncated/corrupt file, or an I/O error) — the
+# converter likewise fails to open it, so the audit records it `malformed`
+# rather than letting the exception abort a whole-archive scan.
+MALFORMED_CONTAINER           = "MALFORMED_CONTAINER"
+
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
@@ -43,4 +52,5 @@ ALL_CODES = frozenset({
     UNSUPPORTED_TYPE,
     DECLARED_ALLOCATION_TOO_LARGE,
     FORMAT_UNRECOGNIZED,
+    MALFORMED_CONTAINER,
 })

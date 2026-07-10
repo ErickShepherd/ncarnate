@@ -159,6 +159,15 @@ Note two of these are *return-sentinel* predicates, not raise sites — the regi
 converter *decisions* to codes; the `exc.code` mechanism above covers the raising
 subset, and sentinel-returning predicates are mapped explicitly in `classify.py`.
 
+**Ruleset v2 addition — `MALFORMED_CONTAINER` (status `malformed`).** A file whose magic
+bytes match a science container but whose structure cannot be read (a truncated/corrupt
+file, or an I/O error) makes `netCDF4.Dataset` raise `OSError` / `pyhdf` raise
+`HDF4Error` — untyped failures, not `NcarnateError` predicates. The converter fails the
+same way, so the audit records the file `malformed` under this code rather than letting
+the exception abort a whole-archive scan. It is caught at the inspection boundary
+(`audit._inspect_and_classify`), the append-only sibling of the raise-site codes; adding
+it bumped `RULESET_VERSION` to 2.
+
 Codes are **append-only**; a code is never renamed or repurposed. `codes.py` carries
 `RULESET_VERSION: int`, bumped whenever classification *semantics* change (new code, a
 predicate tightened/loosened). Archive managers script against these strings — that

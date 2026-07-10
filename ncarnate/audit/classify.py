@@ -54,6 +54,7 @@ _TYPE_DEFAULT_CODE = {
 # ready_no_geolocation; the rest name their own non-ready status.
 _CODE_STATUS = {
     codes.EOS_STRUCTMETADATA_MALFORMED : "malformed",
+    codes.MALFORMED_CONTAINER          : "malformed",
     codes.DECLARED_ALLOCATION_TOO_LARGE: "unsafe",
     codes.UNSUPPORTED_TYPE             : "unsupported",
     codes.FORMAT_UNRECOGNIZED          : "unknown",
