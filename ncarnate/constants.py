@@ -16,4 +16,4 @@ SUPPORTED_EXTENSIONS = ["nc", "nc4", "hdf", "hdf5", "h5", "he5"]
 
 # Module dunder definitions.
 __author__  = "Erick Edward Shepherd"
-__version__ = "2.0.1"
+__version__ = "2.0.2"
