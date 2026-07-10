@@ -8,8 +8,9 @@ abstract: >-
 type: software
 authors:
   - family-names: "Shepherd"
-    given-names: "Erick"
+    given-names: "Erick Edward"
     email: "dev@erickshepherd.com"
+    orcid: "https://orcid.org/0000-0002-4750-6100"
 version: "2.0.1"
 date-released: "2026-07-09"
 license: MIT

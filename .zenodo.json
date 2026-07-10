@@ -1,0 +1,25 @@
+{
+  "upload_type": "software",
+  "title": "ncarnate: Convert HDF4/HDF-EOS2 (MODIS, AMSR-E) to CF-annotated netCDF4 and losslessly recompress netCDF/HDF5",
+  "description": "A Python tool that converts legacy HDF4/HDF-EOS2 granules (MODIS, AMSR-E, and kin) to CF-annotated netCDF4 - reconstructing CF lat/lon coordinates and grid mappings - and losslessly recompresses netCDF4/HDF5 files, verifying every output value-for-value against its source before replacement.",
+  "access_right": "open",
+  "license": "MIT",
+  "keywords": [
+    "netCDF4",
+    "HDF4",
+    "HDF-EOS2",
+    "HDF5",
+    "CF conventions",
+    "MODIS",
+    "AMSR-E",
+    "remote sensing",
+    "atmospheric science",
+    "Python"
+  ],
+  "creators": [
+    {
+      "name": "Shepherd, Erick Edward",
+      "orcid": "0000-0002-4750-6100"
+    }
+  ]
+}
