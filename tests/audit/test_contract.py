@@ -167,9 +167,11 @@ def test_csv_rows_equal_jsonl_lines(workdir):
         str(workdir), AuditOptions(recursive=False, mode="metadata", checksum=None)
     )
 
-    jsonl = io.StringIO(); write_jsonl(report, jsonl)
-    csv_stream = io.StringIO(); write_csv(report, csv_stream)
+    jsonl = io.StringIO()
+    write_jsonl(report, jsonl)
+    csv_stream = io.StringIO()
+    write_csv(report, csv_stream)
 
-    jsonl_lines = [l for l in jsonl.getvalue().splitlines() if l.strip()]
+    jsonl_lines = [line for line in jsonl.getvalue().splitlines() if line.strip()]
     csv_rows = list(csv.DictReader(io.StringIO(csv_stream.getvalue())))
     assert len(csv_rows) == len(jsonl_lines)

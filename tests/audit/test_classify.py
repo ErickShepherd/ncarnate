@@ -24,7 +24,6 @@ from ncarnate.audit.inspect import FileFacts, inspect_file
 from ncarnate.audit.models import AuditIssue
 from ncarnate.errors import (
     EosParseError,
-    NcarnateError,
     UnsupportedGeolocationError,
     UnsupportedProjectionError,
     UnsupportedTypeError,

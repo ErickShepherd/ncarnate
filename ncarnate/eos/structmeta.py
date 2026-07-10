@@ -231,7 +231,10 @@ def _parse_odl(text : str) -> _Node:
 
         if "=" not in line:
 
-            raise EosParseError(f"Malformed StructMetadata line: {line!r}", code="EOS_STRUCTMETADATA_MALFORMED")
+            raise EosParseError(
+                f"Malformed StructMetadata line: {line!r}",
+                code="EOS_STRUCTMETADATA_MALFORMED",
+            )
 
         key, _, value = line.partition("=")
         key   = key.strip()
@@ -274,7 +277,10 @@ def _require_attr(node : _Node, key : str, context : str):
 
     if key not in node.attributes:
 
-        raise EosParseError(f"{context}: missing required {key}", code="EOS_STRUCTMETADATA_MALFORMED")
+        raise EosParseError(
+            f"{context}: missing required {key}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
+        )
 
     return node.attributes[key]
 
