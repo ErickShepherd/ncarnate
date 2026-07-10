@@ -19,3 +19,6 @@ tmp/
 # Audit orchestration sidecars (ephemeral analysis).
 docs/audits/*.run.log
 docs/audits/*.audit-state.json
+
+# Sphinx documentation build output.
+docs/_build/
