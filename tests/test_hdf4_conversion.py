@@ -316,3 +316,96 @@ def test_no_geolocation_is_sds_only(workdir):
     with nc.Dataset(dst) as output:
         group = output.groups["NpPolarGrid12km"]
         assert set(group.variables) == {"SI_12km_NH_ICECON_DAY"}
+
+
+def _swath_scaffold(lat_attrs, lon_attrs, data_dims):
+    from ncarnate.eos.structmeta import EosSwath
+    from ncarnate.hdf4 import TreeGroup, TreeVariable
+
+    group = TreeGroup.empty("MySwath")
+    group.dimensions = {"along": 4, "across": 3, "band": 2}
+
+    latitude = TreeVariable(
+        name="Latitude", dimensions=("along", "across"),
+        values=np.zeros((4, 3), dtype=np.float32), attributes=dict(lat_attrs),
+    )
+    longitude = TreeVariable(
+        name="Longitude", dimensions=("along", "across"),
+        values=np.zeros((4, 3), dtype=np.float32), attributes=dict(lon_attrs),
+    )
+    data = TreeVariable(
+        name="Data", dimensions=data_dims,
+        values=np.zeros(tuple(group.dimensions[d] for d in data_dims),
+                        dtype=np.int16),
+        attributes={},
+    )
+    group.variables.extend([latitude, longitude, data])
+
+    swath = EosSwath(
+        name="MySwath", dimensions=dict(group.dimensions),
+        dimension_maps=[], geo_fields=[], data_fields=[],
+        has_index_maps=False, has_merged_fields=False,
+    )
+    return group, swath, latitude, longitude, data
+
+
+def test_mismatched_geolocation_fill_values_fail_loud():
+    # One fill mask is applied to both fields; differing declared fills
+    # would interpolate Longitude's finite fill values into neighboring
+    # pixels, so the converter must refuse.
+    from ncarnate.errors import UnsupportedGeolocationError
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    for lat_attrs, lon_attrs in (
+        ({"_FillValue": np.float32(-999.0)}, {"_FillValue": np.float32(-9999.0)}),
+        ({}, {"_FillValue": np.float32(-999.0)}),  # Longitude-only
+    ):
+        group, swath, latitude, longitude, _ = _swath_scaffold(
+            lat_attrs, lon_attrs, ("along", "across"))
+        with pytest.raises(UnsupportedGeolocationError, match="_FillValue"):
+            _attach_swath_coordinates(group, swath, latitude, longitude)
+
+
+def test_matching_geolocation_fill_values_accepted():
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    for lat_attrs, lon_attrs in (
+        ({"_FillValue": np.float32(-999.0)}, {"_FillValue": np.float32(-999.0)}),
+        ({"_FillValue": np.float32(-999.0)}, {}),  # Latitude-only (status quo)
+        ({}, {}),
+    ):
+        group, swath, latitude, longitude, data = _swath_scaffold(
+            lat_attrs, lon_attrs, ("along", "across"))
+        _attach_swath_coordinates(group, swath, latitude, longitude)
+        assert data.attributes["coordinates"] == "Longitude Latitude"
+
+
+def test_nonleading_swath_axes_skip_warns(caplog):
+    # A band-first variable is converted intact but gets no coordinates;
+    # the skip must be said out loud, not silent.
+    import logging as _logging
+
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    group, swath, latitude, longitude, data = _swath_scaffold(
+        {}, {}, ("band", "along", "across"))
+    with caplog.at_level(_logging.WARNING, logger="ncarnate.hdf4"):
+        _attach_swath_coordinates(group, swath, latitude, longitude)
+    assert "coordinates" not in data.attributes
+    assert any("non-leading" in record.getMessage() for record in caplog.records)
+
+
+def test_unrelated_variable_skip_stays_silent(caplog):
+    # A variable with no swath axes at all is not swath-mapped; skipping
+    # it is correct and must NOT warn.
+    import logging as _logging
+
+    from ncarnate.hdf4 import _attach_swath_coordinates
+
+    group, swath, latitude, longitude, data = _swath_scaffold(
+        {}, {}, ("band", "band"))
+    data.dimensions = ("band", "band")
+    with caplog.at_level(_logging.WARNING, logger="ncarnate.hdf4"):
+        _attach_swath_coordinates(group, swath, latitude, longitude)
+    assert "coordinates" not in data.attributes
+    assert not caplog.records

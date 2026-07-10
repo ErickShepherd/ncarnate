@@ -101,15 +101,17 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog        = PACKAGE_NAME,
-        description = "Losslessly rewrites netCDF4/HDF5 files with "
-                      "different compression settings."
+        description = "Converts HDF4/HDF-EOS2 granules (MODIS, AMSR-E) "
+                      "to CF-annotated netCDF4, and losslessly rewrites "
+                      "netCDF4/HDF5 files with different compression "
+                      "settings."
     )
 
     parser.add_argument(
         "path",
         type  = str,
         nargs = "+",
-        help  = "The path(s) to the file(s) to alter."
+        help  = "The path(s) to the file(s) to convert or recompress."
     )
 
     parser.add_argument(
@@ -163,7 +165,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         dest   = "overwrite",
         action = "store_true",
         help   = "Replaces each source file with its recompressed copy "
-                 "(only after the copy verifies lossless)."
+                 "(only after the copy verifies lossless). Applies to "
+                 "recompression only; HDF4 conversion always writes a "
+                 "new .nc file beside the source."
     )
 
     group.add_argument(
@@ -171,7 +175,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         dest   = "overwrite",
         action = "store_false",
         help   = "Keeps the source file; writes the recompressed copy "
-                 "alongside it with a '_recompressed' suffix."
+                 "alongside it with a '_recompressed' suffix. Applies to "
+                 "recompression only; HDF4 conversion always writes a "
+                 "new .nc file beside the source."
     )
 
     parser.set_defaults(overwrite = True)
@@ -249,7 +255,7 @@ def main() -> int:
 
     failures = 0
 
-    for file in tqdm(files, desc = "Files recompressed"):
+    for file in tqdm(files, desc = "Files processed"):
 
         try:
 

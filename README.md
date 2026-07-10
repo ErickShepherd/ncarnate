@@ -48,7 +48,9 @@ Converting or recompressing a file changes *storage*, never *science data*:
   cannot hold are sanitized with the original recorded in a companion attribute.
 - Geolocation reconstruction is strictly **additive**: the original information
   always rides along, so the conversion never becomes the only copy of the
-  truth.
+  truth. Swath coordinates are attached to variables whose first two axes are
+  the swath axes; a variable with a leading band/byte dimension is converted
+  intact but gets no `coordinates` attribute (a warning says so).
 - Every output is **verified against the source value-for-value before it
   replaces anything**. A source file is never destroyed by a failed run, and
   HDF4 sources are never replaced at all.
@@ -58,7 +60,7 @@ Converting or recompressing a file changes *storage*, never *science data*:
   converts the raw payload anyway.
 
 The details, the guarantee boundary, and how the test suite pins each clause live
-in `docs/fidelity-notes.md`.
+in [`docs/fidelity-notes.md`](https://github.com/ErickShepherd/ncarnate/blob/main/docs/fidelity-notes.md).
 
 ## Installation
 
