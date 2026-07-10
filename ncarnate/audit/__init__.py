@@ -364,19 +364,20 @@ def main(argv : list[str]) -> int:
 
         report = audit_path(args.path, options)
 
+        if args.output:
+
+            _write_manifest(report, args.output)
+
     except (NcarnateError, OSError) as error:
 
-        # NcarnateError: a bad target (no such path, etc.). OSError: discovery
-        # I/O failed at the root (e.g. a permission-denied directory in
-        # --no-recursive mode) — that is a run-level failure the per-file guard
-        # cannot reach, so degrade to a clean error exit, never a traceback.
+        # NcarnateError: a bad target (no such path, etc.). OSError: a run-level
+        # I/O failure the per-file guard cannot reach — discovery at the root
+        # (e.g. a permission-denied directory in --no-recursive mode) or writing
+        # the manifest to an unwritable --output path. Degrade to a clean error
+        # exit, never a traceback.
         logger.error("%s", error)
 
         return 2
-
-    if args.output:
-
-        _write_manifest(report, args.output)
 
     print(render_summary(report))
 

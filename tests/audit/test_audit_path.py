@@ -120,6 +120,17 @@ def test_audit_path_survives_an_unreadable_file(workdir):
     assert by_name["good.nc"].status == "already_modern"
 
 
+def test_audit_cli_bad_output_path_exits_cleanly(workdir):
+    # Writing the manifest to an unwritable --output path (here, into a
+    # nonexistent directory) is a run-level I/O failure: exit 2, not a
+    # traceback.
+    rc = audit_main([
+        str(HDFEOS2_FIXTURES[0]),
+        "--output", str(workdir / "no_such_dir" / "manifest.jsonl"),
+    ])
+    assert rc == 2
+
+
 @_skip_if_root
 def test_audit_cli_survives_unreadable_directory(workdir):
     # Discovery I/O (os.listdir in --no-recursive) can fail at the root before
