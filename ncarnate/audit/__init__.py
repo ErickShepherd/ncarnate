@@ -191,22 +191,50 @@ def _audit_file(
     file_path : str, root : str, options : AuditOptions, audited_at : str
 ) -> AuditResult:
 
-    file_format = detect_format(file_path)
+    relpath = os.path.relpath(file_path, root)
 
-    status, structures, issues, plan = _inspect_and_classify(
-        file_path, file_format
-    )
+    # Every filesystem touch for this file is guarded, so a single unreadable
+    # granule — permission denied, removed mid-scan, a dangling symlink, a
+    # corrupt container, or any I/O error — becomes a `malformed` record and
+    # the whole-archive scan continues instead of aborting. `detect_format`,
+    # `getsize`, and `_sha256` all do file I/O that can raise `OSError` before
+    # inspection is even reached, so they sit inside the guard too (not only
+    # `_inspect_and_classify`, which guards the inspection itself).
+    try:
+
+        file_format = detect_format(file_path)
+        size_bytes  = os.path.getsize(file_path)
+        sha256      = (_sha256(file_path) if options.checksum == "sha256"
+                       else None)
+        status, structures, issues, plan = _inspect_and_classify(
+            file_path, file_format
+        )
+        format_name = file_format.name
+
+    except (OSError, HDF4Error) as error:
+
+        issue = AuditIssue(
+            code     = codes.MALFORMED_CONTAINER,
+            severity = "blocker",
+            message  = f"Unreadable file: {error}",
+            context  = {},
+        )
+        status, structures, issues, plan = _blocked_record(
+            FileFormat.UNKNOWN, issue
+        )
+        format_name = FileFormat.UNKNOWN.name
+        size_bytes  = 0
+        sha256      = None
 
     return AuditResult(
         root       = root,
-        path       = os.path.relpath(file_path, root),
-        size_bytes = os.path.getsize(file_path),
-        format     = file_format.name,
+        path       = relpath,
+        size_bytes = size_bytes,
+        format     = format_name,
         status     = status,
         mode       = options.mode,
         audited_at = audited_at,
-        sha256     = _sha256(file_path) if options.checksum == "sha256"
-                     else None,
+        sha256     = sha256,
         structures = structures,
         issues     = issues,
         plan       = plan,

@@ -84,3 +84,27 @@ def test_audit_path_survives_a_corrupt_container(workdir):
     )
     # The healthy sibling was still reached and classified — no scan abort.
     assert by_name["good.nc"].status == "already_modern"
+
+
+def test_audit_path_survives_an_unreadable_file(workdir):
+    # A filesystem-level failure *before* inspection — here a dangling symlink
+    # (also permission denied, a file removed mid-scan) — must not abort the
+    # scan either: `detect_format`/`getsize`/`_sha256` all do I/O and sit
+    # inside the per-file guard. The bad entry is `malformed`; a healthy
+    # sibling in the same scan is still classified.
+    (workdir / "dangling.nc").symlink_to(workdir / "does_not_exist.nc")
+
+    good = workdir / "good.nc"
+    with nc.Dataset(good, "w") as dataset:
+        dataset.createDimension("x", 2)
+        dataset.createVariable("v", "f4", ("x",))[:] = [1.0, 2.0]
+
+    report = audit_path(str(workdir), _opts())
+    by_name = {result.path.rsplit("/", 1)[-1]: result for result in report.files}
+
+    assert by_name["dangling.nc"].status == "malformed"
+    assert any(
+        issue.code == "MALFORMED_CONTAINER"
+        for issue in by_name["dangling.nc"].issues
+    )
+    assert by_name["good.nc"].status == "already_modern"
