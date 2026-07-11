@@ -341,7 +341,14 @@ def _write_manifest(report : AuditReport, path : str) -> None:
 
     writer = write_csv if path.lower().endswith(".csv") else write_jsonl
 
-    with open(path, "w", newline="") as stream:
+    # Filenames can carry bytes that don't decode as UTF-8; os.walk surfaces
+    # them as lone surrogates in the path strings. `errors="surrogateescape"`
+    # round-trips those bytes back out on write instead of crashing the whole
+    # scan with a UnicodeEncodeError (a ValueError the CLI guard wouldn't catch
+    # as a clean exit). JSONL is already surrogate-safe via json.dumps
+    # ensure_ascii; this makes the CSV writer safe too.
+    with open(path, "w", newline="", encoding="utf-8",
+              errors="surrogateescape") as stream:
 
         writer(report, stream)
 
