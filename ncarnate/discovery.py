@@ -22,6 +22,7 @@ top-level LICENSE file.
 # Standard library imports.
 import logging
 import os
+import stat
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
@@ -41,6 +42,33 @@ def _files_to_paths(root : str, files : list[str]) -> list[str]:
     paths = [os.path.join(root, file) for file in files]
 
     return paths
+
+
+def _is_hang_safe(path : str) -> bool:
+
+    '''
+
+    True unless ``path`` is a file kind that would block a reader on open — a
+    FIFO, socket, or character/block device. A regular file is kept, and so is
+    a broken symlink or a vanished entry: those fail *fast* when a reader opens
+    them (surfacing as ``malformed``), never hanging, so excluding them would
+    only hide them from the audit. This is the seatbelt against a hostile
+    ``data.hdf`` that is really a named pipe, whose ``open`` never returns.
+
+    '''
+
+    try:
+
+        mode = os.stat(path, follow_symlinks=True).st_mode
+
+    except OSError:
+
+        # Broken symlink / race-vanished entry: not a hang risk — keep it so a
+        # downstream reader surfaces it rather than silently dropping it.
+        return True
+
+    return not (stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode)
+                or stat.S_ISCHR(mode) or stat.S_ISBLK(mode))
 
 
 def _log_walk_error(error : OSError) -> None:
@@ -83,6 +111,12 @@ def _get_files(paths : list[str], recursive : bool) -> list[str]:
                 ):
 
                     subfiles    = _files_to_paths(root, subfiles)
+                    # Drop only hang-prone special files (FIFO/device/socket):
+                    # one named `*.hdf` would otherwise be handed downstream
+                    # and block a reader forever on open. Broken symlinks and
+                    # unreadable regulars are kept — they fail fast and surface
+                    # as `malformed`, which is the audit's whole point.
+                    subfiles    = filter(_is_hang_safe, subfiles)
                     valid_files = filter(_has_supported_extension, subfiles)
 
                     files += sorted(valid_files)
