@@ -15,6 +15,7 @@ to this file by the next [test] unit.)
 """
 
 import json
+import os
 
 import pytest
 
@@ -26,7 +27,12 @@ from ncarnate.errors import NcarnateError
 from ncarnate.hashing import sha256_of_file
 
 from ncarnate.convert.reader import read_manifest
-from ncarnate.convert.integrity import IntegrityError, verify_sha256
+from ncarnate.convert.integrity import (
+    ContainmentError,
+    IntegrityError,
+    resolve_within,
+    verify_sha256,
+)
 
 
 def _staged_record(workdir, *, record_true_hash):
@@ -98,3 +104,88 @@ def test_null_hash_allowed_with_override(workdir):
     """--allow-unverified opts a null-hash record past the gate (KD2)."""
     record, staged = _staged_record(workdir, record_true_hash=False)
     assert verify_sha256(record, str(staged), allow_unverified=True) is None
+
+
+# --- path containment (traversal + absolute) — §Risks ------------------
+#
+# The manifest is untrusted data that becomes a filesystem read/write path.
+# A crafted record.path could redirect a read or land an output outside the
+# tree; the sha256 gate does NOT help here (an attacker who authors the
+# manifest also authors record.sha256). Containment is the sole defense and
+# is required on BOTH the resolved source (under root) and output (under
+# --out-dir). These use hand-authored traversal manifests as real inputs.
+
+
+def _record_with_path(workdir, path):
+    """Write a one-record manifest carrying an arbitrary (hostile) ``path``
+    and parse it back through the real reader — the traversal string is a
+    real constructed input, not a mock."""
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "ncarnate_version": "0.0.0",
+        "ruleset_version": RULESET_VERSION,
+        "mode": "metadata",
+        "audited_at": "2026-01-01T00:00:00Z",
+        "root": str(workdir),
+        "path": path,
+        "size_bytes": 1,
+        "sha256": "ab" * 32,
+        "format": "HDF5",
+        "status": "ready",
+        "structures": [],
+        "issues": [],
+        "plan": {"operation": "recompress"},
+    }
+    manifest = workdir / "m.jsonl"
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    return read_manifest(str(manifest))[0]
+
+
+def test_containment_error_is_ncarnate_error():
+    """A containment rejection is an NcarnateError so the CLI catches it."""
+    assert issubclass(ContainmentError, NcarnateError)
+
+
+def test_relative_path_resolves_within_base(workdir):
+    """Positive control: an ordinary relative path resolves under the base."""
+    base = workdir / "root"
+    base.mkdir()
+    resolved = resolve_within(str(base), "sub/granule.hdf")
+    real_base = os.path.realpath(str(base))
+    assert os.path.commonpath([os.path.realpath(resolved), real_base]) == real_base
+
+
+def test_dotdot_escaping_path_is_rejected_under_root(workdir):
+    """NEGATIVE: a `..`-escaping source path is rejected (read redirection)."""
+    root = workdir / "root"
+    root.mkdir()
+    record = _record_with_path(workdir, "../../etc/passwd")
+    with pytest.raises(ContainmentError):
+        resolve_within(str(root), record.path)
+
+
+def test_dotdot_escaping_path_is_rejected_under_out_dir(workdir):
+    """NEGATIVE: the same containment applies to the output base (write)."""
+    out_dir = workdir / "out"
+    out_dir.mkdir()
+    record = _record_with_path(workdir, "../../etc/passwd")
+    with pytest.raises(ContainmentError):
+        resolve_within(str(out_dir), record.path)
+
+
+def test_absolute_path_is_rejected_under_root(workdir):
+    """NEGATIVE: an absolute source path is rejected outright."""
+    root = workdir / "root"
+    root.mkdir()
+    record = _record_with_path(workdir, "/etc/passwd")
+    with pytest.raises(ContainmentError):
+        resolve_within(str(root), record.path)
+
+
+def test_absolute_path_is_rejected_under_out_dir(workdir):
+    """NEGATIVE: an absolute path is rejected against the output base too."""
+    out_dir = workdir / "out"
+    out_dir.mkdir()
+    record = _record_with_path(workdir, "/etc/passwd")
+    with pytest.raises(ContainmentError):
+        resolve_within(str(out_dir), record.path)
