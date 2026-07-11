@@ -16,6 +16,7 @@ to this file by the next [test] unit.)
 
 import json
 import os
+import shutil
 
 import pytest
 
@@ -26,6 +27,7 @@ from ncarnate.audit.models import SCHEMA_VERSION
 from ncarnate.errors import NcarnateError
 from ncarnate.hashing import sha256_of_file
 
+from ncarnate.convert import ConvertOptions, convert_manifest
 from ncarnate.convert.reader import read_manifest
 from ncarnate.convert.integrity import (
     ContainmentError,
@@ -210,3 +212,61 @@ def test_absolute_path_is_rejected_under_out_dir(workdir):
     record = _record_with_path(workdir, "/etc/passwd")
     with pytest.raises(ContainmentError):
         resolve_within(str(out_dir), record.path)
+
+
+# --- read-base trust: --root vs the untrusted manifest root ------------
+
+def test_manifest_mode_refuses_untrusted_root_by_default(workdir):
+    """SECURITY: with neither --root nor --allow-manifest-root, convert refuses
+    to trust the manifest's own recorded root as the containment base — the run
+    stops (ContainmentError) before any file is read or converted."""
+    _staged_record(workdir, record_true_hash=True)      # writes workdir/m.jsonl
+    out_dir = workdir / "out"
+    with pytest.raises(ContainmentError):
+        convert_manifest(str(workdir / "m.jsonl"),
+                         ConvertOptions(out_dir=str(out_dir)))
+    assert not out_dir.exists() or not list(out_dir.iterdir())
+
+
+def test_allow_manifest_root_opts_into_trusting_recorded_root(workdir):
+    """The explicit opt-in restores using the manifest's recorded root as the
+    base (today's behavior, now behind a flag)."""
+    _staged_record(workdir, record_true_hash=True)
+    out_dir = workdir / "out"
+    result = convert_manifest(
+        str(workdir / "m.jsonl"),
+        ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True),
+    )
+    assert result.converted and not result.failed
+
+
+def test_root_flag_anchors_reads_and_neutralises_manifest_root(workdir):
+    """SECURITY: --root supplies the base, so a hostile record.root pointing
+    elsewhere is ignored. The granule exists only under --root (not under the
+    recorded root), so a successful conversion proves the base was --root — had
+    record.root been trusted, the source would not resolve."""
+    archive = workdir / "archive"
+    archive.mkdir()
+    staged = archive / "g.nc"
+    shutil.copyfile(NETCDF_FIXTURES[0], staged)
+
+    record = {
+        "schema_version": SCHEMA_VERSION, "ncarnate_version": "0.0.0",
+        "ruleset_version": RULESET_VERSION, "mode": "metadata",
+        "audited_at": "2026-01-01T00:00:00Z",
+        "root": "/nonexistent/hostile/root",            # ignored when --root given
+        "path": "g.nc", "size_bytes": staged.stat().st_size,
+        "sha256": sha256_of_file(str(staged)),
+        "format": "HDF5", "status": "ready", "structures": [], "issues": [],
+        "plan": {"operation": "recompress"},
+    }
+    manifest = workdir / "m.jsonl"
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    out_dir = workdir / "out"
+    result = convert_manifest(
+        str(manifest),
+        ConvertOptions(out_dir=str(out_dir), root=str(archive)),
+    )
+    assert result.converted and not result.failed
+    assert (out_dir / "g.nc").is_file()

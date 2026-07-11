@@ -11,16 +11,22 @@ JSONL migration manifest, converting exactly the granules the audit blessed
 while re-verifying integrity and never mutating a source by default.
 
 ### Added
-- `ncarnate convert --manifest manifest.jsonl --out-dir DIR`: executes an
-  audit migration manifest. For each record whose status is selected
-  (`--status`, default `ready`) it re-verifies the recorded `sha256` before
-  touching the file, confines both the source and output paths against
-  traversal, and drives the existing `recompress` into a **mirrored output
-  tree** (HDF4/HDF-EOS2 → `.nc`, netCDF name kept). A `sha256` mismatch is
-  skipped-with-error, a `null` hash is refused without `--allow-unverified`,
-  and a blocker is never converted. Non-destructive by default; `--in-place`
-  opts into rewriting sources, `--skip-existing` makes an `--out-dir` run
-  resumable.
+- `ncarnate convert --manifest manifest.jsonl --out-dir DIR (--root DIR |
+  --allow-manifest-root)`: executes an audit migration manifest. For each
+  record whose status is selected (`--status`, default `ready`) it re-verifies
+  the recorded `sha256` before touching the file, confines both the source and
+  output paths against traversal, and drives the existing `recompress` into a
+  **mirrored output tree** (HDF4/HDF-EOS2 → `.nc`, netCDF name kept). A `sha256`
+  mismatch is skipped-with-error, a `null` hash is refused without
+  `--allow-unverified`, and a blocker is never converted. Non-destructive by
+  default; `--in-place` opts into rewriting sources, `--skip-existing` makes an
+  `--out-dir` run resumable.
+- Read containment base is operator-controlled: manifest mode requires
+  `--root DIR` (the base a source resolves under; the archive's current
+  location) or `--allow-manifest-root` to explicitly trust the manifest's own
+  recorded root. The manifest is untrusted input, so its recorded root is not
+  trusted as a read base by default (a crafted root could otherwise redirect
+  reads outside the archive).
 - Per-record isolation: one failing record never aborts the run; an
   end-of-run summary counts converted / skipped / failed with reasons, and
   the exit code is non-zero **iff** a selected record failed.

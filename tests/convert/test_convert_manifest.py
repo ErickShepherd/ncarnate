@@ -92,7 +92,7 @@ def test_ready_netcdf_converts_lossless_into_mirror(fixture, workdir):
         [_record(root, relpath, staged, status="ready", plan={"operation": "recompress"})],
     )
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     output = _expected_output(out_dir, relpath, "HDF5")
     assert output.is_file()                      # name kept, mirrored tree
@@ -112,7 +112,7 @@ def test_ready_hdf4_converts_with_nc_swap_into_mirror(fixture, workdir):
         [_record(root, relpath, staged, status="ready", plan={"operation": "convert"})],
     )
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     output = _expected_output(out_dir, relpath, "HDF4")
     assert output.suffix == ".nc" and output.is_file()   # HDF4 -> .nc swap
@@ -136,7 +136,7 @@ def test_ready_no_geolocation_forces_geolocation_off(workdir):
 
     result = convert_manifest(
         manifest,
-        ConvertOptions(out_dir=str(out_dir), statuses={"ready_no_geolocation"}),
+        ConvertOptions(out_dir=str(out_dir), statuses={"ready_no_geolocation"}, allow_manifest_root=True),
     )
 
     output = _expected_output(out_dir, relpath, "HDF4")
@@ -163,7 +163,7 @@ def test_already_modern_recompresses_lossless(workdir):
     )
 
     result = convert_manifest(
-        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"already_modern"})
+        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"already_modern"}, allow_manifest_root=True)
     )
 
     output = _expected_output(out_dir, relpath, "HDF5")
@@ -185,7 +185,7 @@ def test_blocker_record_skipped_never_converted(workdir):
     )
 
     result = convert_manifest(
-        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"unsupported"})
+        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"unsupported"}, allow_manifest_root=True)
     )
 
     assert relpath in [r.path for r in result.skipped]
@@ -208,7 +208,7 @@ def test_sources_are_left_untouched(workdir):
         workdir,
         [_record(root, relpath, staged, status="ready", plan={"operation": "recompress"})],
     )
-    convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     assert sha256_of_file(str(staged)) == before_hash
     assert staged.stat().st_mtime == before_mtime
