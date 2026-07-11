@@ -43,14 +43,16 @@ def _axis_weights(data_size  : int,
 
         raise UnsupportedGeolocationError(
             f"Dimension map with non-positive increment {increment} is "
-            f"not supported."
+            f"not supported.",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     if geo_size < 2:
 
         raise UnsupportedGeolocationError(
             f"Dimension map needs at least 2 geolocation pixels to "
-            f"interpolate; got {geo_size}."
+            f"interpolate; got {geo_size}.",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     fractional  = (np.arange(data_size, dtype = np.float64) - offset) \
@@ -133,7 +135,8 @@ def interpolate_geolocation(latitude   : np.ndarray,
                 raise UnsupportedGeolocationError(
                     f"Axis {axis}: data size {data_shape[axis]} differs "
                     f"from geolocation size {latitude.shape[axis]} but no "
-                    f"dimension map covers it."
+                    f"dimension map covers it.",
+                    code="SWATH_DIMMAP_UNRESOLVED",
                 )
 
             continue

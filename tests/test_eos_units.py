@@ -221,8 +221,10 @@ def test_unsupported_grid_origin_fails_loud():
     grid = dataclasses.replace(
         structmetadata_of("seaice").grids[0], grid_origin="HDFE_GD_LL"
     )
-    with pytest.raises(UnsupportedGeolocationError, match="HDFE_GD_LL"):
+    with pytest.raises(UnsupportedGeolocationError, match="HDFE_GD_LL") as exc:
         reconstruct(grid)
+    # Structured code carried, consistent with the hdf4.py refusal sites.
+    assert exc.value.code == "SWATH_GEOLOCATION_UNSUPPORTED"
 
 
 @pytest.mark.parametrize("x_dim,y_dim", [(0, 896), (608, 0), (-1, 896)])
@@ -230,8 +232,9 @@ def test_non_positive_dimensions_fail_loud(x_dim, y_dim):
     grid = dataclasses.replace(
         structmetadata_of("seaice").grids[0], x_dim=x_dim, y_dim=y_dim
     )
-    with pytest.raises(UnsupportedGeolocationError, match="non-positive"):
+    with pytest.raises(UnsupportedGeolocationError, match="non-positive") as exc:
         reconstruct(grid)
+    assert exc.value.code == "SWATH_GEOLOCATION_UNSUPPORTED"
 
 
 # --- swath --------------------------------------------------------------
@@ -306,14 +309,18 @@ def test_edge_extrapolation_is_linear():
 
 def test_bad_dimension_maps_fail_loud():
     geo_lat, geo_lon = synthetic_geolocation((10, 10))
-    with pytest.raises(UnsupportedGeolocationError):
+    # Non-positive increment: an unsupported geolocation construct.
+    with pytest.raises(UnsupportedGeolocationError) as exc:
         interpolate_geolocation(
             geo_lat, geo_lon, [(0, 0), (0, 2)], (19, 19), None
         )
-    with pytest.raises(UnsupportedGeolocationError):
+    assert exc.value.code == "SWATH_GEOLOCATION_UNSUPPORTED"
+    # An axis with no covering dimension map: unresolved dim map.
+    with pytest.raises(UnsupportedGeolocationError) as exc:
         interpolate_geolocation(
             geo_lat, geo_lon, [None, (0, 2)], (99, 19), None
         )
+    assert exc.value.code == "SWATH_DIMMAP_UNRESOLVED"
 
 
 def _minimal_grid_structmetadata(*, xdim="608", upper_left="(-3850000.0,5850000.0)"):
