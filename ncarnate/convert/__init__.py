@@ -200,6 +200,11 @@ def _build_convert_parser() -> argparse.ArgumentParser:
         description = "Execute an audit migration manifest: re-verify each "
                       "granule's recorded sha256, then convert exactly the "
                       "selected statuses into a mirrored output tree.",
+        # No prefix abbreviations: the cli pre-dispatch shim routes to this
+        # parser only on the exact `--manifest` token, so allowing argparse to
+        # accept `--man=…` here would make the two layers disagree (an
+        # abbreviation the shim never routes but this parser would honor).
+        allow_abbrev = False,
     )
 
     # KD1: a run is driven by a manifest xor the legacy positional paths.

@@ -122,3 +122,14 @@ def test_existing_cli_test_suite_is_untouched():
     with open(path, encoding="utf-8") as stream:
         text = stream.read()
     assert text.count("def test_") == 8
+
+
+def test_convert_parser_rejects_manifest_abbreviation():
+    # allow_abbrev=False: `--man=` must NOT resolve to `--manifest` in the
+    # convert parser, so it agrees with the cli shim (which routes only on the
+    # exact `--manifest` token). Otherwise the two layers disagree.
+    from ncarnate.convert import _build_convert_parser
+
+    parser = _build_convert_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--man=x.jsonl", "--out-dir", "d"])
