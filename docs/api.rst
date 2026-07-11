@@ -26,6 +26,23 @@ versioned migration-manifest contract.
    :members:
    :undoc-members:
 
+Manifest-driven conversion
+--------------------------
+
+``convert_manifest`` executes a migration manifest produced by ``audit_path``
+(or ``ncarnate audit --output``): for each record whose status is selected it
+re-verifies the recorded ``sha256`` before touching the file, confines the
+source and output paths, and drives :func:`~ncarnate.recompress` into a mirrored
+output tree. Per-record failures are isolated and tallied into a
+:class:`~ncarnate.convert.models.ConvertResult` — the archive is never mutated
+unless ``in_place`` is set.
+
+.. autofunction:: ncarnate.convert_manifest
+
+.. autoclass:: ncarnate.ConvertOptions
+   :members:
+   :undoc-members:
+
 Format detection
 ----------------
 
