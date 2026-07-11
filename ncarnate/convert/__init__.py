@@ -100,7 +100,13 @@ def convert_manifest(
     # gate is no defense, since the attacker also authors the recorded hash;
     # design §Risks path-containment). Consistent with the tool's rule never to
     # auto-pick a security-critical default the operator didn't name.
-    if options.root is None and not options.allow_manifest_root:
+    #
+    # `not options.root` (not `is None`) so an *empty* --root fails closed too:
+    # the base resolution below is `options.root or record.root`, which also
+    # treats "" as falsy — guarding on `is None` would let `--root ""` (e.g. an
+    # unset shell var) pass the guard and then silently fall back to the
+    # untrusted record.root. The two checks must agree.
+    if not options.root and not options.allow_manifest_root:
 
         raise ContainmentError(
             "manifest mode will not trust the manifest's own recorded root as "

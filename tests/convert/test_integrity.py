@@ -270,3 +270,15 @@ def test_root_flag_anchors_reads_and_neutralises_manifest_root(workdir):
     )
     assert result.converted and not result.failed
     assert (out_dir / "g.nc").is_file()
+
+
+def test_empty_root_fails_closed_not_back_to_manifest_root(workdir):
+    """SECURITY (fail-closed): an empty --root (e.g. an unset shell var) must be
+    refused, not silently fall back to the untrusted record.root — the guard and
+    the base resolution must agree on falsy-root semantics."""
+    _staged_record(workdir, record_true_hash=True)
+    out_dir = workdir / "out"
+    with pytest.raises(ContainmentError):
+        convert_manifest(str(workdir / "m.jsonl"),
+                         ConvertOptions(out_dir=str(out_dir), root=""))
+    assert not out_dir.exists() or not list(out_dir.iterdir())
