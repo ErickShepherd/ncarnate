@@ -136,10 +136,38 @@ checksum, status, blockers, and the conversion plan — designed so a later
 `ncarnate convert --manifest` (and every downstream tool) consumes it unchanged.
 The bare `ncarnate <path>` and `ncarnate convert <path>` forms are unchanged.
 
+## Convert exactly what the audit blessed
+
+The golden path for an archive migration is two steps: **audit an archive, then
+convert exactly what it blessed.** `convert --manifest` executes the audit's
+manifest — it re-verifies each granule's recorded `sha256` before touching it,
+converts only the statuses you select (`ready` by default), writes a mirrored
+output tree, and **never modifies a source** unless you pass `--in-place`.
+
+```console
+# 1. Audit the archive, recording a per-file sha256 in the manifest.
+ncarnate audit /data/archive --output manifest.jsonl --checksum sha256
+
+# 2. Convert exactly the `ready` granules into a mirrored ./modern tree.
+#    A record whose bytes changed since the audit (sha256 mismatch) is skipped
+#    with an error; a blocker is never converted; sources are left untouched.
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern
+
+# Widen the selection once you've read the report; resume an interrupted run.
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern \
+    --status ready,already_modern --skip-existing
+```
+
+The end-of-run summary counts converted / skipped / failed with reasons, and the
+exit code is non-zero **iff** a selected record failed — so a partial failure on
+a terabyte run surfaces loudly instead of silently mis-converting.
+
 ## Library usage
 
 ```python
-from ncarnate import recompress, audit_path, AuditOptions
+from ncarnate import (
+    recompress, audit_path, AuditOptions, convert_manifest, ConvertOptions,
+)
 
 # Lossless recompression; returns the output path.
 recompress("observations.nc", complevel=9)
@@ -149,6 +177,9 @@ recompress("granule.hdf", dst="granule.nc")
 
 # Read-only archive audit; returns an AuditReport (report.summary, report.files).
 report = audit_path("/data/archive", AuditOptions(recursive=True))
+
+# Execute an audit manifest; returns a ConvertResult (converted/skipped/failed).
+result = convert_manifest("manifest.jsonl", ConvertOptions(out_dir="./modern"))
 ```
 
 ## Example

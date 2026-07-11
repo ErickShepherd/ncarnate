@@ -24,7 +24,6 @@ from __future__ import annotations
 # Standard library imports.
 import argparse
 import datetime
-import hashlib
 import logging
 import os
 
@@ -37,6 +36,7 @@ from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__
 from ncarnate.errors import NcarnateError
 from ncarnate.formats import FileFormat, detect_format
+from ncarnate.hashing import sha256_of_file
 from ncarnate.audit import codes
 from ncarnate.audit.classify import classify, issue_for_exception, status_for
 from ncarnate.audit.inspect import FileFacts, inspect_file
@@ -181,27 +181,6 @@ def _blocked_record(
     return status_for(facts, [issue]), [], [issue], None
 
 
-def _sha256(file_path : str) -> str:
-
-    '''
-
-    The file's SHA-256, read in chunks so a terabyte granule never lands in
-    memory. This reads the raw file bytes (for the manifest's integrity
-    check), never the decoded science arrays.
-
-    '''
-
-    hasher = hashlib.sha256()
-
-    with open(file_path, "rb") as stream:
-
-        for chunk in iter(lambda: stream.read(1 << 20), b""):
-
-            hasher.update(chunk)
-
-    return hasher.hexdigest()
-
-
 def _audit_file(
     file_path : str, root : str, options : AuditOptions, audited_at : str
 ) -> AuditResult:
@@ -212,14 +191,14 @@ def _audit_file(
     # granule — permission denied, removed mid-scan, a dangling symlink, a
     # corrupt container, or any I/O error — becomes a `malformed` record and
     # the whole-archive scan continues instead of aborting. `detect_format`,
-    # `getsize`, and `_sha256` all do file I/O that can raise `OSError` before
+    # `getsize`, and `sha256_of_file` all do file I/O that can raise `OSError` before
     # inspection is even reached, so they sit inside the guard too (not only
     # `_inspect_and_classify`, which guards the inspection itself).
     try:
 
         file_format = detect_format(file_path)
         size_bytes  = os.path.getsize(file_path)
-        sha256      = (_sha256(file_path) if options.checksum == "sha256"
+        sha256      = (sha256_of_file(file_path) if options.checksum == "sha256"
                        else None)
         status, structures, issues, plan = _inspect_and_classify(
             file_path, file_format

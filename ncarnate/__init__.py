@@ -22,11 +22,15 @@ from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
 from ncarnate.audit import AuditOptions
 from ncarnate.audit import audit_path
+from ncarnate.convert import ConvertOptions
+from ncarnate.convert import convert_manifest
 
 __all__ = [
     "recompress",
     "audit_path",
     "AuditOptions",
+    "convert_manifest",
+    "ConvertOptions",
     "detect_format",
     "FileFormat",
     "NcarnateError",

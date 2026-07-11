@@ -268,9 +268,22 @@ def main() -> int:
 
     if argv and argv[0] == "convert":
 
-        # An explicit alias for today's flat behavior; strip the verb and
-        # fall through to the legacy parser unchanged. Not deprecated.
-        argv = argv[1:]
+        rest = argv[1:]
+
+        if any(arg == "--manifest" or arg.startswith("--manifest=")
+               for arg in rest):
+
+            # Manifest-driven run: dispatch to the convert sub-parser (design
+            # §Invocation shape, KD1). Imported lazily, mirroring the audit
+            # dispatch, to keep the verb handlers off cli's module-load path.
+            from ncarnate.convert import main as convert_main
+
+            return convert_main(rest)
+
+        # Otherwise the legacy positional alias for today's flat behavior:
+        # strip the verb and fall through to the legacy parser unchanged.
+        # Not deprecated.
+        argv = rest
 
     parser = _build_argument_parser()
     args   = parser.parse_args(argv)

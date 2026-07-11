@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - Unreleased
+
+Adds the manifest-driven converter — the tool that *executes* the audit's
+JSONL migration manifest, converting exactly the granules the audit blessed
+while re-verifying integrity and never mutating a source by default.
+
+### Added
+- `ncarnate convert --manifest manifest.jsonl --out-dir DIR`: executes an
+  audit migration manifest. For each record whose status is selected
+  (`--status`, default `ready`) it re-verifies the recorded `sha256` before
+  touching the file, confines both the source and output paths against
+  traversal, and drives the existing `recompress` into a **mirrored output
+  tree** (HDF4/HDF-EOS2 → `.nc`, netCDF name kept). A `sha256` mismatch is
+  skipped-with-error, a `null` hash is refused without `--allow-unverified`,
+  and a blocker is never converted. Non-destructive by default; `--in-place`
+  opts into rewriting sources, `--skip-existing` makes an `--out-dir` run
+  resumable.
+- Per-record isolation: one failing record never aborts the run; an
+  end-of-run summary counts converted / skipped / failed with reasons, and
+  the exit code is non-zero **iff** a selected record failed.
+- The `convert` verb now has its own argparse parser; `--manifest` and the
+  legacy positional `path...` form are mutually exclusive. The legacy
+  `ncarnate convert <path>` and bare `ncarnate <path>` forms are unchanged.
+- Public API: `convert_manifest` and `ConvertOptions`, exported from the
+  top-level `ncarnate` package and documented in the API reference.
+
 ## [2.1.0] - Unreleased
 
 Adds a read-only archive audit and the migration-manifest contract — the
