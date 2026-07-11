@@ -58,7 +58,7 @@ def _discover(path : str, recursive : bool) -> tuple[str, list[str]]:
 
     Resolves ``path`` to an absolute audit root and the files under it.
 
-    A directory reuses ``cli._get_files`` enumeration (recursion + extension
+    A directory reuses ``discovery._get_files`` enumeration (recursion + extension
     filtering). An explicitly-named file is **always** included, even with
     an unsupported extension — the audit counts and classifies it (as
     ``unknown``) rather than skipping or rejecting it (design §CLI
