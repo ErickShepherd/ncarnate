@@ -84,6 +84,16 @@ def verify_sha256(
             f"--allow-unverified"
         )
 
+    # sha256 is a manifest field; a non-string (e.g. a hostile int) would make
+    # the `[:12]` slice below raise a bare TypeError that only the run-survival
+    # belt catches. Refuse it cleanly as an IntegrityError instead.
+    if not isinstance(record.sha256, str):
+
+        raise IntegrityError(
+            f"{record.path}: manifest sha256 is not a string "
+            f"({type(record.sha256).__name__}); the manifest is malformed"
+        )
+
     actual = sha256_of_file(source_path)
 
     if actual != record.sha256:

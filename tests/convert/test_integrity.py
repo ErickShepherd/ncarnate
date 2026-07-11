@@ -70,6 +70,28 @@ def test_integrity_error_is_ncarnate_error():
     assert issubclass(IntegrityError, NcarnateError)
 
 
+def test_non_string_sha256_is_a_clean_integrity_error(workdir):
+    """A hostile manifest recording a non-string sha256 (e.g. an int) is
+    refused as a clean IntegrityError, not a bare TypeError on the `[:12]`
+    slice that only the run-survival belt would catch."""
+    staged = stage(NETCDF_FIXTURES[0], workdir)
+    record = {
+        "schema_version": SCHEMA_VERSION, "ncarnate_version": "0.0.0",
+        "ruleset_version": RULESET_VERSION, "mode": "metadata",
+        "audited_at": "2026-01-01T00:00:00Z", "root": str(workdir),
+        "path": staged.name, "size_bytes": staged.stat().st_size,
+        "sha256": 12345,                       # non-string (malformed/hostile)
+        "format": "HDF5", "status": "ready", "structures": [], "issues": [],
+        "plan": {"operation": "recompress"},
+    }
+    manifest = workdir / "m.jsonl"
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    parsed = read_manifest(str(manifest))[0]
+
+    with pytest.raises(IntegrityError):
+        verify_sha256(parsed, str(staged))
+
+
 def test_matching_hash_passes(workdir):
     """Positive control: an untampered file whose hash matches passes."""
     record, staged = _staged_record(workdir, record_true_hash=True)
