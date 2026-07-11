@@ -107,10 +107,33 @@ def convert_manifest(
                 record, source, allow_unverified=options.allow_unverified
             )
 
-            destination = resolve_within(
-                options.out_dir, _output_relpath(record)
-            )
-            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            if options.in_place:
+
+                # No mirrored tree: recompress replaces the netCDF source
+                # where it sits (after its own verify-lossless step) and
+                # writes an HDF4 conversion beside the source. skip_existing
+                # is inert here — there is no computed out_dir path to test,
+                # so resumability is an out_dir-mode-only guarantee (KD3,
+                # §Output destination).
+                destination = None
+
+            else:
+
+                destination = resolve_within(
+                    options.out_dir, _output_relpath(record)
+                )
+
+                # Resumability: a record whose mirrored output already
+                # exists is skipped, not re-converted (§Output destination).
+                if options.skip_existing and os.path.exists(destination):
+
+                    result.skipped.append(ConvertRecord(
+                        record.path,
+                        reason="output already exists (--skip-existing)",
+                    ))
+                    continue
+
+                os.makedirs(os.path.dirname(destination), exist_ok=True)
 
             # ready_no_geolocation forces SDS-only output — the audit
             # predicted geolocation is unsupported (KD4/§Per-status).
