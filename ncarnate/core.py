@@ -390,8 +390,10 @@ def _verify_lossless(src_path : str, dst_path : str) -> None:
     '''
 
     Re-opens both files and asserts the copy is faithful: identical
-    dimension/group trees, attributes, dtypes, and bit-identical raw
-    values. Raises `VerificationError` on the first difference.
+    dimension/group trees, attributes, dtypes, and value-identical raw
+    arrays (compared with ``np.array_equal(equal_nan=True)``, so distinct
+    NaN bit-patterns and ``-0.0``/``+0.0`` count as equal). Raises
+    `VerificationError` on the first difference.
 
     '''
 
