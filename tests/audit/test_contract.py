@@ -175,3 +175,7 @@ def test_csv_rows_equal_jsonl_lines(workdir):
     jsonl_lines = [line for line in jsonl.getvalue().splitlines() if line.strip()]
     csv_rows = list(csv.DictReader(io.StringIO(csv_stream.getvalue())))
     assert len(csv_rows) == len(jsonl_lines)
+    # Not just an equal count: the same files, so a CSV writer that emitted the
+    # right number of rows with wrong paths would still fail the contract.
+    assert sorted(row["path"] for row in csv_rows) \
+        == sorted(json.loads(line)["path"] for line in jsonl_lines)
