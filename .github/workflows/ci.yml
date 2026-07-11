@@ -22,7 +22,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install ruff
-        run: python -m pip install ruff
+        # Minor-pinned so a future ruff release can't red a green branch with
+        # no code change (new lint rules land in version bumps). Bump
+        # deliberately; keep in step with the version developers run locally.
+        run: python -m pip install "ruff==0.15.*"
       - name: Run ruff
         run: ruff check .
 
