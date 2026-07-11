@@ -22,9 +22,11 @@ top-level LICENSE file.
 from __future__ import annotations
 
 # Standard library imports.
+import argparse
 import os
 
 # Local application imports.
+from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
 from ncarnate.errors import NcarnateError
 from ncarnate.convert.integrity import resolve_within, verify_sha256
@@ -34,12 +36,14 @@ from ncarnate.convert.models import (
     ConvertResult,
 )
 from ncarnate.convert.reader import read_manifest
+from ncarnate.convert.report import render_summary
 
 __all__ = [
     "ConvertOptions",
     "ConvertRecord",
     "ConvertResult",
     "convert_manifest",
+    "main",
 ]
 
 
@@ -153,3 +157,181 @@ def convert_manifest(
             result.failed.append(ConvertRecord(record.path, reason=str(error)))
 
     return result
+
+
+def _build_convert_parser() -> argparse.ArgumentParser:
+
+    '''
+
+    The ``convert`` sub-parser (design §Invocation shape), symmetric with the
+    ``audit`` parser (KD7). ``--manifest`` and the legacy positional
+    ``path...`` are **mutually exclusive** (KD1); the encoding flags mirror the
+    legacy parser so the two forms encode identically.
+
+    '''
+
+    parser = argparse.ArgumentParser(
+        prog        = f"{PACKAGE_NAME} convert",
+        description = "Execute an audit migration manifest: re-verify each "
+                      "granule's recorded sha256, then convert exactly the "
+                      "selected statuses into a mirrored output tree.",
+    )
+
+    # KD1: a run is driven by a manifest xor the legacy positional paths.
+    source = parser.add_mutually_exclusive_group(required = False)
+
+    source.add_argument(
+        "--manifest",
+        type = str,
+        help = "A JSONL migration manifest (from `ncarnate audit`) to execute.",
+    )
+
+    source.add_argument(
+        "path",
+        nargs   = "*",
+        default = [],
+        help    = "Legacy positional form; mutually exclusive with --manifest.",
+    )
+
+    parser.add_argument(
+        "--out-dir",
+        dest = "out_dir",
+        help = "The mirrored output root (required unless --in-place, KD3).",
+    )
+
+    parser.add_argument(
+        "--status",
+        default = "ready",
+        help    = "Comma-separated audited statuses to convert "
+                  "(default: ready).",
+    )
+
+    parser.add_argument(
+        "--allow-unverified",
+        dest   = "allow_unverified",
+        action = "store_true",
+        help   = "Convert a record whose recorded sha256 is null, relaxing "
+                 "the mandatory integrity gate (KD2).",
+    )
+
+    parser.add_argument(
+        "--in-place",
+        dest   = "in_place",
+        action = "store_true",
+        help   = "Recompress sources where they sit instead of into a "
+                 "mirrored tree (dangerous on an archive; KD3).",
+    )
+
+    parser.add_argument(
+        "--skip-existing",
+        dest   = "skip_existing",
+        action = "store_true",
+        help   = "Skip a record whose mirrored output already exists, making "
+                 "an --out-dir run resumable.",
+    )
+
+    parser.add_argument(
+        "--root",
+        default = None,
+        help    = "Override the containment base a source path resolves under "
+                  "(defaults to each record's root).",
+    )
+
+    parser.add_argument(
+        "--complevel",
+        type    = int,
+        default = 7,
+        choices = list(range(10)),
+        help    = "The desired gzip deflate compression level.",
+    )
+
+    zlib = parser.add_mutually_exclusive_group(required = False)
+    zlib.add_argument("--zlib", dest = "zlib", action = "store_true",
+                      help = "Enables zlib gzip compression.")
+    zlib.add_argument("--no-zlib", dest = "zlib", action = "store_false",
+                      help = "Disables zlib gzip compression.")
+    parser.set_defaults(zlib = True)
+
+    shuffle = parser.add_mutually_exclusive_group(required = False)
+    shuffle.add_argument("--shuffle", dest = "shuffle", action = "store_true",
+                         help = "Enables the HDF5 shuffle filter.")
+    shuffle.add_argument("--no-shuffle", dest = "shuffle",
+                         action = "store_false",
+                         help = "Disables the HDF5 shuffle filter.")
+    parser.set_defaults(shuffle = True)
+
+    parser.add_argument(
+        "--no-geolocation",
+        dest    = "geolocation",
+        action  = "store_false",
+        default = True,
+        help    = "Converts HDF-EOS2 files SDS-only, skipping CF geolocation "
+                  "reconstruction.",
+    )
+
+    return parser
+
+
+def main(argv : list[str]) -> int:
+
+    '''
+
+    The ``ncarnate convert --manifest`` entry point (design §Invocation
+    shape), symmetric with :func:`ncarnate.audit.main`. Parses the convert
+    sub-parser, builds a :class:`ConvertOptions` from the flags, executes the
+    manifest, prints the run summary, and returns
+    :attr:`ConvertResult.exit_code` (non-zero iff a selected record failed).
+
+    Dispatched here by :func:`ncarnate.cli.main` when the ``convert`` verb
+    carries ``--manifest``; the bare positional form falls through to the
+    legacy flat parser instead, so it is never reached without a manifest.
+
+    '''
+
+    parser = _build_convert_parser()
+    args   = parser.parse_args(argv)
+
+    # Imported lazily (mirroring the audit dispatch) to keep the verb handlers
+    # off cli's module-load path.
+    from ncarnate.cli import _configure_logging
+    logger = _configure_logging()
+
+    if not args.manifest:
+
+        # Only reached if convert.main is invoked directly without a manifest;
+        # cli.main routes the legacy positional form to the flat parser.
+        parser.error("--manifest is required")
+
+    if not args.out_dir and not args.in_place:
+
+        parser.error("--out-dir is required in manifest mode (or use --in-place)")
+
+    statuses = {token.strip() for token in args.status.split(",")
+                if token.strip()}
+
+    options = ConvertOptions(
+        out_dir          = args.out_dir,
+        statuses         = statuses,
+        allow_unverified = args.allow_unverified,
+        in_place         = args.in_place,
+        skip_existing    = args.skip_existing,
+        root             = args.root,
+        zlib             = args.zlib,
+        shuffle          = args.shuffle,
+        complevel        = args.complevel,
+        geolocation      = args.geolocation,
+    )
+
+    try:
+
+        result = convert_manifest(args.manifest, options)
+
+    except NcarnateError as error:
+
+        logger.error("%s", error)
+
+        return 2
+
+    print(render_summary(result))
+
+    return result.exit_code
