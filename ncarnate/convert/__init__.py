@@ -112,6 +112,11 @@ def convert_manifest(
         try:
 
             source = resolve_within(options.root or record.root, record.path)
+            # NB: verify_sha256 and recompress open `source` by path in two
+            # non-atomic steps — a TOCTOU residual risk under a hostile archive
+            # filesystem that can race the tree between the two opens (design
+            # §Risks "TOCTOU"). Accepted for now; the full fix (single-fd hash
+            # + convert) needs an fd-accepting recompress entry point.
             verify_sha256(
                 record, source, allow_unverified=options.allow_unverified
             )

@@ -257,6 +257,18 @@ the manifest models, and the audit's `_sha256` helper (promoted to a shared util
 - **Executing a stale manifest.** A file edited between audit and convert → the sha256
   gate skips it with an error; it is never converted on a stale prediction. (A `null`-hash
   manifest run with `--allow-unverified` forfeits this — documented as the unsafe mode.)
+- **TOCTOU between the sha256 gate and the conversion read** *(residual risk, hostile
+  archive filesystem).* `convert_manifest` `realpath`-resolves and hashes the source, then
+  `recompress` re-opens it **by path** — two non-atomic opens. An attacker who can race the
+  source tree (swap the file, or flip a parent directory to a symlink) between the hash and
+  the `recompress` read makes the converter act on bytes the sha256 gate never verified.
+  This is inherent to check-then-use with a path. **Current posture:** accepted as a
+  documented residual risk — it requires write access to the archive mid-run (a strong
+  precondition), and `recompress` still verifies its output lossless against whatever it
+  read. **Full mitigation (deferred):** hash and convert from a single opened fd
+  (`open` once with `O_NOFOLLOW`, hash that fd, hand the same handle to the converter),
+  which requires giving `core.recompress` an fd-accepting entry point — a change to the
+  conversion engine's API beyond this increment's scope.
 - **Path traversal from an untrusted manifest** *(security — the manifest is data that
   becomes a filesystem write path).* A crafted `record.path` such as `../../etc/passwd`
   (or an absolute path) could make an output land outside `--out-dir`, or a read target
