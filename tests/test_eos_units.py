@@ -353,3 +353,15 @@ def test_scalar_where_coordinate_tuple_expected_fails_loud():
     # must raise EosParseError, not a bare TypeError ('int' not iterable).
     with pytest.raises(EosParseError):
         structmeta.parse(_minimal_grid_structmetadata(upper_left="5"))
+
+
+def test_interpolation_rejects_oversized_data_shape():
+    # Defensive: a data_shape that would blow past the allocation ceiling is
+    # refused locally, before any array is materialized.
+    from ncarnate.errors import AllocationTooLargeError
+
+    geo_lat, geo_lon = synthetic_geolocation((10, 10))
+    with pytest.raises(AllocationTooLargeError):
+        interpolate_geolocation(
+            geo_lat, geo_lon, [(2, 5), (2, 5)], (10 ** 6, 10 ** 6), None
+        )

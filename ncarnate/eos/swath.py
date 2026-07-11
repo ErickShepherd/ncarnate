@@ -22,6 +22,7 @@ import numpy as np
 
 # Local application imports.
 from ncarnate.errors import UnsupportedGeolocationError
+from ncarnate.limits import check_array_size
 
 
 def _axis_weights(data_size  : int,
@@ -116,6 +117,13 @@ def interpolate_geolocation(latitude   : np.ndarray,
     ``data_shape``.
 
     '''
+
+    # Defensive local bound: the intermediate/output arrays are data_shape-
+    # sized. This is transitively bounded (the owning variable already passed
+    # the read-time ceiling), but assert it here so the invariant doesn't
+    # depend on a cross-module argument. itemsize 8 covers the float64 ECEF
+    # intermediate (the widest of the arrays allocated below).
+    check_array_size(data_shape, 8, "swath geolocation interpolation")
 
     valid = np.isfinite(latitude) & np.isfinite(longitude)
 
