@@ -156,8 +156,9 @@ def main() -> int:
 
     if argv and argv[0] == "audit":
 
-        # Imported lazily: ncarnate.audit imports cli._get_files, so a
-        # top-level import here would be circular.
+        # Imported lazily to keep the audit subpackage off cli's module-load
+        # path (it pulls in the inspection/classification stack); a top-level
+        # import isn't needed for the common `ncarnate <path>` invocation.
         from ncarnate.audit import main as audit_main
 
         return audit_main(argv[1:])
