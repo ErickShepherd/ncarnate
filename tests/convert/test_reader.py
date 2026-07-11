@@ -23,6 +23,7 @@ from ncarnate.audit.models import SCHEMA_VERSION
 from ncarnate.errors import NcarnateError
 
 from ncarnate.convert.reader import (
+    MalformedManifestError,
     ManifestCompatError,
     ManifestRecord,
     read_manifest,
@@ -57,6 +58,36 @@ def _write_manifest(path, records):
         for record in records:
             stream.write(json.dumps(record) + "\n")
     return str(path)
+
+
+# --- malformed input: clean named refusal, never a raw traceback -------
+
+def test_non_json_line_raises_clean_manifest_error(tmp_path):
+    """A line that is not valid JSON is refused as MalformedManifestError
+    (a NcarnateError), not an uncaught JSONDecodeError."""
+    manifest = tmp_path / "m.jsonl"
+    manifest.write_text('{not valid json\n', encoding="utf-8")
+    with pytest.raises(MalformedManifestError):
+        read_manifest(str(manifest))
+
+
+def test_non_object_line_raises_clean_manifest_error(tmp_path):
+    """A JSON line that is not an object (e.g. a bare number/array) is refused
+    cleanly rather than crashing on `.get`."""
+    manifest = tmp_path / "m.jsonl"
+    manifest.write_text("5\n", encoding="utf-8")
+    with pytest.raises(MalformedManifestError):
+        read_manifest(str(manifest))
+
+
+def test_missing_required_field_raises_clean_manifest_error(tmp_path):
+    """A schema-version-matching record that omits a required field is refused
+    as MalformedManifestError, not an uncaught KeyError."""
+    record = _record()
+    del record["path"]
+    manifest = _write_manifest(tmp_path / "m.jsonl", [record])
+    with pytest.raises(MalformedManifestError):
+        read_manifest(manifest)
 
 
 # --- happy path: parse to records --------------------------------------

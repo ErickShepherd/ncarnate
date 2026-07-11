@@ -49,6 +49,18 @@ class ManifestCompatError(NcarnateError):
     '''
 
 
+class MalformedManifestError(NcarnateError):
+
+    '''
+
+    Raised when a manifest line is not valid JSON, is not a JSON object, or
+    omits a required field. The manifest is untrusted input, so a bad line is
+    a clean, named refusal of the whole run (exit 2) — never an uncaught
+    ``JSONDecodeError``/``KeyError`` traceback.
+
+    '''
+
+
 @dataclass
 class ManifestRecord:
 
@@ -106,7 +118,7 @@ def read_manifest(path : str) -> list[ManifestRecord]:
 
     with open(path, encoding="utf-8") as stream:
 
-        for line in stream:
+        for line_number, line in enumerate(stream, start=1):
 
             line = line.strip()
 
@@ -114,7 +126,25 @@ def read_manifest(path : str) -> list[ManifestRecord]:
 
                 continue
 
-            raw = json.loads(line)
+            # The manifest is untrusted input; a non-JSON line, a non-object
+            # line, or a missing required field is a clean named refusal of
+            # the whole run, never an uncaught JSONDecodeError/KeyError.
+            try:
+
+                raw = json.loads(line)
+
+            except json.JSONDecodeError as error:
+
+                raise MalformedManifestError(
+                    f"manifest line {line_number} is not valid JSON: {error}"
+                ) from error
+
+            if not isinstance(raw, dict):
+
+                raise MalformedManifestError(
+                    f"manifest line {line_number} is a JSON "
+                    f"{type(raw).__name__}, not an object"
+                )
 
             if raw.get("schema_version") != SCHEMA_VERSION:
 
@@ -134,6 +164,15 @@ def read_manifest(path : str) -> list[ManifestRecord]:
                 )
                 ruleset_warned = True
 
-            records.append(ManifestRecord.from_record(raw))
+            try:
+
+                records.append(ManifestRecord.from_record(raw))
+
+            except KeyError as error:
+
+                raise MalformedManifestError(
+                    f"manifest line {line_number} is missing required field "
+                    f"{error}"
+                ) from error
 
     return records
