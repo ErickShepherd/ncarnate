@@ -85,3 +85,17 @@ class ConvertResult:
     converted : list[ConvertRecord] = field(default_factory=list)
     skipped   : list[ConvertRecord] = field(default_factory=list)
     failed    : list[ConvertRecord] = field(default_factory=list)
+
+    @property
+    def exit_code(self) -> int:
+
+        '''
+
+        The process exit code: non-zero **iff any selected record failed**
+        (§The per-record loop). A skip — a blocker or a non-selected status —
+        is not a failure and never sets it, mirroring the audit's ``main``
+        returning an ``int``.
+
+        '''
+
+        return 1 if self.failed else 0
