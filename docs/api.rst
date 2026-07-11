@@ -37,6 +37,13 @@ output tree. Per-record failures are isolated and tallied into a
 :class:`~ncarnate.convert.models.ConvertResult` — the archive is never mutated
 unless ``in_place`` is set.
 
+Because a manifest is untrusted input, the read containment base must be
+operator-controlled: set ``ConvertOptions.root`` (the CLI ``--root``) to anchor
+source resolution to a directory you control, or ``allow_manifest_root``
+(``--allow-manifest-root``) to explicitly trust the manifest's own recorded
+``root``. With neither, ``convert_manifest`` refuses the run rather than trust
+an attacker-controllable base.
+
 .. autofunction:: ncarnate.convert_manifest
 
 .. autoclass:: ncarnate.ConvertOptions
