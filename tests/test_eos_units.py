@@ -314,3 +314,35 @@ def test_bad_dimension_maps_fail_loud():
         interpolate_geolocation(
             geo_lat, geo_lon, [None, (0, 2)], (99, 19), None
         )
+
+
+def _minimal_grid_structmetadata(*, xdim="608", upper_left="(-3850000.0,5850000.0)"):
+    # A minimal single-grid StructMetadata body, valid unless a field is
+    # deliberately malformed by the caller (used for the coercion tests below).
+    return (
+        "GROUP=GridStructure\n"
+        "\tGROUP=GRID_1\n"
+        '\t\tGridName="G"\n'
+        f"\t\tXDim={xdim}\n"
+        "\t\tYDim=896\n"
+        f"\t\tUpperLeftPointMtrs={upper_left}\n"
+        "\t\tLowerRightMtrs=(3750000.0,-5350000.0)\n"
+        "\t\tProjection=GCTP_PS\n"
+        "\tEND_GROUP=GRID_1\n"
+        "END_GROUP=GridStructure\n"
+        "END\n"
+    )
+
+
+def test_non_numeric_int_field_fails_loud():
+    # A non-numeric integer field (e.g. XDim="608x") must raise the parser's
+    # named EosParseError, not a bare ValueError the classifier cannot code.
+    with pytest.raises(EosParseError):
+        structmeta.parse(_minimal_grid_structmetadata(xdim="608x"))
+
+
+def test_scalar_where_coordinate_tuple_expected_fails_loud():
+    # A scalar where a coordinate tuple is required (UpperLeftPointMtrs=5)
+    # must raise EosParseError, not a bare TypeError ('int' not iterable).
+    with pytest.raises(EosParseError):
+        structmeta.parse(_minimal_grid_structmetadata(upper_left="5"))

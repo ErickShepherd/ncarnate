@@ -285,6 +285,65 @@ def _require_attr(node : _Node, key : str, context : str):
     return node.attributes[key]
 
 
+def _coerce_int(value, key : str, context : str) -> int:
+
+    '''
+
+    Coerce a parsed StructMetadata attribute to ``int``, re-raising a
+    non-numeric or wrong-typed value (a bare ``ValueError``/``TypeError``)
+    as a named :class:`EosParseError`. A hostile file must fail the parser's
+    fail-loud contract, not escape as an internal traceback the classifier
+    cannot code.
+
+    '''
+
+    try:
+
+        return int(value)
+
+    except (ValueError, TypeError) as error:
+
+        raise EosParseError(
+            f"{context}: {key} is not an integer: {value!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
+        ) from error
+
+
+def _require_int(node : _Node, key : str, context : str) -> int:
+
+    return _coerce_int(_require_attr(node, key, context), key, context)
+
+
+def _coerce_float_tuple(value, key : str, context : str) -> tuple:
+
+    '''
+
+    Coerce a parsed attribute to a tuple of ``float``, re-raising a scalar
+    (non-iterable) or non-numeric element as a named :class:`EosParseError`.
+    These fields (corner points, projection parameters) are always coordinate
+    tuples, so a bare scalar is malformed.
+
+    '''
+
+    if not isinstance(value, tuple):
+
+        raise EosParseError(
+            f"{context}: {key} must be a coordinate tuple, got {value!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
+        )
+
+    try:
+
+        return tuple(float(element) for element in value)
+
+    except (ValueError, TypeError) as error:
+
+        raise EosParseError(
+            f"{context}: {key} has a non-numeric element: {value!r}",
+            code="EOS_STRUCTMETADATA_MALFORMED",
+        ) from error
+
+
 def _parse_dimensions(container : _Node | None) -> dict[str, int]:
 
     dimensions = {}
@@ -294,9 +353,8 @@ def _parse_dimensions(container : _Node | None) -> dict[str, int]:
         for node in container.children:
 
             name = _require_attr(node, "DimensionName", node.name)
-            size = _require_attr(node, "Size", node.name)
 
-            dimensions[name] = int(size)
+            dimensions[name] = _require_int(node, "Size", node.name)
 
     return dimensions
 
@@ -340,16 +398,21 @@ def _parse_grid(node : _Node) -> EosGrid:
 
     return EosGrid(
         name               = str(name),
-        x_dim              = int(_require_attr(node, "XDim", context)),
-        y_dim              = int(_require_attr(node, "YDim", context)),
-        upper_left         = tuple(float(v) for v in upper_left),
-        lower_right        = tuple(float(v) for v in lower_right),
+        x_dim              = _require_int(node, "XDim", context),
+        y_dim              = _require_int(node, "YDim", context),
+        upper_left         = _coerce_float_tuple(upper_left,
+                                                 "UpperLeftPointMtrs", context),
+        lower_right        = _coerce_float_tuple(lower_right,
+                                                 "LowerRightMtrs", context),
         projection         = str(projection),
-        proj_params        = tuple(float(v) for v in proj_params),
-        sphere_code        = int(node.attributes.get("SphereCode", -1)),
+        proj_params        = _coerce_float_tuple(proj_params,
+                                                 "ProjParams", context),
+        sphere_code        = _coerce_int(node.attributes.get("SphereCode", -1),
+                                         "SphereCode", context),
         grid_origin        = str(node.attributes.get("GridOrigin",
                                                      "HDFE_GD_UL")),
-        zone_code          = None if zone_code is None else int(zone_code),
+        zone_code          = None if zone_code is None
+                             else _coerce_int(zone_code, "ZoneCode", context),
         pixel_registration = str(node.attributes.get("PixelRegistration",
                                                      "HDFE_CENTER")),
         dimensions         = _parse_dimensions(node.child("Dimension")),
