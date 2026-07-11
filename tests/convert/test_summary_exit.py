@@ -104,6 +104,34 @@ def test_one_failing_record_does_not_abort_run(workdir):
     assert (out_dir / good_rel).is_file()
 
 
+def test_missing_source_is_isolated_not_fatal(workdir):
+    """A source that vanished between audit and convert (§Risks "Partial
+    failure on a long run") raises `OSError`/`FileNotFoundError` inside the
+    per-record try, not `NcarnateError` — it must still land in `failed` with
+    a reason and never abort the run (audit-symmetric: `_audit_file` catches
+    `OSError` for exactly this class)."""
+    root, out_dir = workdir / "root", workdir / "out"
+    good_rel, gone_rel = "good.nc", "gone.nc"
+    good = _stage_at(NETCDF_FIXTURES[0], root, good_rel)
+    gone = _stage_at(NETCDF_FIXTURES[0], root, gone_rel)
+
+    manifest = _write_manifest(workdir, [
+        _record(root, gone_rel, gone, status="ready",
+                plan={"operation": "recompress"}),            # fails first
+        _record(root, good_rel, good, status="ready",
+                plan={"operation": "recompress"}),            # must still run
+    ])
+    gone.unlink()   # deleted after the manifest was written
+
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+
+    assert gone_rel in [r.path for r in result.failed]
+    assert [r.reason for r in result.failed if r.path == gone_rel][0]
+    assert good_rel in [r.path for r in result.converted]
+    assert (out_dir / good_rel).is_file()
+    assert result.exit_code != 0
+
+
 # --- exit code: non-zero iff a *selected* record failed -------------------
 
 def test_exit_code_nonzero_iff_selected_record_failed(workdir):
