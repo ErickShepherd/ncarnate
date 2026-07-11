@@ -23,7 +23,11 @@ from __future__ import annotations
 
 # Standard library imports.
 import argparse
+import logging
 import os
+
+# Third party imports.
+from pyhdf.error import HDF4Error
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
@@ -152,13 +156,29 @@ def convert_manifest(
             )
             result.converted.append(ConvertRecord(record.path))
 
-        # OSError alongside NcarnateError: a source deleted/unreadable between
-        # audit and convert, a full disk, or an unwritable out-dir is a
-        # per-record failure on a long archive run, never a run abort — the
-        # same discipline as `audit._audit_file` and the flat `cli.main`.
-        except (NcarnateError, OSError) as error:
+        # OSError and pyhdf's HDF4Error (a direct Exception subclass)
+        # alongside NcarnateError: a source deleted/unreadable between audit
+        # and convert, a full disk, an unwritable out-dir, or a corrupt HDF4
+        # container is a per-record failure on a long archive run, never a
+        # run abort — the same discipline as `audit._audit_file`.
+        except (NcarnateError, OSError, HDF4Error) as error:
 
             result.failed.append(ConvertRecord(record.path, reason=str(error)))
+
+        except Exception as error:  # noqa: BLE001 — deliberate run-survival belt
+
+            # Belt-and-braces, mirroring `audit._audit_file`'s scan-survival
+            # belt: a pathological-but-openable file could raise something
+            # unexpected from a reader library. Log the traceback so a genuine
+            # bug stays visible, then record the failure so one surprise never
+            # aborts a whole-archive migration.
+            logging.getLogger(PACKAGE_NAME).exception(
+                "Unexpected error converting %s; recording it failed",
+                record.path,
+            )
+            result.failed.append(ConvertRecord(
+                record.path, reason=f"Unexpected convert error: {error}",
+            ))
 
     return result
 
