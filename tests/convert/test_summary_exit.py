@@ -104,6 +104,37 @@ def test_one_failing_record_does_not_abort_run(workdir):
     assert (out_dir / good_rel).is_file()
 
 
+def test_corrupt_hdf4_container_is_isolated_not_fatal(workdir):
+    """A valid-HDF4-magic but corrupt container clears `detect_format` and the
+    sha256 gate (its bytes are faithful to the audit), then makes pyhdf raise
+    `HDF4Error` — a direct `Exception` subclass, neither `NcarnateError` nor
+    `OSError`. It must land in `failed` and never abort the run
+    (audit-symmetric: `_audit_file` catches `(OSError, HDF4Error)` plus a
+    scan-survival `Exception` belt)."""
+    root, out_dir = workdir / "root", workdir / "out"
+    good_rel, corrupt_rel = "good.nc", "corrupt.hdf"
+    good = _stage_at(NETCDF_FIXTURES[0], root, good_rel)
+
+    corrupt = root / corrupt_rel
+    corrupt.parent.mkdir(parents=True, exist_ok=True)
+    corrupt.write_bytes(b"\x0e\x03\x13\x01" + b"truncated garbage" * 16)
+
+    manifest = _write_manifest(workdir, [
+        _record(root, corrupt_rel, corrupt, status="ready",
+                plan={"operation": "convert"}, fmt="HDF4"),   # fails first
+        _record(root, good_rel, good, status="ready",
+                plan={"operation": "recompress"}),            # must still run
+    ])
+
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+
+    assert corrupt_rel in [r.path for r in result.failed]
+    assert [r.reason for r in result.failed if r.path == corrupt_rel][0]
+    assert good_rel in [r.path for r in result.converted]
+    assert (out_dir / good_rel).is_file()
+    assert result.exit_code != 0
+
+
 def test_missing_source_is_isolated_not_fatal(workdir):
     """A source that vanished between audit and convert (§Risks "Partial
     failure on a long run") raises `OSError`/`FileNotFoundError` inside the
