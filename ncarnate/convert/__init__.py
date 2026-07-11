@@ -152,7 +152,11 @@ def convert_manifest(
             )
             result.converted.append(ConvertRecord(record.path))
 
-        except NcarnateError as error:
+        # OSError alongside NcarnateError: a source deleted/unreadable between
+        # audit and convert, a full disk, or an unwritable out-dir is a
+        # per-record failure on a long archive run, never a run abort — the
+        # same discipline as `audit._audit_file` and the flat `cli.main`.
+        except (NcarnateError, OSError) as error:
 
             result.failed.append(ConvertRecord(record.path, reason=str(error)))
 
