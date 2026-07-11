@@ -178,8 +178,9 @@ def convert_manifest(
             # unexpected from a reader library. Log the traceback so a genuine
             # bug stays visible, then record the failure so one surprise never
             # aborts a whole-archive migration.
+            # %r: record.path is untrusted; keep newlines/escapes out of logs.
             logging.getLogger(PACKAGE_NAME).exception(
-                "Unexpected error converting %s; recording it failed",
+                "Unexpected error converting %r; recording it failed",
                 record.path,
             )
             result.failed.append(ConvertRecord(

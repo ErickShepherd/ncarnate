@@ -238,3 +238,19 @@ def test_summary_reports_all_three_tallies_with_reasons(workdir):
     # The failed record surfaces with its reason (not just a bare count).
     assert "bad.hdf" in summary
     assert result.failed[0].reason in summary
+
+
+def test_summary_neutralises_newline_injection_in_path():
+    # record.path is attacker-controlled; a newline must not forge extra
+    # summary lines (it is rendered via !r, so the newline is escaped).
+    from ncarnate.convert.models import ConvertRecord, ConvertResult
+    from ncarnate.convert.report import render_summary
+
+    evil = "ok.hdf\nFailed:\n  smuggled.hdf — forged"
+    result = ConvertResult(failed=[ConvertRecord(evil, reason="boom")])
+
+    summary = render_summary(result)
+
+    # The raw multi-line payload is not embedded verbatim; the escaped form is.
+    assert "  smuggled.hdf — forged" not in summary.split("\n")
+    assert "\\n" in summary
