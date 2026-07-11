@@ -88,7 +88,7 @@ def test_convert_executes_exactly_the_audited_ready_set(workdir):
     ready = {r.path for r in records if r.status == "ready"}
     assert ready, "audit produced no ready records — fixture tree is wrong"
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     # Agreement: convert's converted set == the audit's ready set, and no
     # ready prediction failed (ready ⇒ recompress honors it).
@@ -124,7 +124,7 @@ def test_recompressed_modern_outputs_are_lossless(workdir):
     # Widen the selection so the netCDF sources produce same-format outputs
     # that assert_lossless_netcdf can compare bit-for-bit.
     result = convert_manifest(
-        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"already_modern"})
+        manifest, ConvertOptions(out_dir=str(out_dir), statuses={"already_modern"}, allow_manifest_root=True)
     )
 
     assert {r.path for r in result.converted} == modern
@@ -149,7 +149,7 @@ def test_blocker_prediction_never_silently_converts(workdir):
     # it is skipped with a reason, never converted, and writes no output.
     statuses = {record.status for record in records if record.plan is None}
     result = convert_manifest(
-        manifest, ConvertOptions(out_dir=str(out_dir), statuses=statuses)
+        manifest, ConvertOptions(out_dir=str(out_dir), statuses=statuses, allow_manifest_root=True)
     )
 
     converted = {r.path for r in result.converted}

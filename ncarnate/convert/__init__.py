@@ -34,7 +34,11 @@ from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
 from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError
-from ncarnate.convert.integrity import resolve_within, verify_sha256
+from ncarnate.convert.integrity import (
+    ContainmentError,
+    resolve_within,
+    verify_sha256,
+)
 from ncarnate.convert.models import (
     ConvertOptions,
     ConvertRecord,
@@ -86,6 +90,30 @@ def convert_manifest(
     never mutated.
 
     '''
+
+    # The read containment base must be operator-controlled. The manifest is
+    # untrusted input, so its own recorded `root` is only used as the base when
+    # the operator explicitly opts in (`allow_manifest_root`); otherwise
+    # `--root` supplies the base. With neither, refuse the run rather than
+    # silently trust an attacker-controllable base (a crafted `record.root`
+    # could otherwise redirect reads outside the intended archive — the sha256
+    # gate is no defense, since the attacker also authors the recorded hash;
+    # design §Risks path-containment). Consistent with the tool's rule never to
+    # auto-pick a security-critical default the operator didn't name.
+    #
+    # `not options.root` (not `is None`) so an *empty* --root fails closed too:
+    # the base resolution below is `options.root or record.root`, which also
+    # treats "" as falsy — guarding on `is None` would let `--root ""` (e.g. an
+    # unset shell var) pass the guard and then silently fall back to the
+    # untrusted record.root. The two checks must agree.
+    if not options.root and not options.allow_manifest_root:
+
+        raise ContainmentError(
+            "manifest mode will not trust the manifest's own recorded root as "
+            "the read base: pass --root <archive-root> to anchor reads to a "
+            "directory you control, or --allow-manifest-root to explicitly "
+            "trust the manifest's recorded root."
+        )
 
     result  = ConvertResult()
     records = read_manifest(manifest_path)
@@ -269,8 +297,18 @@ def _build_convert_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--root",
         default = None,
-        help    = "Override the containment base a source path resolves under "
-                  "(defaults to each record's root).",
+        help    = "The operator-controlled containment base a source path "
+                  "resolves under (e.g. the archive's current location if it "
+                  "moved since the audit). Required unless --allow-manifest-root.",
+    )
+
+    parser.add_argument(
+        "--allow-manifest-root",
+        dest   = "allow_manifest_root",
+        action = "store_true",
+        help   = "Trust the manifest's own recorded root as the read base "
+                 "(only when --root is not given). Off by default: the manifest "
+                 "is untrusted input, so a crafted root could redirect reads.",
     )
 
     parser.add_argument(
@@ -349,6 +387,7 @@ def main(argv : list[str]) -> int:
         in_place         = args.in_place,
         skip_existing    = args.skip_existing,
         root             = args.root,
+        allow_manifest_root = args.allow_manifest_root,
         zlib             = args.zlib,
         shuffle          = args.shuffle,
         complevel        = args.complevel,

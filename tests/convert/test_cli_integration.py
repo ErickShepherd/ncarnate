@@ -86,7 +86,7 @@ def test_convert_manifest_subprocess_lands_outputs_and_exits_0(workdir):
     )
 
     completed = _run_module("convert", "--manifest", manifest,
-                            "--out-dir", str(out_dir))
+                            "--out-dir", str(out_dir), "--root", str(root))
 
     assert completed.returncode == 0, completed.stderr
     output = out_dir / relpath                       # mirrored tree, name kept
@@ -112,7 +112,7 @@ def test_convert_manifest_subprocess_failure_sets_nonzero_exit(workdir):
     )
 
     completed = _run_module("convert", "--manifest", manifest,
-                            "--out-dir", str(out_dir))
+                            "--out-dir", str(out_dir), "--root", str(root))
 
     assert completed.returncode != 0                 # the exit code plumbs out
     assert "failed 1" in completed.stdout.lower()
@@ -134,6 +134,7 @@ def test_convert_manifest_through_cli_main_in_process(monkeypatch, workdir):
 
     monkeypatch.setattr(sys, "argv", [
         "ncarnate", "convert", "--manifest", manifest, "--out-dir", str(out_dir),
+        "--root", str(root),
     ])
     exit_code = main()                               # the real entry point
 

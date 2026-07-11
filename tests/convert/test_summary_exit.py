@@ -94,7 +94,7 @@ def test_one_failing_record_does_not_abort_run(workdir):
                 plan={"operation": "recompress"}),            # must still run
     ])
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     # The bad record failed with a reason; the good one converted regardless
     # of ordering — the run was not aborted by the earlier failure.
@@ -126,7 +126,7 @@ def test_corrupt_hdf4_container_is_isolated_not_fatal(workdir):
                 plan={"operation": "recompress"}),            # must still run
     ])
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     assert corrupt_rel in [r.path for r in result.failed]
     assert [r.reason for r in result.failed if r.path == corrupt_rel][0]
@@ -154,7 +154,7 @@ def test_missing_source_is_isolated_not_fatal(workdir):
     ])
     gone.unlink()   # deleted after the manifest was written
 
-    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(manifest, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
 
     assert gone_rel in [r.path for r in result.failed]
     assert [r.reason for r in result.failed if r.path == gone_rel][0]
@@ -175,7 +175,7 @@ def test_exit_code_nonzero_iff_selected_record_failed(workdir):
         _record(root, "bad.hdf", bad, status="ready",
                 plan={"operation": "convert"}, fmt="HDF4"),
     ])
-    result = convert_manifest(failing, ConvertOptions(out_dir=str(out_dir)))
+    result = convert_manifest(failing, ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True))
     assert result.failed and result.exit_code != 0
 
     # (b) all selected records converted -> zero.
@@ -183,7 +183,7 @@ def test_exit_code_nonzero_iff_selected_record_failed(workdir):
         _record(root, "good.nc", good, status="ready",
                 plan={"operation": "recompress"}),
     ])
-    result = convert_manifest(clean, ConvertOptions(out_dir=str(workdir / "o2")))
+    result = convert_manifest(clean, ConvertOptions(out_dir=str(workdir / "o2"), allow_manifest_root=True))
     assert not result.failed and result.exit_code == 0
 
     # (c) a run whose only non-conversions are *skips* (a blocker) -> zero;
@@ -196,7 +196,7 @@ def test_exit_code_nonzero_iff_selected_record_failed(workdir):
     ])
     result = convert_manifest(
         skips,
-        ConvertOptions(out_dir=str(workdir / "o3"), statuses={"ready", "unsupported"}),
+        ConvertOptions(out_dir=str(workdir / "o3"), statuses={"ready", "unsupported"}, allow_manifest_root=True),
     )
     assert result.skipped and not result.failed and result.exit_code == 0
 
@@ -221,7 +221,7 @@ def test_summary_reports_all_three_tallies_with_reasons(workdir):
 
     result = convert_manifest(
         manifest,
-        ConvertOptions(out_dir=str(out_dir), statuses={"ready", "unsupported"}),
+        ConvertOptions(out_dir=str(out_dir), statuses={"ready", "unsupported"}, allow_manifest_root=True),
     )
     assert len(result.converted) == 1
     assert len(result.skipped) == 1

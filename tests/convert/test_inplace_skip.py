@@ -90,7 +90,7 @@ def test_in_place_recompresses_source_and_writes_no_mirror(workdir):
                  plan={"operation": "recompress"})],
     )
 
-    result = convert_manifest(manifest, ConvertOptions(in_place=True))
+    result = convert_manifest(manifest, ConvertOptions(in_place=True, allow_manifest_root=True))
 
     # The record converted in place: the source path still holds a valid,
     # lossless netCDF (recompress verifies losslessness before replacing).
@@ -126,7 +126,7 @@ def test_skip_existing_skips_record_with_preexisting_output(workdir):
 
     result = convert_manifest(
         manifest,
-        ConvertOptions(out_dir=str(out_dir), skip_existing=True),
+        ConvertOptions(out_dir=str(out_dir), skip_existing=True, allow_manifest_root=True),
     )
 
     assert relpath in [r.path for r in result.skipped]
@@ -152,7 +152,7 @@ def test_skip_existing_converts_when_output_absent(workdir):
 
     result = convert_manifest(
         manifest,
-        ConvertOptions(out_dir=str(out_dir), skip_existing=True),
+        ConvertOptions(out_dir=str(out_dir), skip_existing=True, allow_manifest_root=True),
     )
 
     output = _expected_output(out_dir, relpath, "HDF5")
@@ -180,7 +180,7 @@ def test_skip_existing_is_inert_under_in_place(workdir):
     )
 
     result = convert_manifest(
-        manifest, ConvertOptions(in_place=True, skip_existing=True)
+        manifest, ConvertOptions(in_place=True, skip_existing=True, allow_manifest_root=True)
     )
 
     # Not skipped by skip_existing — recompressed in place despite the flag.

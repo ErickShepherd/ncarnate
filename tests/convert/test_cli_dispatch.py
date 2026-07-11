@@ -73,6 +73,7 @@ def test_convert_manifest_routes_to_the_convert_engine(monkeypatch, workdir):
     assert run_cli(
         monkeypatch, "convert",
         "--manifest", manifest, "--out-dir", str(workdir / "out"),
+        "--allow-manifest-root",
     ) == 0
 
 

@@ -37,22 +37,26 @@ class ConvertOptions:
     ``{"ready"}`` only (KD8) — the operator widens it after reading the
     report. ``allow_unverified`` relaxes the mandatory sha256 gate (KD2)
     for a ``null``-hash record; ``skip_existing`` makes an ``out_dir`` run
-    resumable; ``root`` is the containment base a source path resolves
-    under (§Risks). The encoding flags (``zlib``/``shuffle``/``complevel``/
-    ``geolocation``) share ``recompress``'s defaults.
+    resumable; ``root`` is the operator-supplied containment base a source
+    path resolves under (§Risks); ``allow_manifest_root`` opts into trusting
+    the manifest's own recorded ``root`` as that base when ``root`` is not
+    given — untrusted by default, since the manifest is untrusted input. The
+    encoding flags (``zlib``/``shuffle``/``complevel``/``geolocation``) share
+    ``recompress``'s defaults.
 
     '''
 
-    out_dir          : str | None = None
-    statuses         : set[str] = field(default_factory=lambda: {"ready"})
-    allow_unverified : bool = False
-    in_place         : bool = False
-    skip_existing    : bool = False
-    root             : str | None = None
-    zlib             : bool = True
-    shuffle          : bool = True
-    complevel        : int = 7
-    geolocation      : bool = True
+    out_dir             : str | None = None
+    statuses            : set[str] = field(default_factory=lambda: {"ready"})
+    allow_unverified    : bool = False
+    in_place            : bool = False
+    skip_existing       : bool = False
+    root                : str | None = None
+    allow_manifest_root : bool = False
+    zlib                : bool = True
+    shuffle             : bool = True
+    complevel           : int = 7
+    geolocation         : bool = True
 
 
 @dataclass

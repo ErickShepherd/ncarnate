@@ -75,10 +75,21 @@ against.
 ### Invocation shape
 
 ```
-ncarnate convert --manifest audit.jsonl --out-dir ./modern [--status ready]
-                 [--allow-unverified] [--in-place] [--root /new/archive/root]
+ncarnate convert --manifest audit.jsonl --out-dir ./modern (--root DIR | --allow-manifest-root)
+                 [--status ready] [--allow-unverified] [--in-place]
                  [--skip-existing] [--complevel 9] [--no-shuffle] [--no-geolocation]
 ```
+
+> **Read base is operator-controlled (KD10, resolved post-audit 2026-07-11).** The
+> containment base a source resolves under must **not** default to the manifest's own
+> `record.root` (untrusted input — a crafted `root` redirects reads outside the archive,
+> and the sha256 gate is no defense since the attacker also authors the recorded hash). So a
+> manifest run requires **either `--root DIR`** (an operator-supplied base — e.g. the
+> archive's current location if it moved since the audit; `record.root` is then ignored) **or
+> `--allow-manifest-root`** (an explicit opt-in to trust the manifest's recorded `root`).
+> With neither, the run is **refused** rather than silently trusting an attacker-controllable
+> base — consistent with the rule never to auto-pick a security-critical default the operator
+> didn't name.
 
 `--manifest` is a **`convert`-only** flag. Increment 1 made `convert` an explicit alias
 that strips the verb and falls through to the legacy flat parser; this increment gives
@@ -101,7 +112,10 @@ For each JSONL line (each a frozen v1 record):
    only). Blocker statuses (`unsupported`/`malformed`/`unsafe`/`unknown`) carry
    `plan: null` and are never actionable — skipped with a counted reason even if named.
 3. **Integrity gate (the load-bearing safety property).** Resolve the source path as
-   `(--root or record.root) / record.path`. Recompute its `sha256` (chunked) and require
+   `base / record.path`, where `base` is **`--root` if given, else `record.root` only when
+   `--allow-manifest-root` is set** — with neither, the run is refused up front (KD10: the
+   base must be operator-controlled, never a default-trusted manifest field). Recompute its
+   `sha256` (chunked) and require
    it equals `record.sha256`. A `null` recorded hash → **refuse** the record unless
    `--allow-unverified` (the audit was run without `--checksum sha256`). A **mismatch** →
    skip-with-error: the file changed since the audit, so its prediction is stale and must
@@ -228,6 +242,17 @@ the manifest models, and the audit's `_sha256` helper (promoted to a shared util
    from Open questions — deferred.)* Cheap to add later for `audit … | convert` piping, but
    out of scope for this increment; keeping it a real path also keeps the path-containment
    and re-read semantics simple. Not a blocker for any downstream family member.
+10. **The read containment base is operator-controlled, never a default-trusted manifest
+    field.** *(Resolved post-audit 2026-07-11; revises the original §per-record-loop step 3,
+    which defaulted the base to `record.root`.)* A manifest run requires `--root DIR` (the
+    operator supplies the base; `record.root` is then ignored — the "archive moved" path) **or**
+    `--allow-manifest-root` (explicit opt-in to trust the manifest's recorded `root`); with
+    neither it is refused. Rationale: `record.root` is untrusted input, so using it as the
+    containment base makes containment circular (a hostile `root` defines its own "contained"
+    region and reads/copies arbitrary parseable files into `--out-dir`); the sha256 gate is
+    no defense (the attacker authors the hash too). An audit found this gap in the original
+    design; the opt-in preserves the self-describing-manifest convenience for operators who
+    trust their manifest, while making the safe anchor (`--root`) the recommended path.
 
 ## Alternatives considered
 
@@ -275,7 +300,11 @@ the manifest models, and the audit's `_sha256` helper (promoted to a shared util
   point anywhere. **Control:** confine every resolved output to under `--out-dir` and
   reject any record whose `path` is absolute or escapes the root after normalization
   (`os.path.realpath` containment check); apply the same containment to the resolved
-  *source* path under `root`/`--root`. This is a **required** control, not optional, and it
+  *source* path under the read base. **The read base itself must be operator-controlled**
+  (`--root`, or `record.root` only under the explicit `--allow-manifest-root` opt-in; KD10):
+  containment under an *attacker-supplied* base is circular — a hostile `record.root` would
+  simply define its own "contained" region — so trusting `record.root` by default was the
+  original design's gap, closed here. This is a **required** control, not optional, and it
   is the *sole* defense against read/write redirection — the sha256 gate does **not** help
   here: an attacker who authors the manifest also authors `record.sha256`, so they would
   simply record the hash of whatever they redirect to. The sha256 gate defends a *different*

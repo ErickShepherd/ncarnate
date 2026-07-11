@@ -149,12 +149,15 @@ output tree, and **never modifies a source** unless you pass `--in-place`.
 ncarnate audit /data/archive --output manifest.jsonl --checksum sha256
 
 # 2. Convert exactly the `ready` granules into a mirrored ./modern tree.
-#    A record whose bytes changed since the audit (sha256 mismatch) is skipped
-#    with an error; a blocker is never converted; sources are left untouched.
-ncarnate convert --manifest manifest.jsonl --out-dir ./modern
+#    --root anchors reads to a directory you control (the manifest is untrusted
+#    input, so its recorded root is not trusted as the read base by default;
+#    pass --allow-manifest-root to opt into trusting it instead). A record whose
+#    bytes changed since the audit (sha256 mismatch) is skipped with an error;
+#    a blocker is never converted; sources are left untouched.
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /archive
 
 # Widen the selection once you've read the report; resume an interrupted run.
-ncarnate convert --manifest manifest.jsonl --out-dir ./modern \
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /archive \
     --status ready,already_modern --skip-existing
 ```
 
