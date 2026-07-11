@@ -104,6 +104,32 @@ def test_output_flag_writes_jsonl_manifest(workdir):
 
 # --- CSV formula-injection guard (CWE-1236) ---------------------------
 
+def test_output_survives_undecodable_filename(workdir):
+    # A filename with bytes that don't decode as UTF-8 surfaces as a lone
+    # surrogate in the path; writing the CSV manifest to a real file must not
+    # crash the whole scan with a UnicodeEncodeError. Uses _write_manifest so
+    # the real file open() (where the encode happens) is exercised.
+    from ncarnate.audit import _write_manifest
+
+    result = AuditResult(
+        root=str(workdir),
+        path="bad\udcffname.hdf",          # lone surrogate (undecodable byte)
+        size_bytes=1,
+        format="HDF4",
+        status="unsupported",
+        mode="metadata",
+        audited_at="2026-07-10T00:00:00Z",
+        issues=[],
+    )
+    report = AuditReport(root=str(workdir), mode="metadata", files=[result])
+
+    out = workdir / "manifest.csv"
+    _write_manifest(report, str(out))       # must not raise
+
+    assert out.is_file()
+    assert out.stat().st_size > 0
+
+
 def test_csv_neutralises_formula_injection_in_free_text_cells():
     # A crafted archive filename / blocker message beginning with a formula
     # trigger must render as inert text in a spreadsheet, not execute.

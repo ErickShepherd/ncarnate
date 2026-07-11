@@ -96,3 +96,15 @@ class VerificationError(NcarnateError):
     is never replaced when this is raised.
 
     '''
+
+
+class AllocationTooLargeError(NcarnateError):
+
+    '''
+
+    Raised when a file's declared array (from untrusted metadata) would
+    exceed the allocation safety ceiling — a tiny-file-declares-terabytes
+    size bomb. A dedicated type lets the audit's classifier map it to the
+    ``unsafe`` status by type as well as by ``code``.
+
+    '''

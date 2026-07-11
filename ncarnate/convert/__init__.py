@@ -32,6 +32,7 @@ from pyhdf.error import HDF4Error
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
+from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError
 from ncarnate.convert.integrity import resolve_within, verify_sha256
 from ncarnate.convert.models import (
@@ -111,6 +112,11 @@ def convert_manifest(
         try:
 
             source = resolve_within(options.root or record.root, record.path)
+            # NB: verify_sha256 and recompress open `source` by path in two
+            # non-atomic steps — a TOCTOU residual risk under a hostile archive
+            # filesystem that can race the tree between the two opens (design
+            # §Risks "TOCTOU"). Accepted for now; the full fix (single-fd hash
+            # + convert) needs an fd-accepting recompress entry point.
             verify_sha256(
                 record, source, allow_unverified=options.allow_unverified
             )
@@ -172,8 +178,9 @@ def convert_manifest(
             # unexpected from a reader library. Log the traceback so a genuine
             # bug stays visible, then record the failure so one surprise never
             # aborts a whole-archive migration.
+            # %r: record.path is untrusted; keep newlines/escapes out of logs.
             logging.getLogger(PACKAGE_NAME).exception(
-                "Unexpected error converting %s; recording it failed",
+                "Unexpected error converting %r; recording it failed",
                 record.path,
             )
             result.failed.append(ConvertRecord(
@@ -199,6 +206,11 @@ def _build_convert_parser() -> argparse.ArgumentParser:
         description = "Execute an audit migration manifest: re-verify each "
                       "granule's recorded sha256, then convert exactly the "
                       "selected statuses into a mirrored output tree.",
+        # No prefix abbreviations: the cli pre-dispatch shim routes to this
+        # parser only on the exact `--manifest` token, so allowing argparse to
+        # accept `--man=…` here would make the two layers disagree (an
+        # abbreviation the shim never routes but this parser would honor).
+        allow_abbrev = False,
     )
 
     # KD1: a run is driven by a manifest xor the legacy positional paths.
@@ -315,9 +327,6 @@ def main(argv : list[str]) -> int:
     parser = _build_convert_parser()
     args   = parser.parse_args(argv)
 
-    # Imported lazily (mirroring the audit dispatch) to keep the verb handlers
-    # off cli's module-load path.
-    from ncarnate.cli import _configure_logging
     logger = _configure_logging()
 
     if not args.manifest:

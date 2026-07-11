@@ -18,9 +18,11 @@ allocation bomb -> unsafe; an unrecognized format -> unknown. The agreement
 tests (next unit) are the end-to-end oracle over real fixtures.
 """
 
+import numpy as np
+
 from ncarnate.audit import codes
 from ncarnate.audit.classify import classify, issue_for_exception, status_for
-from ncarnate.audit.inspect import FileFacts, inspect_file
+from ncarnate.audit.inspect import FileFacts, VariableFacts, inspect_file
 from ncarnate.audit.models import AuditIssue
 from ncarnate.errors import (
     EosParseError,
@@ -145,6 +147,13 @@ def test_a_warning_does_not_demote_from_ready():
     assert status_for(_hdf4_facts(), [warning]) == "ready"
 
 
+def test_unmapped_blocker_never_folds_to_ready():
+    # A blocker whose code is None/unmapped (e.g. a future un-annotated raise
+    # site) must not be silently dropped back to `ready` — defense-in-depth.
+    unmapped = AuditIssue(code=None, severity="blocker", message="m", context={})
+    assert status_for(_hdf4_facts(), [unmapped]) != "ready"
+
+
 # --- classify(facts): the craftable end-to-end cases ------------------
 
 def test_classify_unknown_format_maps_format_unrecognized():
@@ -156,6 +165,23 @@ def test_classify_unknown_format_maps_format_unrecognized():
 def test_classify_modern_file_is_already_modern():
     status, issues = classify(_modern_facts())
     assert status == "already_modern"
+
+
+def test_classify_flags_declared_allocation_bomb_unsafe():
+    # A supported-dtype variable whose declared shape blows past the 8 GB
+    # ceiling is a metadata-visible size bomb: classify must run the size
+    # predicate and return `unsafe`, not `ready` (it declares terabytes while
+    # being tiny on disk).
+    bomb = VariableFacts(
+        name="huge", rank=2, shape=(10 ** 6, 10 ** 6),
+        dtype=np.dtype("float64"),
+    )
+    facts = FileFacts(format="HDF4", already_modern=False, variables=[bomb])
+
+    status, issues = classify(facts)
+
+    assert status == "unsafe"
+    assert any(i.code == codes.DECLARED_ALLOCATION_TOO_LARGE for i in issues)
 
 
 # --- classify smoke over real fixtures (not the agreement oracle) -----

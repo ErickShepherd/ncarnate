@@ -32,12 +32,14 @@ from ncarnate.audit import codes
 from ncarnate.audit.models import AuditIssue
 from ncarnate.eos.gctp import projection_info
 from ncarnate.errors import (
+    AllocationTooLargeError,
     EosParseError,
     NcarnateError,
     UnsupportedGeolocationError,
     UnsupportedProjectionError,
     UnsupportedTypeError,
 )
+from ncarnate.limits import check_array_size
 
 # Type-level fallback code for an exception raised at an un-annotated site
 # (exc.code is None). The ambiguous UnsupportedGeolocationError defaults to
@@ -47,6 +49,7 @@ _TYPE_DEFAULT_CODE = {
     UnsupportedProjectionError  : codes.EOS_UNSUPPORTED_PROJECTION,
     UnsupportedTypeError        : codes.UNSUPPORTED_TYPE,
     UnsupportedGeolocationError : codes.SWATH_GEOLOCATION_UNSUPPORTED,
+    AllocationTooLargeError     : codes.DECLARED_ALLOCATION_TOO_LARGE,
 }
 
 # Each issue code's status bucket. Geolocation blockers leave the SDS
@@ -133,6 +136,15 @@ def status_for(facts, issues : "list[AuditIssue]") -> str:
         if issue.severity == "blocker" and issue.code in _CODE_STATUS
     }
 
+    # A blocker whose code we can't map is still a blocker: it must never
+    # fold back to `ready`. Treat an unmapped/None-coded blocker as the most
+    # conservative non-ready bucket (malformed) so a future un-annotated raise
+    # site can't silently pass a blocked file off as convertible.
+    if any(issue.severity == "blocker" and issue.code not in _CODE_STATUS
+           for issue in issues):
+
+        blocker_statuses.add("malformed")
+
     for status in _STATUS_PRIORITY:
 
         if status in blocker_statuses:
@@ -188,6 +200,26 @@ def classify(facts) -> "tuple[str, list[AuditIssue]]":
                            f"type.",
                 context  = {"variable": variable.name},
             ))
+
+            # No concrete dtype (hence no itemsize) to size-check, and the
+            # file is already blocked on this variable.
+            continue
+
+        # A supported variable whose declared shape would exceed the
+        # allocation ceiling is a metadata-visible size bomb — exactly what
+        # the converter refuses (limits.check_array_size). Call the same
+        # predicate and catch, so the audit agrees by construction and the
+        # file is classified `unsafe` rather than `ready`.
+        try:
+
+            check_array_size(
+                variable.shape, variable.dtype.itemsize,
+                f"Variable {variable.name!r}",
+            )
+
+        except NcarnateError as error:
+
+            issues.append(issue_for_exception(error))
 
     # Grid projection supportability is a metadata-visible converter
     # predicate: call it and catch, so the audit agrees by construction.

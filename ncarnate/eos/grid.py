@@ -88,7 +88,8 @@ def reconstruct(grid : EosGrid) -> GridGeolocation:
 
         raise UnsupportedGeolocationError(
             f"Grid {grid.name!r} has GridOrigin={grid.grid_origin}; only "
-            f"HDFE_GD_UL is supported (no fixture proves the variants)."
+            f"HDFE_GD_UL is supported (no fixture proves the variants).",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     if grid.pixel_registration != "HDFE_CENTER":
@@ -96,7 +97,8 @@ def reconstruct(grid : EosGrid) -> GridGeolocation:
         raise UnsupportedGeolocationError(
             f"Grid {grid.name!r} has "
             f"PixelRegistration={grid.pixel_registration}; only "
-            f"HDFE_CENTER is supported (no fixture proves the variants)."
+            f"HDFE_CENTER is supported (no fixture proves the variants).",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     # Dimensions come from untrusted StructMetadata; a zero divides by zero
@@ -106,7 +108,8 @@ def reconstruct(grid : EosGrid) -> GridGeolocation:
 
         raise UnsupportedGeolocationError(
             f"Grid {grid.name!r} has non-positive dimensions "
-            f"(XDim={grid.x_dim}, YDim={grid.y_dim})."
+            f"(XDim={grid.x_dim}, YDim={grid.y_dim}).",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     # The reconstructed 2-D lat/lon mesh is XDim*YDim float64 (several such

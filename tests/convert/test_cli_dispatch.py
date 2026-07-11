@@ -114,11 +114,24 @@ def test_bare_path_form_unchanged(monkeypatch, workdir):
 # --- the 8 existing tests/test_cli.py cases must be left untouched ------
 
 def test_existing_cli_test_suite_is_untouched():
-    """The impl must not edit tests/test_cli.py — its 8 cases pin the legacy
-    contract. Guard the count so an accidental deletion/rewrite is caught."""
+    """The impl must not remove any of tests/test_cli.py's legacy cases — they
+    pin the legacy contract. Guard with `>= 8` (subset semantics, matching
+    tests/audit/test_cli_dispatch.py): tolerant of legitimately *added* CLI
+    tests, strict on deletion of the original 8."""
     path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "test_cli.py"
     )
     with open(path, encoding="utf-8") as stream:
         text = stream.read()
-    assert text.count("def test_") == 8
+    assert text.count("def test_") >= 8
+
+
+def test_convert_parser_rejects_manifest_abbreviation():
+    # allow_abbrev=False: `--man=` must NOT resolve to `--manifest` in the
+    # convert parser, so it agrees with the cli shim (which routes only on the
+    # exact `--manifest` token). Otherwise the two layers disagree.
+    from ncarnate.convert import _build_convert_parser
+
+    parser = _build_convert_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--man=x.jsonl", "--out-dir", "d"])

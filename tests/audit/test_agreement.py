@@ -23,11 +23,11 @@ import pytest
 
 from ncarnate import recompress
 from ncarnate.audit import codes
-from ncarnate.audit.classify import classify
+from ncarnate.audit.classify import _CODE_STATUS, classify, issue_for_exception
 from ncarnate.audit.inspect import inspect_file
 from ncarnate.errors import (
+    AllocationTooLargeError,
     EosParseError,
-    NcarnateError,
     UnsupportedGeolocationError,
     UnsupportedProjectionError,
     UnsupportedTypeError,
@@ -51,12 +51,20 @@ _CODE_EXCEPTION = {
     codes.SWATH_DIMMAP_UNRESOLVED      : UnsupportedGeolocationError,
     codes.NETCDF_NAME_COLLISION        : UnsupportedGeolocationError,
     codes.UNSUPPORTED_TYPE             : UnsupportedTypeError,
-    codes.DECLARED_ALLOCATION_TOO_LARGE: NcarnateError,
+    codes.DECLARED_ALLOCATION_TOO_LARGE: AllocationTooLargeError,
 }
 
 
-def _first_blocker(issues):
-    return next(issue for issue in issues if issue.severity == "blocker")
+def _dominating_blocker(issues, status):
+    # The blocker that actually set the folded status — not merely the first
+    # in list order (a malformed blocker outranks a geolocation one, so
+    # list-order can name the wrong cause). Falls back to the first blocker
+    # if none maps to `status` (defensive; shouldn't happen).
+    blockers = [issue for issue in issues if issue.severity == "blocker"]
+    for issue in blockers:
+        if _CODE_STATUS.get(issue.code) == status:
+            return issue
+    return blockers[0]
 
 
 @pytest.mark.parametrize("fixture", ALL_FIXTURES, ids=lambda f: f.stem)
@@ -77,15 +85,22 @@ def test_audit_predicts_recompression_outcome(fixture, workdir):
         # The SDS payload converts without geolocation reconstruction...
         recompress(str(src), overwrite=False, geolocation=False)
 
-        # ...and attempting geolocation raises the predicted blocker.
-        expected = _CODE_EXCEPTION[_first_blocker(issues).code]
-        with pytest.raises(expected):
+        # ...and attempting geolocation raises the predicted blocker — and
+        # for the predicted *reason*, not merely the right type: the exception
+        # the converter raises must classify back to the predicted code.
+        dominating = _dominating_blocker(issues, status)
+        expected   = _CODE_EXCEPTION[dominating.code]
+        with pytest.raises(expected) as exc:
             recompress(str(src), overwrite=False, geolocation=True)
+        assert issue_for_exception(exc.value).code == dominating.code
 
     else:
 
         # unsupported / malformed / unsafe / unknown ⇒ recompress raises the
-        # mapped exception regardless of geolocation.
-        expected = _CODE_EXCEPTION[_first_blocker(issues).code]
-        with pytest.raises(expected):
+        # mapped exception regardless of geolocation — and for the predicted
+        # cause (the raised exception classifies back to the predicted code).
+        dominating = _dominating_blocker(issues, status)
+        expected   = _CODE_EXCEPTION[dominating.code]
+        with pytest.raises(expected) as exc:
             recompress(str(src), overwrite=False)
+        assert issue_for_exception(exc.value).code == dominating.code

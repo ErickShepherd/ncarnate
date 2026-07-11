@@ -17,7 +17,7 @@ top-level LICENSE file.
 '''
 
 # Local application imports.
-from ncarnate.errors import NcarnateError
+from ncarnate.errors import AllocationTooLargeError
 
 # Per-array ceiling on the *uncompressed* size an input file may declare.
 # Generously above any realistic single granule variable (tens of MB to a
@@ -33,8 +33,8 @@ def check_array_size(shape     : "tuple[int, ...]",
 
     '''
 
-    Raises `NcarnateError` if an array of ``shape`` at ``itemsize`` bytes
-    per element would exceed ``max_bytes`` (defaulting to the module-level
+    Raises `AllocationTooLargeError` if an array of ``shape`` at ``itemsize``
+    bytes per element would exceed ``max_bytes`` (defaulting to the module-level
     `DEFAULT_MAX_ARRAY_BYTES`, read at call time so it stays adjustable).
     ``shape`` comes from untrusted file metadata, so the product is
     computed in unbounded Python ints (never overflowing) before any array
@@ -56,7 +56,7 @@ def check_array_size(shape     : "tuple[int, ...]",
 
     if total_bytes > max_bytes:
 
-        raise NcarnateError(
+        raise AllocationTooLargeError(
             f"{context}: declared array of shape {tuple(shape)} at "
             f"{itemsize} bytes/element is {total_bytes} bytes, exceeding "
             f"the {max_bytes}-byte safety ceiling; refusing to allocate. "

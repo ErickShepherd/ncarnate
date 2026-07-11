@@ -37,13 +37,16 @@ def render_summary(result : ConvertResult) -> str:
         f"failed {len(result.failed)}."
     ]
 
+    # record.path is attacker-controlled (a manifest field); render it with
+    # !r so an embedded newline or ANSI escape can't forge summary lines or
+    # manipulate the operator's terminal.
     if result.skipped:
 
         lines.append("Skipped:")
 
         for record in result.skipped:
 
-            lines.append(f"  {record.path} — {record.reason}")
+            lines.append(f"  {record.path!r} — {record.reason}")
 
     if result.failed:
 
@@ -51,6 +54,6 @@ def render_summary(result : ConvertResult) -> str:
 
         for record in result.failed:
 
-            lines.append(f"  {record.path} — {record.reason}")
+            lines.append(f"  {record.path!r} — {record.reason}")
 
     return "\n".join(lines)

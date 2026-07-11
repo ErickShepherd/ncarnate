@@ -22,6 +22,7 @@ import numpy as np
 
 # Local application imports.
 from ncarnate.errors import UnsupportedGeolocationError
+from ncarnate.limits import check_array_size
 
 
 def _axis_weights(data_size  : int,
@@ -43,14 +44,16 @@ def _axis_weights(data_size  : int,
 
         raise UnsupportedGeolocationError(
             f"Dimension map with non-positive increment {increment} is "
-            f"not supported."
+            f"not supported.",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     if geo_size < 2:
 
         raise UnsupportedGeolocationError(
             f"Dimension map needs at least 2 geolocation pixels to "
-            f"interpolate; got {geo_size}."
+            f"interpolate; got {geo_size}.",
+            code="SWATH_GEOLOCATION_UNSUPPORTED",
         )
 
     fractional  = (np.arange(data_size, dtype = np.float64) - offset) \
@@ -115,6 +118,13 @@ def interpolate_geolocation(latitude   : np.ndarray,
 
     '''
 
+    # Defensive local bound: the intermediate/output arrays are data_shape-
+    # sized. This is transitively bounded (the owning variable already passed
+    # the read-time ceiling), but assert it here so the invariant doesn't
+    # depend on a cross-module argument. itemsize 8 covers the float64 ECEF
+    # intermediate (the widest of the arrays allocated below).
+    check_array_size(data_shape, 8, "swath geolocation interpolation")
+
     valid = np.isfinite(latitude) & np.isfinite(longitude)
 
     if fill_value is not None:
@@ -133,7 +143,8 @@ def interpolate_geolocation(latitude   : np.ndarray,
                 raise UnsupportedGeolocationError(
                     f"Axis {axis}: data size {data_shape[axis]} differs "
                     f"from geolocation size {latitude.shape[axis]} but no "
-                    f"dimension map covers it."
+                    f"dimension map covers it.",
+                    code="SWATH_DIMMAP_UNRESOLVED",
                 )
 
             continue
