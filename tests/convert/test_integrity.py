@@ -99,20 +99,19 @@ def test_matching_hash_passes(workdir):
     assert verify_sha256(record, str(staged)) is None
 
 
-def test_tampered_file_is_rejected_and_writes_nothing(workdir):
-    """NEGATIVE: a file changed since the audit fails the gate; no output."""
+def test_tampered_file_is_rejected_by_the_gate(workdir):
+    """NEGATIVE: a file changed since the audit fails the sha256 gate. (That a
+    failed gate produces no conversion is a convert_manifest-level property —
+    asserted in test_convert_manifest; verify_sha256 never writes, so an
+    out_dir assertion here would be vacuous.)"""
     record, staged = _staged_record(workdir, record_true_hash=True)
 
     # Tamper: the recorded hash no longer describes the bytes on disk.
     with open(staged, "ab") as stream:
         stream.write(b"\x00tampered")
 
-    out_dir = workdir / "out"
-    out_dir.mkdir()
     with pytest.raises(IntegrityError):
         verify_sha256(record, str(staged))
-    # A failed gate must never have produced a conversion.
-    assert list(out_dir.iterdir()) == []
 
 
 def test_null_hash_refused_without_override(workdir):
