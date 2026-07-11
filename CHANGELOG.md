@@ -4,13 +4,15 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.2.0] - Unreleased
+## [2.2.0] - 2026-07-11
 
-Adds the manifest-driven converter — the tool that *executes* the audit's
-JSONL migration manifest, converting exactly the granules the audit blessed
-while re-verifying integrity and never mutating a source by default.
+The archive-modernization workflow: a read-only **audit** that plans a
+migration, and a **converter** that executes exactly what the audit blessed.
+This is the first PyPI release to include the `audit` subcommand and the
+migration-manifest contract (developed as the internal 2.1.0 milestone and
+released here together with the converter).
 
-### Added
+### Added — converter
 - `ncarnate convert --manifest manifest.jsonl --out-dir DIR (--root DIR |
   --allow-manifest-root)`: executes an audit migration manifest. For each
   record whose status is selected (`--status`, default `ready`) it re-verifies
@@ -36,13 +38,7 @@ while re-verifying integrity and never mutating a source by default.
 - Public API: `convert_manifest` and `ConvertOptions`, exported from the
   top-level `ncarnate` package and documented in the API reference.
 
-## [2.1.0] - Unreleased
-
-Adds a read-only archive audit and the migration-manifest contract — the
-planning substrate later tooling (`convert --manifest`, dashboards,
-catalogs) builds on.
-
-### Added
+### Added — audit + migration-manifest contract
 - `ncarnate audit <path>`: a read-only subcommand that discovers files,
   detects formats, inspects metadata **without reading science arrays**,
   classifies each file into a stable status taxonomy (`ready`,

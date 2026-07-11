@@ -144,7 +144,7 @@ manifest — it re-verifies each granule's recorded `sha256` before touching it,
 converts only the statuses you select (`ready` by default), writes a mirrored
 output tree, and **never modifies a source** unless you pass `--in-place`.
 
-```console
+```bash
 # 1. Audit the archive, recording a per-file sha256 in the manifest.
 ncarnate audit /data/archive --output manifest.jsonl --checksum sha256
 
