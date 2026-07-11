@@ -32,6 +32,7 @@ from pyhdf.error import HDF4Error
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
+from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError
 from ncarnate.convert.integrity import resolve_within, verify_sha256
 from ncarnate.convert.models import (
@@ -315,9 +316,6 @@ def main(argv : list[str]) -> int:
     parser = _build_convert_parser()
     args   = parser.parse_args(argv)
 
-    # Imported lazily (mirroring the audit dispatch) to keep the verb handlers
-    # off cli's module-load path.
-    from ncarnate.cli import _configure_logging
     logger = _configure_logging()
 
     if not args.manifest:

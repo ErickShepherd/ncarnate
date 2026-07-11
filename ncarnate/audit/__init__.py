@@ -31,7 +31,7 @@ import os
 from pyhdf.error import HDF4Error
 
 # Local application imports.
-from ncarnate.cli import _configure_logging, _get_files
+from ncarnate.discovery import _configure_logging, _get_files
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__
 from ncarnate.errors import NcarnateError
