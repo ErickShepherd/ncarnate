@@ -37,10 +37,16 @@ an image model (the pictorial mark), which local tooling then turns into vector.
 The mark is traced into a clean layered SVG; the wordmark and lockups are typeset
 from the font as outlines.
 
+`--supersample 2` upscales the raster before tracing so the spline tracer does
+not *hook* where the thin graticule and orbit lines cross (a 1× trace overshoots
+those T-junctions); `--precision 2` offsets the resulting point-count growth so
+the SVGs stay small.
+
 ```bash
 # deps: vtracer, fonttools, pillow, scipy, numpy  (+ cairosvg or @resvg/resvg-js to rasterise for the eyeball check)
 python3 trace_logo.py ncarnate-source.png ncarnate.svg \
-    --field '#152A47' --structure '#F2EDE1' --accent '#E8843C'   # mark + -mono + -white
+    --field '#152A47' --structure '#F2EDE1' --accent '#E8843C' \
+    --supersample 2 --precision 2   # mark + -mono + -white
 
 # fetch Sora and instance to weight 600:
 #   curl -sL -o sora-var.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/sora/Sora%5Bwght%5D.ttf"

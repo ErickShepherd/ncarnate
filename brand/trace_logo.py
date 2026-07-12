@@ -36,6 +36,12 @@ ap.add_argument("--chroma", type=int, default=40, help="min channel spread to co
 ap.add_argument("--luma", type=int, default=140, help="brightness split: >= is structure, < is field")
 ap.add_argument("--no-tile", action="store_true", help="omit the rounded tile (transparent mark)")
 ap.add_argument("--tile-radius-frac", type=float, default=0.12)
+ap.add_argument("--supersample", type=float, default=1.0,
+                help="upscale the raster this many times before tracing; smooths thin-line "
+                     "junctions where the spline tracer would otherwise hook (try 2-4)")
+ap.add_argument("--precision", type=int, default=8,
+                help="vtracer path_precision (decimal places); lower shrinks the SVG, useful "
+                     "to offset the point-count growth from --supersample")
 a = ap.parse_args()
 
 def hexrgb(s):
@@ -43,7 +49,11 @@ def hexrgb(s):
     return np.array([int(s[i:i + 2], 16) for i in (0, 2, 4)], float)
 
 
-rgb = np.asarray(Image.open(a.src).convert("RGB"), float)
+src_img = Image.open(a.src).convert("RGB")
+if a.supersample != 1.0:
+    src_img = src_img.resize((round(src_img.width * a.supersample),
+                              round(src_img.height * a.supersample)), Image.LANCZOS)
+rgb = np.asarray(src_img, float)
 h, w = rgb.shape[:2]
 luma = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
 chroma = rgb.max(-1) - rgb.min(-1)
@@ -64,7 +74,8 @@ structure = binary_dilation(offish & ~outer, iterations=1)   # +1px overlaps fie
 accent = binary_dilation(accent, iterations=1) if a.accent else accent
 
 PARAMS = dict(colormode="binary", mode="spline", filter_speckle=6,
-              corner_threshold=20, length_threshold=4.0, splice_threshold=45, path_precision=8)
+              corner_threshold=20, length_threshold=4.0, splice_threshold=45,
+              path_precision=a.precision)
 
 
 def trace(mask, tag):
