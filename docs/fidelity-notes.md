@@ -28,8 +28,9 @@ replaced until the new file has been written and re-opened successfully.
 
 ### HDF4 / HDF-EOS2 → netCDF4 (conversion)
 
-- every SDS's values bit-identical (char8 SDS map to netCDF `NC_CHAR` and round-trip
-  byte-for-byte); dimensions (with their HDF4 names) and attributes preserved; fill/scale
+- every SDS's values value-identical — bit-for-bit for integer and char8 data (char8 SDS
+  map to netCDF `NC_CHAR` and round-trip byte-for-byte), NaN- and signed-zero-insensitive
+  for floating point; dimensions (with their HDF4 names) and attributes preserved; fill/scale
   carried as declarations;
 - `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** as
   attributes of an `HDFEOS_INFORMATION` group — reconstruction never becomes the only copy

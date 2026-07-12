@@ -86,7 +86,9 @@ def structmetadata_text(attributes: dict) -> str:
 def assert_lossless_netcdf(src_path: Path, dst_path: Path) -> None:
     """Independent raw-read comparison: the recompressed netCDF file must
     match the source in dimensions, attributes (values AND dtypes),
-    groups, variable dtypes/endianness, and bit-identical raw values."""
+    groups, variable dtypes/endianness, and value-identical raw values
+    (bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive
+    for floating point -- see the equal_nan gate below)."""
     with nc.Dataset(src_path) as src, nc.Dataset(dst_path) as dst:
         _assert_group_equal(src, dst, "/")
 
