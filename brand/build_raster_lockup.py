@@ -16,9 +16,9 @@ Steps:
 Deps: fonttools, pillow, numpy, scipy, cairosvg. Usage:
   build_raster_lockup.py  # uses the committed defaults below
 """
+import argparse
 import base64
 import io
-import re
 
 import cairosvg
 import numpy as np
@@ -31,7 +31,7 @@ from fontTools.pens.boundsPen import BoundsPen
 
 # ---- inputs / palette (match compose_logo.py + build_lockup.py) -------------------------------
 SRC = "ncarnate-source.png"
-FONT = "_work/sora-600.ttf"
+FONT = "sora-600.ttf"  # produced per brand/README "Regenerating" (override with --font)
 TEXT = "ncarnate"
 FIELD = "#152A47"      # navy word for light backgrounds
 STRUCTURE = "#F2EDE1"  # cream word for dark backgrounds
@@ -101,14 +101,14 @@ def typeset(font, text, track):
     return word, WW, WH, CAP, ymax
 
 
-def main():
-    mark = transparent_mark(SRC)
+def main(src=SRC, font=FONT):
+    mark = transparent_mark(src)
     MH = mark.size[1]
     buf = io.BytesIO()
     mark.save(buf, "PNG")
     href = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
-    word, WW, WH, CAP, ymax = typeset(FONT, TEXT, TRACK)
+    word, WW, WH, CAP, ymax = typeset(font, TEXT, TRACK)
 
     # geometry — identical to build_lockup.py
     wscale = (LK * WORD_CAP_FRAC) / CAP
@@ -140,4 +140,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser(description="Compose raster light/dark lockups from the source mark.")
+    ap.add_argument("--src", default=SRC, help=f"source mark tile PNG (default: {SRC})")
+    ap.add_argument("--font", default=FONT, help=f"wordmark font, Sora weight 600 (default: {FONT})")
+    a = ap.parse_args()
+    main(a.src, a.font)

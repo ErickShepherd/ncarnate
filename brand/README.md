@@ -70,8 +70,8 @@ python3 compose_logo.py ncarnate-source.png ncarnate.svg   # mark + -mono + -whi
 python3 build_lockup.py --text ncarnate --font sora-600.ttf --mark ncarnate.svg \
     --field '#152A47' --structure '#F2EDE1' --out-prefix ncarnate   # wordmark + light/dark VECTOR lockups (WIP)
 
-# shipped lockup: raster source mark + wordmark, light/dark PNG (deps: + cairosvg)
-python3 build_raster_lockup.py                                      # ncarnate-lockup{,-dark}.png + ncarnate-mark.png
+# shipped lockup: raster source mark + wordmark, light/dark PNG (deps: fonttools, pillow, numpy, scipy, cairosvg)
+python3 build_raster_lockup.py --font sora-600.ttf                 # ncarnate-lockup{,-dark}.png + ncarnate-mark.png
 ```
 
 Verify on both GitHub themes before committing — render each lockup on `#ffffff`
