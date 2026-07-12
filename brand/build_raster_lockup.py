@@ -8,7 +8,7 @@ mirrors ``build_lockup.py`` exactly, so swapping back to a vector mark later lea
 untouched. The wordmark stays a true-vector glyph outline, rasterized here only for a single flat PNG.
 
 Steps:
-  1. Give the mark tile clean transparent corners (rounded-rect alpha) so it reads on light AND dark.
+  1. Give the mark tile clean transparent corners (silhouette-derived alpha) so it reads on light AND dark.
   2. Typeset the wordmark from the font (same fontTools path as build_lockup.py).
   3. Compose a lockup SVG with the mark as an embedded base64 <image>, wordmark as vector paths.
   4. Rasterize to PNG at 3x display width via cairosvg — one per word colour (light/dark themes).
@@ -51,7 +51,8 @@ def transparent_mark(src):
     the largest remaining component; eroding it a few px cuts just inside the navy so the antialiased
     navy/white rim (which read as white notches on a dark background) is dropped entirely."""
     rgb = np.asarray(Image.open(src).convert("RGB"), float)
-    white = rgb.min(-1) >= 190                 # near-white in every channel (the page + rim, not the ink)
+    white = rgb.min(-1) >= 190                 # near-white in every channel (page + rim + cream ink); only
+                                               # border-touching blobs become `outer`, so interior ink is safe
     lab, _ = label(white)
     border = (set(lab[0, :]) | set(lab[-1, :]) | set(lab[:, 0]) | set(lab[:, -1])) - {0}
     outer = np.isin(lab, list(border))         # all white blobs touching the frame edge = the 4 corners
