@@ -20,10 +20,10 @@ All SVGs are true vector — the wordmark is glyph **outlines**, so no font is
 needed to render them. The project README header swaps `ncarnate-lockup.svg` ⇄
 `-dark.svg` by `prefers-color-scheme` via `<picture>`.
 
-> **Provisional — regenerate the globe before large-format / marketing use.** The globe is *traced*,
-> not drawn to geometry, so zoomed in its arcs aren't continuous (junctions blob, lines wobble off
-> true arcs, tapers fray). Fine at README/favicon scale. Regeneration is blocked on a tooling fix —
-> see `docs/plans/2026-07-11-logo-fidelity-regen.md`.
+The globe is **generated**, not traced: its graticule and orbit ring are true elliptical-arc strokes
+(uniform width, exact overlaps, resolution-independent), so they stay crisp at any zoom — no junction
+blobs or wobble. Only the organic phoenix is traced. See `docs/plans/2026-07-11-logo-fidelity-regen.md`
+and the `project-logo` skill's `scripts/globe.py`.
 
 ## Palette
 
@@ -38,20 +38,22 @@ Wordmark type: **Sora SemiBold** (weight 600), SIL Open Font License 1.1.
 ## Regenerating
 
 `ncarnate-source.png` is the approved raster — a flat, hard-edged emblem made by
-an image model (the pictorial mark), which local tooling then turns into vector.
-The mark is traced into a clean layered SVG; the wordmark and lockups are typeset
-from the font as outlines.
+an image model (the pictorial mark), used here as a **placement reference**: the
+phoenix is traced from it, while the globe/orbit geometry (centre, radius, tilt)
+is *measured* from it and then generated as vector primitives, not traced.
 
-`--supersample 2` upscales the raster before tracing so the spline tracer does
-not *hook* where the thin graticule and orbit lines cross (a 1× trace overshoots
-those T-junctions); `--precision 2` offsets the resulting point-count growth so
-the SVGs stay small.
+`compose_logo.py` does the hybrid composition (deps: `vtracer`, `pillow`, `scipy`,
+`numpy`; `globe.py` is pure-stdlib): it splits the raster into field / phoenix /
+ember, masks the globe + orbit out of the structure so only the organic phoenix is
+traced, generates the graticule globe + orbit ring via `globe.py`, and layers them
+(tile → globe → orbit-back → phoenix → orbit-front → ember). The globe geometry
+(`CX, CY, R, TILT, MERIDIANS, PARALLELS`, orbit params) lives in constants at the
+top of `compose_logo.py`; to re-fit it to a new raster, overlay `globe.py --out`
+on the raster and nudge until the limb/graticule line up.
 
 ```bash
 # deps: vtracer, fonttools, pillow, scipy, numpy  (+ cairosvg or @resvg/resvg-js to rasterise for the eyeball check)
-python3 trace_logo.py ncarnate-source.png ncarnate.svg \
-    --field '#152A47' --structure '#F2EDE1' --accent '#E8843C' \
-    --supersample 2 --precision 2   # mark + -mono + -white
+python3 compose_logo.py ncarnate-source.png ncarnate.svg   # mark + -mono + -white
 
 # fetch Sora and instance to weight 600:
 #   curl -sL -o sora-var.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/sora/Sora%5Bwght%5D.ttf"
@@ -61,6 +63,7 @@ python3 build_lockup.py --text ncarnate --font sora-600.ttf --mark ncarnate.svg 
 ```
 
 Verify on both GitHub themes before committing — render each lockup on `#ffffff`
-and `#0d1117` and confirm the wordmark is legible on each. The mark's thin
-graticule/orbit lines are the fidelity-critical part; trace from the
-highest-resolution raster available.
+and `#0d1117` and confirm the wordmark is legible on each. The globe is generated,
+so also zoom to a meridian×parallel crossing near the central meridian and confirm
+uniform stroke width through the crossing, true concentric arcs, even meridian
+spacing, and clean round caps.
