@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/ncarnate-lockup-dark.svg">
-    <img alt="ncarnate" src="brand/ncarnate-lockup.svg" width="460">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/ncarnate-lockup-dark.png">
+    <img alt="ncarnate" src="brand/ncarnate-lockup.png" width="460">
   </picture>
 </p>
 
