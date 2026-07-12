@@ -1,4 +1,9 @@
-# ncarnate
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/ncarnate-lockup-dark.svg">
+    <img alt="ncarnate" src="brand/ncarnate-lockup.svg" width="460">
+  </picture>
+</p>
 
 [![CI status](https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml/badge.svg)](https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ErickShepherd/ncarnate/blob/main/LICENSE)
