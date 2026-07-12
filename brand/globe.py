@@ -92,9 +92,13 @@ def meridian_path(cx, cy, r, beta, la):
     C = (cx, cy)
     a = (r * sl, r * cl * sb)       # cos t coefficient
     b = (0.0, -r * cb)              # sin t coefficient
-    # visible where Z = r sin t sb + r cos t cl cb > 0  -> centred 180-degree arc at t_max
+    # visible where Z = r sin t sb + r cos t cl cb > 0  -> centred 180-degree arc at t_max. But a
+    # meridian LINE only spans latitude [-90, 90]; the slice past a pole belongs to the antipodal
+    # meridian, so clamp to the real latitude domain or it pokes a whisker past the pole.
     t_max = math.atan2(sb, cl * cb)
-    return cubic_arc(C, a, b, t_max - math.pi / 2, t_max + math.pi / 2)
+    t0 = max(t_max - math.pi / 2, -math.pi / 2)
+    t1 = min(t_max + math.pi / 2, math.pi / 2)
+    return cubic_arc(C, a, b, t0, t1)
 
 
 def orbit_arcs(cx, cy, orx, ory, rot_deg, dx, dy):
@@ -172,9 +176,9 @@ def main():
         W = a.width or int(2 * max(a.cx, a.cy))
         graticule = graticule_svg(a.color, a.stroke, limb_w, a.cx, a.cy, a.r, meridians, parallels)
         body = (f'<rect width="{W}" height="{W}" rx="{0.16 * W:.0f}" fill="{a.field}"/>'
-                + orbit_back_layer(a.orbit_rx, orbit_back, a.color, orbit_w)
+                + orbit_layer(a.orbit_rx, orbit_back, a.color, orbit_w)
                 + graticule
-                + orbit_front_layer(a.orbit_rx, orbit_front, a.color, orbit_w))
+                + orbit_layer(a.orbit_rx, orbit_front, a.color, orbit_w))
         with open(a.out, "w") as f:
             f.write(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{W}" '
                     f'viewBox="0 0 {W} {W}">{body}</svg>\n')
@@ -201,14 +205,7 @@ def graticule_svg(color, stroke, limb_w, cx, cy, r, meridians, parallels):
             f'stroke-linejoin="round">{lines}</g>')
 
 
-def orbit_back_layer(has_orbit, d, color, w):
-    if not has_orbit:
-        return ""
-    return (f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{w}" '
-            f'stroke-linecap="round"/>')
-
-
-def orbit_front_layer(has_orbit, d, color, w):
+def orbit_layer(has_orbit, d, color, w):
     if not has_orbit:
         return ""
     return (f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{w}" '
