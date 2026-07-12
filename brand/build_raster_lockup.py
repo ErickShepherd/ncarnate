@@ -22,8 +22,8 @@ import io
 
 import cairosvg
 import numpy as np
-from PIL import Image, ImageDraw
-from scipy.ndimage import label
+from PIL import Image
+from scipy.ndimage import label, binary_erosion, gaussian_filter
 
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -43,30 +43,31 @@ SCALE = 3              # rasterize at 3x for retina crispness
 
 
 def transparent_mark(src):
-    """Return the source tile as RGBA with the white background beyond the rounded tile made
-    transparent via a clean geometric rounded-rect mask (no antialiased white fringe on dark bg)."""
+    """Return the source tile as RGBA with the white page beyond the rounded tile made transparent.
+
+    The tile is derived from its true silhouette, not a guessed rounded-rect: the white page shows only
+    in the four rounded corners (the navy tile fills the frame edge-to-edge on the flat sides), so
+    ``outer`` is every near-white blob touching the frame edge (all four corners at once). ``tile`` is
+    the largest remaining component; eroding it a few px cuts just inside the navy so the antialiased
+    navy/white rim (which read as white notches on a dark background) is dropped entirely."""
     rgb = np.asarray(Image.open(src).convert("RGB"), float)
-    luma = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
-    offish = luma >= 140
-    lab, _ = label(offish)
+    white = rgb.min(-1) >= 190                 # near-white in every channel (the page + rim, not the ink)
+    lab, _ = label(white)
     border = (set(lab[0, :]) | set(lab[-1, :]) | set(lab[:, 0]) | set(lab[:, -1])) - {0}
-    outer = np.isin(lab, list(border))         # the white page beyond the rounded tile
-    tile = ~outer                              # navy tile + cream phoenix + ember
+    outer = np.isin(lab, list(border))         # all white blobs touching the frame edge = the 4 corners
+    tile = ~outer
+    tlab, _ = label(tile)                       # keep the largest tile blob, drop stray edge specks
+    sizes = np.bincount(tlab.ravel())
+    sizes[0] = 0
+    tile = tlab == sizes.argmax()
+    tile = binary_erosion(tile, iterations=3)   # cut inside the navy: no antialiased white rim survives
+
     ys, xs = np.where(tile)
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
-    # corner radius: rows that span (nearly) the full tile width are below the rounded corners.
-    full = np.where(tile[:, x0:x1 + 1].sum(1) >= 0.99 * (x1 - x0))[0]
-    r = int(full.min() - y0) if len(full) else int(0.18 * (x1 - x0))
-
-    src_img = Image.open(src).convert("RGB").crop((x0, y0, x1 + 1, y1 + 1))
-    w, h = src_img.size
-    ss = 4                                     # supersample the mask for crisp corners
-    mask = Image.new("L", (w * ss, h * ss), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w * ss - 1, h * ss - 1], radius=r * ss, fill=255)
-    mask = mask.resize((w, h), Image.LANCZOS)
-    out = src_img.convert("RGBA")
-    out.putalpha(mask)
-    return out
+    alpha = gaussian_filter(tile * 255.0, 0.8)  # 1px feather for a clean edge (navy -> transparent)
+    out = Image.open(src).convert("RGBA")
+    out.putalpha(Image.fromarray(alpha.astype(np.uint8), "L"))
+    return out.crop((x0, y0, x1 + 1, y1 + 1))
 
 
 def typeset(font, text, track):
