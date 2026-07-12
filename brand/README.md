@@ -20,6 +20,11 @@ All SVGs are true vector — the wordmark is glyph **outlines**, so no font is
 needed to render them. The project README header swaps `ncarnate-lockup.svg` ⇄
 `-dark.svg` by `prefers-color-scheme` via `<picture>`.
 
+> **Provisional — regenerate the globe before large-format / marketing use.** The globe is *traced*,
+> not drawn to geometry, so zoomed in its arcs aren't continuous (junctions blob, lines wobble off
+> true arcs, tapers fray). Fine at README/favicon scale. Regeneration is blocked on a tooling fix —
+> see `docs/plans/2026-07-11-logo-fidelity-regen.md`.
+
 ## Palette
 
 | | Hex | Role |
