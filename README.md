@@ -37,7 +37,8 @@ Reach for ncarnate if you are trying to:
   filter without altering a single stored value.
 - **Shrink an archive of scientific files** without risking the science: every
   output is verified value-for-value against its source before it replaces
-  anything, and stored values round-trip bit-identically.
+  anything, and stored values round-trip value-identically (bit-for-bit for
+  integer and packed data; NaN- and signed-zero-insensitive for floating point).
 - **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
   command.
 
@@ -45,9 +46,11 @@ Reach for ncarnate if you are trying to:
 
 Converting or recompressing a file changes *storage*, never *science data*:
 
-- Every variable's stored values are preserved **bit-identically** — packed
-  integers stay packed; `scale_factor`/`add_offset`/`_FillValue` are carried
-  across as declarations, never applied.
+- Every variable's stored values are preserved **value-identically** — bit-for-bit
+  for integer and packed data; for floating point, distinct NaN bit-patterns and
+  `-0.0`/`+0.0` compare equal. Packed integers stay packed;
+  `scale_factor`/`add_offset`/`_FillValue` are carried across as declarations,
+  never applied.
 - Every dimension (including unlimited-ness), attribute (including its type), and
   group survives. HDF-EOS2 `StructMetadata` is preserved verbatim; names netCDF
   cannot hold are sanitized with the original recorded in a companion attribute.
@@ -199,7 +202,7 @@ The AMSR-E daily 12.5 km sea-ice granule this project grew up around:
 | netCDF4 recompression (`--complevel 9`) | 42.6 MB | 19.9 MB |
 | HDF-EOS2 → netCDF4 (+ reconstructed lat/lon) | 60.2 MB | 35.5 MB |
 
-Both outputs re-read bit-identically to their sources; the conversion
+Both outputs re-read value-identically to their sources; the conversion
 additionally carries CF `polar_stereographic` grid mappings and coordinates for
 both hemispheric grids. The northern grid's reconstructed latitudes/longitudes
 agree with The HDF Group's independent conversion of the same granule to within
