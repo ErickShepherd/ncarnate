@@ -11,7 +11,8 @@ changes *storage* (compression level, shuffle, chunk/endian layout, container fo
 
 ### netCDF/HDF5 → netCDF4 (recompression)
 
-Guaranteed preserved, bit-identical when read raw (`set_auto_maskandscale(False)`):
+Guaranteed preserved when read raw (`set_auto_maskandscale(False)`), value-identical —
+bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floating point:
 
 - every variable's stored values (packed integers stay packed — no mask-and-scale
   round-trip, which silently re-quantizes);
@@ -27,8 +28,9 @@ replaced until the new file has been written and re-opened successfully.
 
 ### HDF4 / HDF-EOS2 → netCDF4 (conversion)
 
-- every SDS's values bit-identical (char8 SDS map to netCDF `NC_CHAR` and round-trip
-  byte-for-byte); dimensions (with their HDF4 names) and attributes preserved; fill/scale
+- every SDS's values value-identical — bit-for-bit for integer and char8 data (char8 SDS
+  map to netCDF `NC_CHAR` and round-trip byte-for-byte), NaN- and signed-zero-insensitive
+  for floating point; dimensions (with their HDF4 names) and attributes preserved; fill/scale
   carried as declarations;
 - `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** as
   attributes of an `HDFEOS_INFORMATION` group — reconstruction never becomes the only copy
@@ -74,7 +76,8 @@ propagates, never interpolated across.
 ## How the round-trip proves it
 
 For every committed fixture: convert/recompress → re-open both files raw → assert
-(a) value arrays bit-identical (`numpy.array_equal` on raw reads), (b) dimension names,
+(a) value arrays equal on raw reads (`numpy.array_equal`, with `equal_nan` set for
+float/complex — bit-for-bit for integer/packed data, NaN-/±0-insensitive for floats), (b) dimension names,
 sizes, and unlimited flags equal, (c) attribute sets equal (fill/scale compared as
 declarations), (d) group tree equal, and (e) output ≤ input size at `complevel≥7` for the
 compressible fixtures. The packed-integer + `_FillValue` fixture exists precisely because
