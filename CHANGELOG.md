@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] - 2026-07-12
+
+A documentation and branding patch. **No functional changes** to conversion,
+recompression, or verification behavior — the fidelity guarantee is unchanged;
+this release only describes it more precisely and dresses up the project.
+
+### Changed
+- Fidelity wording now matches what the verifier enforces. The data-preservation
+  guarantee is described as **value-identical** — bit-for-bit for integer, char,
+  and packed data; NaN- and signed-zero-insensitive for floating point — in the
+  README, `docs/fidelity-notes.md`, and the HDF4 module docstring, replacing the
+  blanket "bit-identical" (which overstated the guarantee for float data, since
+  the verifiers compare floats with `numpy.array_equal(equal_nan=True)`).
+
+### Added
+- Brand assets and a theme-aware README logo lockup (light/dark), plus live
+  PyPI, conda-forge, and Read the Docs badges.
+
+### Fixed
+- Read the Docs build stays green under current `myst-parser` by suppressing the
+  `myst.header` advisory (the strict `fail_on_warning` build would otherwise fail
+  on the README-derived landing page).
+
 ## [2.2.0] - 2026-07-11
 
 The archive-modernization workflow: a read-only **audit** that plans a

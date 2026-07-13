@@ -11,8 +11,8 @@ authors:
     given-names: "Erick Edward"
     email: "dev@erickshepherd.com"
     orcid: "https://orcid.org/0000-0002-4750-6100"
-version: "2.2.0"
-date-released: "2026-07-11"
+version: "2.2.1"
+date-released: "2026-07-12"
 doi: "10.5281/zenodo.21288802"
 license: MIT
 repository-code: "https://github.com/ErickShepherd/ncarnate"
