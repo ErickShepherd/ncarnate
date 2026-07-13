@@ -13,7 +13,7 @@ this release only describes it more precisely and dresses up the project.
 ### Changed
 - Fidelity wording now matches what the verifier enforces. The data-preservation
   guarantee is described as **value-identical** — bit-for-bit for integer, char,
-  and packed data; NaN- and signed-zero-insensitive for floating point — in the
+  and packed data; NaN- and signed-zero-insensitive for floating-point/complex — in the
   README, `docs/fidelity-notes.md`, and the HDF4 module docstring, replacing the
   blanket "bit-identical" (which overstated the guarantee for float data, since
   the verifiers compare floats with `numpy.array_equal(equal_nan=True)`).
