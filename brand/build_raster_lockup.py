@@ -138,7 +138,7 @@ def main(src=SRC, font=FONT):
     # also emit the transparent mark tile on its own (favicon/social/reuse), sized for reuse not print
     mark512 = mark.resize((512, 512), Image.LANCZOS)
     mark512.save("ncarnate-mark.png")
-    print(f"wrote ncarnate-mark.png  (512x512, transparent corners)")
+    print("wrote ncarnate-mark.png  (512x512, transparent corners)")
 
 
 if __name__ == "__main__":
