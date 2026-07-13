@@ -12,7 +12,7 @@ changes *storage* (compression level, shuffle, chunk/endian layout, container fo
 ### netCDF/HDF5 → netCDF4 (recompression)
 
 Guaranteed preserved when read raw (`set_auto_maskandscale(False)`), value-identical —
-bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floating point:
+bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floating-point/complex:
 
 - every variable's stored values (packed integers stay packed — no mask-and-scale
   round-trip, which silently re-quantizes);
@@ -30,7 +30,7 @@ replaced until the new file has been written and re-opened successfully.
 
 - every SDS's values value-identical — bit-for-bit for integer and char8 data (char8 SDS
   map to netCDF `NC_CHAR` and round-trip byte-for-byte), NaN- and signed-zero-insensitive
-  for floating point; dimensions (with their HDF4 names) and attributes preserved; fill/scale
+  for floating-point/complex; dimensions (with their HDF4 names) and attributes preserved; fill/scale
   carried as declarations;
 - `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** as
   attributes of an `HDFEOS_INFORMATION` group — reconstruction never becomes the only copy

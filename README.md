@@ -41,7 +41,7 @@ Reach for ncarnate if you are trying to:
 - **Shrink an archive of scientific files** without risking the science: every
   output is verified value-for-value against its source before it replaces
   anything, and stored values round-trip value-identically (bit-for-bit for
-  integer and packed data; NaN- and signed-zero-insensitive for floating point).
+  integer and packed data; NaN- and signed-zero-insensitive for floating-point/complex).
 - **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
   command.
 
