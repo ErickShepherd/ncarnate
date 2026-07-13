@@ -15,6 +15,7 @@ venv/
 
 # Local scratch.
 tmp/
+brand/_work/
 
 # Audit orchestration sidecars (ephemeral analysis).
 docs/audits/*.run.log
