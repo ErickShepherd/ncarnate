@@ -40,10 +40,10 @@ autodoc_member_order  = "bysource"
 autodoc_typehints     = "description"
 
 # The docs landing page includes README.md, whose headings intentionally start at
-# H2 (the H1/page title is supplied by Sphinx), so MyST >=4 emits a `myst.header`
-# advisory ("Document headings start at H2, not H1"). Silence just that class:
-# Read the Docs builds with unpinned `myst-parser>=2` and `fail_on_warning: true`,
-# so an upstream MyST that newly emits this advisory would otherwise fail the build.
+# H2 (the H1/page title is supplied by Sphinx), so MyST emits a `myst.header`
+# advisory ("Document headings start at H2, not H1") across its whole supported
+# range (>=2). Silence just that class: Read the Docs builds with unpinned
+# `myst-parser>=2` and `fail_on_warning: true`, so the advisory fails the build.
 suppress_warnings = ["myst.header"]
 
 intersphinx_mapping = {
