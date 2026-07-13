@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/ncarnate-lockup-dark.png">
-    <img alt="ncarnate" src="brand/ncarnate-lockup.png" width="460">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ErickShepherd/ncarnate/main/brand/ncarnate-lockup-dark.png">
+    <img alt="ncarnate" src="https://raw.githubusercontent.com/ErickShepherd/ncarnate/main/brand/ncarnate-lockup.png" width="460">
   </picture>
 </p>
 
@@ -41,7 +41,7 @@ Reach for ncarnate if you are trying to:
 - **Shrink an archive of scientific files** without risking the science: every
   output is verified value-for-value against its source before it replaces
   anything, and stored values round-trip value-identically (bit-for-bit for
-  integer and packed data; NaN- and signed-zero-insensitive for floating point).
+  integer and packed data; NaN- and signed-zero-insensitive for floating-point/complex).
 - **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
   command.
 
@@ -50,8 +50,8 @@ Reach for ncarnate if you are trying to:
 Converting or recompressing a file changes *storage*, never *science data*:
 
 - Every variable's stored values are preserved **value-identically** — bit-for-bit
-  for integer and packed data; for floating point, distinct NaN bit-patterns and
-  `-0.0`/`+0.0` compare equal. Packed integers stay packed;
+  for integer and packed data; for floating-point and complex data, distinct NaN
+  bit-patterns and `-0.0`/`+0.0` compare equal. Packed integers stay packed;
   `scale_factor`/`add_offset`/`_FillValue` are carried across as declarations,
   never applied.
 - Every dimension (including unlimited-ness), attribute (including its type), and
