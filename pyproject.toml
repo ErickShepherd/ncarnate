@@ -58,9 +58,10 @@ ncarnate = "ncarnate.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ErickShepherd/ncarnate"
-Documentation = "https://ncarnate.readthedocs.io/en/latest/"
+Documentation = "https://ncarnate.readthedocs.io/en/stable/"
 Source = "https://github.com/ErickShepherd/ncarnate"
-"Bug Tracker" = "https://github.com/ErickShepherd/ncarnate/issues"
+Changelog = "https://github.com/ErickShepherd/ncarnate/releases"
+Issues = "https://github.com/ErickShepherd/ncarnate/issues"
 
 [tool.hatch.version]
 path = "ncarnate/constants.py"
