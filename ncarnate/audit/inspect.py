@@ -29,17 +29,11 @@ from typing import Any
 
 # Third party imports.
 import netCDF4 as nc
-from pyhdf.SD import SD, SDC
 
 # Local application imports.
 from ncarnate.audit.models import StructureAudit
 from ncarnate.eos import structmeta
 from ncarnate.formats import FileFormat, detect_format
-from ncarnate.hdf4 import (
-    _DFNT_DTYPES,
-    _read_attributes,
-    _structmetadata_text,
-)
 
 
 @dataclass
@@ -79,6 +73,17 @@ class FileFacts:
 
 
 def _inspect_hdf4(path : str, file_format : FileFormat) -> FileFacts:
+
+    # Imported here, not at module level, so importing the audit stack
+    # never touches the HDF4 runtime (KD-L3): pyhdf has no Windows pip
+    # wheel, and only this HDF4-dispatch path actually needs it.
+    from pyhdf.SD import SD, SDC
+
+    from ncarnate.hdf4 import (
+        _DFNT_DTYPES,
+        _read_attributes,
+        _structmetadata_text,
+    )
 
     source = SD(path, SDC.READ)
 

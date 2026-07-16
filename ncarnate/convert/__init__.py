@@ -27,7 +27,24 @@ import logging
 import os
 
 # Third party imports.
-from pyhdf.error import HDF4Error
+try:
+
+    from pyhdf.error import HDF4Error
+
+except ImportError:
+
+    # pyhdf absent (no Windows pip wheel — KD-L3): the convert stack must
+    # still import for netCDF-only manifests. Without pyhdf no code can
+    # *raise* HDF4Error, so a never-raised placeholder keeps the except
+    # clause below verbatim.
+    class HDF4Error(Exception):
+
+        '''
+
+        Placeholder for :class:`pyhdf.error.HDF4Error` when the HDF4
+        runtime is unavailable; never raised.
+
+        '''
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME

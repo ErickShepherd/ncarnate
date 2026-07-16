@@ -127,7 +127,7 @@ def test_detect_format_without_pyhdf(no_pyhdf_env):
         f"""
         from ncarnate import FileFormat, detect_format
         assert detect_format({str(NETCDF_FIXTURES[0])!r}) in (
-            FileFormat.NETCDF3, FileFormat.NETCDF4,
+            FileFormat.NETCDF3, FileFormat.HDF5,
         )
         assert detect_format({str(HDFEOS2_FIXTURES[0])!r}) is FileFormat.HDF4
         """,

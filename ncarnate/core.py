@@ -29,7 +29,6 @@ import netCDF4 as nc
 import numpy as np
 
 # Local application imports.
-from ncarnate import hdf4
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
 from ncarnate.errors import UnsupportedTypeError
@@ -100,6 +99,12 @@ def recompress(src         : str,
         )
 
     if file_format is FileFormat.HDF4:
+
+        # Imported here, not at module level, so the netCDF-only surface
+        # never touches the HDF4 runtime (KD-L3): ncarnate.hdf4 pulls in
+        # pyhdf, which has no Windows pip wheel — an eager import would
+        # break `import ncarnate` on every pip-only install.
+        from ncarnate import hdf4
 
         # Conversion, not recompression: the .hdf original is a different
         # format and is never destroyed.

@@ -28,7 +28,23 @@ import logging
 import os
 
 # Third party imports.
-from pyhdf.error import HDF4Error
+try:
+
+    from pyhdf.error import HDF4Error
+
+except ImportError:
+
+    # pyhdf absent (no Windows pip wheel — KD-L3): the audit stack must
+    # still import. Without pyhdf no code can *raise* HDF4Error, so a
+    # never-raised placeholder keeps the except clauses below verbatim.
+    class HDF4Error(Exception):
+
+        '''
+
+        Placeholder for :class:`pyhdf.error.HDF4Error` when the HDF4
+        runtime is unavailable; never raised.
+
+        '''
 
 # Local application imports.
 from ncarnate.discovery import _configure_logging, _get_files
