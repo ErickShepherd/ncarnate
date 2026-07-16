@@ -3,9 +3,7 @@
 > **Status:** ratified design, build in progress in **this** repo. This copy is the
 > **authoritative** build spec (per Key decision 9); the originating design lives in
 > the owner's internal planning records and no longer governs.
-> **Provenance:** synthesised from two planning conversations (internal planning
-> `digest/synthesis.md` §5 spec, §8 open decisions, §9 framing) and their source
-> transcripts. Codebase facts below were first verified against ncarnate **2.0.2** and
+> Codebase facts below were first verified against ncarnate **2.0.2** and
 > **re-verified against 2.0.3** on 2026-07-10 (`ncarnate/constants.py`); the two known
 > drift corrections from the 2.0.2 grounding are folded in (packed-geolocation raise
 > site; fixture layout confirmed under `tests/fixtures/data/`).
@@ -295,7 +293,7 @@ report.summary.ready_bytes; report.files[0].issues
 8. **License: MIT, inherited.** `audit` is part of ncarnate (MIT, shipped, cited via
    Zenodo). The copyleft aspiration applies to future standalone science projects, not
    retro-relicensing the flagship.
-9. **This doc lives in `internal planning` originally, moves with the build.** With
+9. **This doc originates in the owner's internal planning records, moves with the build.** With
    implementation started, this design has been copied into `ncarnate/docs/design/` and
    **this copy is authoritative** (ncarnate's sdist already excludes `docs/design` — dev
    material, correctly).
