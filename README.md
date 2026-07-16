@@ -41,7 +41,7 @@ Reach for ncarnate if you are trying to:
 - **Shrink an archive of scientific files** without risking the science: every
   output is verified value-for-value against its source before it replaces
   anything, and stored values round-trip value-identically (bit-for-bit for
-  integer and packed data; NaN- and signed-zero-insensitive for floating-point/complex).
+  integer and packed data; NaN- and signed-zero-insensitive for floating point).
 - **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
   command.
 
@@ -50,13 +50,19 @@ Reach for ncarnate if you are trying to:
 Converting or recompressing a file changes *storage*, never *science data*:
 
 - Every variable's stored values are preserved **value-identically** — bit-for-bit
-  for integer and packed data; for floating-point and complex data, distinct NaN
+  for integer and packed data; for floating-point data, distinct NaN
   bit-patterns and `-0.0`/`+0.0` compare equal. Packed integers stay packed;
   `scale_factor`/`add_offset`/`_FillValue` are carried across as declarations,
   never applied.
-- Every dimension (including unlimited-ness), attribute (including its type), and
-  group survives. HDF-EOS2 `StructMetadata` is preserved verbatim; names netCDF
-  cannot hold are sanitized with the original recorded in a companion attribute.
+- Every dimension (including unlimited-ness), attribute (including its exact
+  storage type — an `NC_STRING` scalar stays `NC_STRING`, verified via netCDF-C
+  type inquiry), and group survives. HDF-EOS2 `StructMetadata` is preserved
+  verbatim; names netCDF cannot hold are sanitized with the original recorded in
+  a companion attribute.
+- **Complex-valued variables (`complex64`/`complex128`) are excluded** from the
+  fidelity guarantee: netCDF stores them as compound types, which ncarnate
+  **refuses loudly** with the stable `UNSUPPORTED_TYPE` error rather than
+  guessing at a lossy copy. Complex support is a later, evidence-backed feature.
 - Geolocation reconstruction is strictly **additive**: the original information
   always rides along, so the conversion never becomes the only copy of the
   truth. Swath coordinates are attached to variables whose first two axes are
@@ -97,11 +103,18 @@ required. On platforms without a repaired `pyhdf` wheel (e.g. Linux aarch64),
 building from sdist requires the system HDF4 library first (Debian/Ubuntu:
 `apt install libhdf4-dev`).
 
-**Windows via pip:** the netCDF/HDF5 *recompression* path works from PyPI wheels
-out of the box, but the HDF4/HDF-EOS2 *conversion* path does **not** — `pyhdf`'s
-Windows wheel ships no HDF4 runtime, so `import pyhdf` fails with a DLL-load
-error. Use the conda-forge install above for HDF4 on Windows (or **WSL** with the
-pip instructions).
+**Windows via pip:** PyPI wheels give you the full netCDF/HDF5 surface —
+`import ncarnate`, the CLI (`--help`/`--version`), format detection, audits,
+manifest runs, and verified recompression — but **not** HDF4/HDF-EOS2
+*conversion*: `pyhdf`'s Windows wheel ships no HDF4 runtime. An HDF4 attempt
+is refused cleanly **before any output is created** with the stable
+`[HDF4_RUNTIME_UNAVAILABLE]` message naming the detected cause, the
+capabilities that still work, and the fix — never an unexplained import
+traceback. An audit of an archive containing HDF4 files still completes,
+recording those files as `unsupported` with the same code. For HDF4 on
+Windows use the conda-forge install above (or **WSL** with the pip
+instructions); a dedicated CI job pins this degraded-capability contract on
+every change.
 
 ## Command line usage
 
@@ -175,6 +188,19 @@ ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /archive \
 The end-of-run summary counts converted / skipped / failed with reasons, and the
 exit code is non-zero **iff** a selected record failed — so a partial failure on
 a terabyte run surfaces loudly instead of silently mis-converting.
+
+**Destination collision preflight.** Before any directory or output file is
+created, every selected record's destination is computed up front — from the
+source's *detected bytes*, never the manifest's declared format — and any
+collision refuses the **entire run** with exit code 2 and a stable
+`[DESTINATION_COLLISION]` message on stderr listing every involved source and
+the contested destination. No last-writer-wins, no auto-rename, no partial
+proceed, and nothing is written. Refused collisions include: two records
+landing on one output path (e.g. an `a.hdf` → `a.nc` conversion next to a real
+`a.nc` sibling), case-fold-equivalent names (one file on NTFS/APFS), duplicate
+records for one source, an output tree overlapping a source tree (symlinks
+resolved), and a pre-existing destination unless you pass `--skip-existing` to
+resume.
 
 ## Library usage
 

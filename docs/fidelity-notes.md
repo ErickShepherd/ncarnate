@@ -12,7 +12,8 @@ changes *storage* (compression level, shuffle, chunk/endian layout, container fo
 ### netCDF/HDF5 → netCDF4 (recompression)
 
 Guaranteed preserved when read raw (`set_auto_maskandscale(False)`), value-identical —
-bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floating-point/complex:
+bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floating point
+(complex is excluded — see the guarantee boundary):
 
 - every variable's stored values (packed integers stay packed — no mask-and-scale
   round-trip, which silently re-quantizes);
@@ -30,7 +31,8 @@ replaced until the new file has been written and re-opened successfully.
 
 - every SDS's values value-identical — bit-for-bit for integer and char8 data (char8 SDS
   map to netCDF `NC_CHAR` and round-trip byte-for-byte), NaN- and signed-zero-insensitive
-  for floating-point/complex; dimensions (with their HDF4 names) and attributes preserved; fill/scale
+  for floating point (HDF4's DFNT type system has no complex type, so complex never
+  arises on this path); dimensions (with their HDF4 names) and attributes preserved; fill/scale
   carried as declarations;
 - `StructMetadata.0` (and other EOS metadata attributes) preserved **verbatim** as
   attributes of an `HDFEOS_INFORMATION` group — reconstruction never becomes the only copy
@@ -64,11 +66,35 @@ edges). Interpolated variables carry a `comment` attribute saying they are inter
 edge pixels outside the geolocation envelope are linearly extrapolated; geolocation fill
 propagates, never interpolated across.
 
+### Manifest runs: destination collision preflight (no-data-loss gate)
+
+Fidelity is meaningless if two outputs silently overwrite each other, so
+manifest-driven runs (`convert --manifest`) add a **whole-run destination
+preflight** before any directory or output is created: every selected record's
+destination is computed up front from its *detected bytes* (never the
+manifest's declared format — the manifest is untrusted input), and any
+collision refuses the **entire run** with the stable `DESTINATION_COLLISION`
+code (exit code 2, rendered on stderr) listing every involved source and the
+contested destination. No last-writer-wins, no auto-rename, no partial
+proceed, zero output-tree mutation. Refused classes: duplicate or
+case-fold-equivalent destinations (one file on NTFS/APFS), an `.hdf` → `.nc`
+conversion colliding with a real `.nc` sibling, duplicate records for one
+source (symlink-aliased included), source-tree/output-tree overlap (symlinks
+resolved), a destination aliasing a selected source, and a pre-existing
+destination without `--skip-existing`. Pinned end-to-end — including the
+zero-mutation guarantee at the process boundary — by
+`tests/test_convert_collisions.py`.
+
 ### Guarantee boundary
 
 - Compound, VLen, enum, and opaque netCDF4 types are **out of scope for v2**: ncarnate
-  raises a clear unsupported-type error rather than guessing (none of the target-domain
-  files surveyed use them; revisit on demand).
+  raises a clear unsupported-type error (stable code `UNSUPPORTED_TYPE`) rather than
+  guessing (none of the target-domain files surveyed use them; revisit on demand).
+- **Complex-valued variables (`complex64`/`complex128`) are excluded from the fidelity
+  guarantee** (owner decision, 2026-07-16): netCDF stores recognized complex encodings
+  as compound types (e.g. `_PFNC_DOUBLE_COMPLEX_TYPE`), so they are refused by the
+  compound rule above — loudly, with `UNSUPPORTED_TYPE`, before any output is written.
+  Complex support is a later, evidence-backed feature, not a silent partial copy.
 - Already-lossy packing is preserved as-is, never "un-quantized".
 - HDF4 inputs are read via the pyhdf SD API: SDS datasets and attributes. Vdata/Vgroup
   payloads beyond SD are out of scope for v2.
@@ -77,9 +103,10 @@ propagates, never interpolated across.
 
 For every committed fixture: convert/recompress → re-open both files raw → assert
 (a) value arrays equal on raw reads (`numpy.array_equal`, with `equal_nan` set for
-float/complex — bit-for-bit for integer/packed data, NaN-/±0-insensitive for floats), (b) dimension names,
-sizes, and unlimited flags equal, (c) attribute sets equal (fill/scale compared as
-declarations), (d) group tree equal, and (e) output ≤ input size at `complevel≥7` for the
+floats — bit-for-bit for integer/packed data, NaN-/±0-insensitive for floats), (b) dimension names,
+sizes, and unlimited flags equal, (c) attribute sets equal — values *and* netCDF storage
+types (`NC_STRING` vs `NC_CHAR`, via netCDF-C `nc_inq_atttype`; `tests/test_attribute_types.py`)
+— (d) group tree equal, and (e) output ≤ input size at `complevel≥7` for the
 compressible fixtures. The packed-integer + `_FillValue` fixture exists precisely because
 v1 failed both (a crash and a silent re-quantization).
 

@@ -20,7 +20,13 @@ top-level LICENSE file.
 # The ruleset version. Bump on any classification-semantics change.
 # v2 (2026-07-10): added MALFORMED_CONTAINER (a recognized container whose
 # structure is unreadable — a corrupt/truncated file).
-RULESET_VERSION = 2
+# v3 (2026-07-16): added DESTINATION_COLLISION (the convert-side manifest
+# destination preflight's whole-run refusal — a registry code so operators
+# script against one stable namespace, though it never appears in an audit
+# record's issues).
+# v4 (2026-07-16): added HDF4_RUNTIME_UNAVAILABLE (the degraded-capability
+# refusal when pyhdf cannot be imported — a Windows pip install; KD-L4).
+RULESET_VERSION = 4
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -41,6 +47,24 @@ FORMAT_UNRECOGNIZED           = "FORMAT_UNRECOGNIZED"
 # rather than letting the exception abort a whole-archive scan.
 MALFORMED_CONTAINER           = "MALFORMED_CONTAINER"
 
+# DESTINATION_COLLISION: the whole-manifest destination preflight found two
+# selected records claiming one output path (or a destination aliasing a
+# source/tree, or a pre-existing output without --skip-existing) and refused
+# the entire convert run before anything was written (KD-L1/KD-L2). Raised
+# by `ncarnate.convert.preflight`, never emitted in an audit record's
+# issues — it lives here because this registry is the single stable code
+# namespace archive managers script against.
+DESTINATION_COLLISION         = "DESTINATION_COLLISION"
+
+# HDF4_RUNTIME_UNAVAILABLE: an HDF4/HDF-EOS2 operation was attempted on an
+# install whose HDF4 runtime (pyhdf) cannot be imported — e.g. a Windows
+# pip install, which has no pyhdf wheel (KD-L4). Raised by
+# `ncarnate.hdf4_runtime.require_hdf4_runtime` before any output is
+# created; in an audit record it appears as a blocker issue folding to the
+# `unsupported` status (this install cannot convert the file — the file
+# itself may be fine).
+HDF4_RUNTIME_UNAVAILABLE      = "HDF4_RUNTIME_UNAVAILABLE"
+
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
@@ -53,4 +77,6 @@ ALL_CODES = frozenset({
     DECLARED_ALLOCATION_TOO_LARGE,
     FORMAT_UNRECOGNIZED,
     MALFORMED_CONTAINER,
+    DESTINATION_COLLISION,
+    HDF4_RUNTIME_UNAVAILABLE,
 })

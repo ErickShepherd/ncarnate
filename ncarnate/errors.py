@@ -108,3 +108,24 @@ class AllocationTooLargeError(NcarnateError):
     ``unsafe`` status by type as well as by ``code``.
 
     '''
+
+
+def render_refusal(error : NcarnateError) -> str:
+
+    '''
+
+    Renders a refusal as operator-facing text: the stable registry code in
+    a ``[CODE]`` prefix, then the message. The code is rendered *textually*
+    — not just carried on the exception — because the CLI surface is what
+    operators script against (grep stderr, branch on the exit code). An
+    error with no ``code`` renders as its message alone, unchanged. Lives
+    here, not in a CLI module, so both the flat CLI and the manifest CLI
+    render codes identically without pulling in each other's stacks.
+
+    '''
+
+    if getattr(error, "code", None):
+
+        return f"[{error.code}] {error}"
+
+    return str(error)

@@ -34,11 +34,14 @@ files — changing the compression level, shuffle filter, or storage layout
 without altering a single stored value.
 
 Every conversion or recompression is governed by a **fidelity contract**: each
-variable's stored values are preserved bit-identically (packed integers stay
-packed; `scale_factor`, `add_offset`, and `_FillValue` are carried across as
-declarations, never applied), reconstructed geolocation is strictly additive so
-the original information always survives, and every output is verified against
-its source value-for-value before it replaces anything. Constructs the tool
+variable's stored values are preserved value-identically — bit-for-bit for
+integer and packed data, insensitive only to NaN bit-patterns and signed zero
+for floating point (packed integers stay packed; `scale_factor`, `add_offset`,
+and `_FillValue` are carried across as declarations, never applied; complex
+variables are refused rather than guessed), reconstructed geolocation is
+strictly additive so the original information always survives, and every output
+is verified against its source — values and attribute storage types — before it
+replaces anything. Constructs the tool
 cannot convert correctly — unverified projections or exotic swath layouts —
 **fail loud** with a named error rather than producing a silently wrong result.
 
@@ -72,9 +75,9 @@ geographic, and Lambert-azimuthal (EASE-Grid) projections — inverting the grid
 projection with PROJ [@proj] — and reconstructs both direct and dimension-mapped
 swath geolocation, interpolating, for example, 5 km geolocation to a 1 km
 science grid through Earth-centred, Earth-fixed (ECEF) space. It preserves every
-stored value bit-identically and verifies each output against its source before
-replacement, refusing with a named error any construct it cannot convert
-correctly. For the hemispheric AMSR-E 12.5 km sea-ice grid the project grew up
+stored value value-identically — bit-for-bit for integer and packed data — and
+verifies each output against its source before replacement, refusing with a
+named error any construct it cannot convert correctly. For the hemispheric AMSR-E 12.5 km sea-ice grid the project grew up
 around, the reconstructed latitudes and longitudes agree with an independent
 reference conversion of the same granule to within about $10^{-5}$ degrees
 (roughly one metre), the tolerance the project's cross-check against that

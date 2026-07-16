@@ -27,22 +27,39 @@ import logging
 import os
 
 # Third party imports.
-from pyhdf.error import HDF4Error
+try:
+
+    from pyhdf.error import HDF4Error
+
+except ImportError:
+
+    # pyhdf absent (no Windows pip wheel — KD-L3): the convert stack must
+    # still import for netCDF-only manifests. Without pyhdf no code can
+    # *raise* HDF4Error, so a never-raised placeholder keeps the except
+    # clause below verbatim.
+    class HDF4Error(Exception):
+
+        '''
+
+        Placeholder for :class:`pyhdf.error.HDF4Error` when the HDF4
+        runtime is unavailable; never raised.
+
+        '''
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
 from ncarnate.discovery import _configure_logging
-from ncarnate.errors import NcarnateError
-from ncarnate.convert.integrity import (
-    ContainmentError,
-    resolve_within,
-    verify_sha256,
-)
+from ncarnate.errors import NcarnateError, render_refusal
+from ncarnate.convert.integrity import ContainmentError
 from ncarnate.convert.models import (
     ConvertOptions,
     ConvertRecord,
     ConvertResult,
+)
+from ncarnate.convert.preflight import (
+    DestinationCollisionError,
+    preflight_destinations,
 )
 from ncarnate.convert.reader import read_manifest
 from ncarnate.convert.report import render_summary
@@ -51,28 +68,10 @@ __all__ = [
     "ConvertOptions",
     "ConvertRecord",
     "ConvertResult",
+    "DestinationCollisionError",
     "convert_manifest",
     "main",
 ]
-
-
-def _output_relpath(record) -> str:
-
-    '''
-
-    The mirrored output path for a record: an HDF4/HDF-EOS2 source's
-    extension is swapped to ``.nc`` (a conversion), a netCDF source's name is
-    kept (a recompressed copy). The sha256 gate has already confirmed the
-    bytes, so reading ``record.format`` for the swap is safe (§Output
-    destination).
-
-    '''
-
-    if record.format == "HDF4":
-
-        return os.path.splitext(record.path)[0] + ".nc"
-
-    return record.path
 
 
 def convert_manifest(
@@ -88,6 +87,12 @@ def convert_manifest(
     run — and tallied into the returned :class:`ConvertResult`; a blocker is
     skipped with a counted reason and never converted (KD6). Sources are
     never mutated.
+
+    Before anything is written, the whole selected run passes the
+    destination preflight (:mod:`ncarnate.convert.preflight`, KD-L1/KD-L2):
+    every destination is computed up front from the source's detected bytes,
+    and any collision raises :class:`DestinationCollisionError` — refusing
+    the entire run before any directory or output is created.
 
     '''
 
@@ -118,6 +123,8 @@ def convert_manifest(
     result  = ConvertResult()
     records = read_manifest(manifest_path)
 
+    actionable = []
+
     for record in records:
 
         if record.status not in options.statuses:
@@ -137,36 +144,32 @@ def convert_manifest(
             ))
             continue
 
+        actionable.append(record)
+
+    # The whole-manifest destination preflight (KD-L1/KD-L2): resolve,
+    # verify, and byte-detect every actionable source and compute every
+    # destination BEFORE any directory or output exists; any collision
+    # raises DestinationCollisionError, refusing the entire run. A record
+    # that merely fails resolution/verification stays a per-record failure.
+    # NB: verify_sha256 (in the preflight) and recompress (below) open
+    # `source` by path in two non-atomic steps — a TOCTOU residual risk
+    # under a hostile archive filesystem that can race the tree between the
+    # two opens (design §Risks "TOCTOU"). Accepted for now; the full fix
+    # (single-fd hash + convert) needs an fd-accepting recompress entry
+    # point.
+    plans, preflight_failed = preflight_destinations(actionable, options)
+    result.failed.extend(preflight_failed)
+
+    for record, source, destination in plans:
+
         try:
 
-            source = resolve_within(options.root or record.root, record.path)
-            # NB: verify_sha256 and recompress open `source` by path in two
-            # non-atomic steps — a TOCTOU residual risk under a hostile archive
-            # filesystem that can race the tree between the two opens (design
-            # §Risks "TOCTOU"). Accepted for now; the full fix (single-fd hash
-            # + convert) needs an fd-accepting recompress entry point.
-            verify_sha256(
-                record, source, allow_unverified=options.allow_unverified
-            )
-
-            if options.in_place:
-
-                # No mirrored tree: recompress replaces the netCDF source
-                # where it sits (after its own verify-lossless step) and
-                # writes an HDF4 conversion beside the source. skip_existing
-                # is inert here — there is no computed out_dir path to test,
-                # so resumability is an out_dir-mode-only guarantee (KD3,
-                # §Output destination).
-                destination = None
-
-            else:
-
-                destination = resolve_within(
-                    options.out_dir, _output_relpath(record)
-                )
+            if destination is not None:
 
                 # Resumability: a record whose mirrored output already
                 # exists is skipped, not re-converted (§Output destination).
+                # skip_existing is inert under in_place — there is no
+                # computed out_dir path to test (KD3, §Output destination).
                 if options.skip_existing and os.path.exists(destination):
 
                     result.skipped.append(ConvertRecord(
@@ -400,7 +403,11 @@ def main(argv : list[str]) -> int:
 
     except NcarnateError as error:
 
-        logger.error("%s", error)
+        # A whole-run refusal (destination preflight, containment) renders
+        # its stable registry code textually — [DESTINATION_COLLISION] … —
+        # so operators can script against stderr, not just the exception
+        # attribute the CLI boundary would otherwise swallow (KD-L2).
+        logger.error("%s", render_refusal(error))
 
         return 2
 

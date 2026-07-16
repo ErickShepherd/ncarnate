@@ -39,9 +39,11 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         # Smoke the self-contained-wheel install story (pyhdf + netCDF4 +
         # pyproj, no system HDF libs) on macOS too. Windows is deliberately
-        # excluded: pyhdf's Windows wheel ships no HDF4 runtime, so the
-        # HDF4 path can't import from PyPI wheels there (README documents
-        # the conda-forge / WSL route). The netCDF path works on Windows.
+        # excluded from the *full* matrix: pyhdf's Windows wheel ships no
+        # HDF4 runtime, so the HDF4 fixtures can't run there. Windows-pip
+        # instead gets the dedicated degraded-capability job below
+        # (KD-L4/KD-L7), which pins exactly what must keep working — and
+        # exactly how the HDF4 path must refuse — without a usable pyhdf.
         include:
           - os: macos-latest
             python-version: "3.12"
@@ -56,6 +58,28 @@ jobs:
           python -m pip install -e ".[test]"
       - name: Run tests (offline; raw-granule marks self-skip)
         run: python -m pytest -q
+
+  test-windows-degraded:
+    name: pytest degraded-capability (windows pip)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install package with test extras (pip wheels only)
+        # pyhdf's Windows wheel *installs* but cannot *import* (it ships no
+        # HDF4 runtime) — which is precisely the degraded environment this
+        # job exists to pin (KD-L4/KD-L7, gate G2).
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      - name: Degraded-capability contract (tests/test_optional_hdf4.py)
+        # The purpose-built matrix: import / --help / --version / detection /
+        # netCDF recompression / audits all work without a usable pyhdf; an
+        # HDF4 attempt refuses with the stable HDF4_RUNTIME_UNAVAILABLE
+        # message before output creation, never an import traceback.
+        run: python -m pytest tests/test_optional_hdf4.py -q
 
   build:
     name: build + twine check

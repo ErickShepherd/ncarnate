@@ -10,7 +10,8 @@ CF geolocation, and writes/verifies the netCDF4 output.
 
 Fidelity discipline matches the netCDF path: every SDS value is copied
 raw and preserved value-identically (bit-for-bit for integer and char data,
-NaN- and signed-zero-insensitive for floating-point/complex), attributes keep
+NaN- and signed-zero-insensitive for floating point — HDF4's DFNT type
+system has no complex type), attributes keep
 their exact HDF4 type codes, and
 EOS metadata (``StructMetadata.0`` etc.) is preserved verbatim under an
 ``HDFEOS_INFORMATION`` group. Geolocation reconstruction is strictly
