@@ -29,6 +29,7 @@ import netCDF4 as nc
 import numpy as np
 
 # Local application imports.
+from ncarnate.atttypes import string_attributes_of
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
 from ncarnate.errors import UnsupportedTypeError
@@ -296,13 +297,32 @@ def _copy_attributes(src_obj : _Group,
     # Copies the attributes of the source file, group, or variable.
     # `_copy_variables` excludes `_FillValue`, which it declares at
     # `createVariable` time instead; group/global attributes copy verbatim.
-    attributes = {
-        attr : src_obj.getncattr(attr)
-        for attr in src_obj.ncattrs()
-        if attr not in exclude
-    }
+    #
+    # Storage types are preserved exactly (KD-L6): `getncattr` erases the
+    # NC_STRING/NC_CHAR distinction (both scalars read back as `str`), so
+    # a blanket `setncatts` re-writes every text scalar as NC_CHAR — the
+    # scalar NC_STRING degradation of readiness finding 6. The netCDF-C
+    # inquiry names which source attributes are stored NC_STRING; those
+    # are re-created with `setncattr_string`, everything else with
+    # `setncattr` (which keeps NC_CHAR for str and the numeric types
+    # as-is).
+    string_attrs = string_attributes_of(src_obj)
 
-    dst_obj.setncatts(attributes)
+    for attr in src_obj.ncattrs():
+
+        if attr in exclude:
+
+            continue
+
+        value = src_obj.getncattr(attr)
+
+        if attr in string_attrs:
+
+            dst_obj.setncattr_string(attr, value)
+
+        else:
+
+            dst_obj.setncattr(attr, value)
 
 
 def _copy_variables(src_obj   : _Group,
@@ -490,6 +510,21 @@ def _verify_attributes(src_obj : _Group, dst_obj : _Group, path : str) -> None:
         f"attribute names differ on {path} "
         f"(only in source: {sorted(src_names - dst_names)}; "
         f"only in copy: {sorted(dst_names - src_names)})"
+    )
+
+    # Storage types, not just Python values (KD-L6): `getncattr` returns
+    # `str` for both an NC_STRING scalar and an NC_CHAR attribute, so a
+    # value-only comparison is blind to exactly the degradation the copy
+    # used to introduce. Compare which attributes are stored NC_STRING on
+    # each side via the netCDF-C inquiry.
+    src_strings = string_attributes_of(src_obj) & src_names
+    dst_strings = string_attributes_of(dst_obj) & dst_names
+
+    _require(
+        src_strings == dst_strings,
+        f"attribute storage types differ on {path} "
+        f"(NC_STRING only in source: {sorted(src_strings - dst_strings)}; "
+        f"only in copy: {sorted(dst_strings - src_strings)})"
     )
 
     for name in src_names:
