@@ -96,18 +96,21 @@ def _overlapping(tree_a : str, tree_b : str) -> bool:
 
 def preflight_destinations(
     records, options
-) -> "tuple[list[tuple[object, str, str | None]], list[ConvertRecord]]":
+) -> "tuple[list[tuple[object, str, str | None, FileFormat]], list[ConvertRecord]]":
 
     '''
 
     Resolve, verify, and plan every actionable record before anything is
     written. Returns ``(plans, failed)``: ``plans`` is one
-    ``(record, resolved_source, destination)`` triple per convertible
-    record (``destination`` is ``None`` under ``--in-place``); ``failed``
-    holds the per-record resolution/verification failures, preserving the
-    loop's one-bad-file-never-aborts-the-run isolation (§The per-record
-    loop). Raises :class:`DestinationCollisionError` — refusing the entire
-    run — on any cross-record collision (KD-L1/KD-L2).
+    ``(record, resolved_source, destination, detected_format)`` tuple per
+    convertible record (``destination`` is ``None`` under ``--in-place``;
+    ``detected_format`` is the byte-detected :class:`FileFormat`, so the
+    convert loop can gate capability refusals before any directory is
+    created); ``failed`` holds the per-record resolution/verification
+    failures, preserving the loop's one-bad-file-never-aborts-the-run
+    isolation (§The per-record loop). Raises
+    :class:`DestinationCollisionError` — refusing the entire run — on any
+    cross-record collision (KD-L1/KD-L2).
 
     '''
 
@@ -150,7 +153,7 @@ def preflight_destinations(
             failed.append(ConvertRecord(record.path, reason=str(error)))
             continue
 
-        plans.append((record, source, destination))
+        plans.append((record, source, destination, detected))
 
     problems = []
 
@@ -159,7 +162,7 @@ def preflight_destinations(
     # duplicates collide too — would double-convert it.
     by_source = {}
 
-    for record, source, _ in plans:
+    for record, source, _, _ in plans:
 
         by_source.setdefault(source, []).append(record.path)
 
@@ -174,14 +177,14 @@ def preflight_destinations(
     if plans and not options.in_place:
 
         out_real = os.path.realpath(options.out_dir)
-        selected = ", ".join(record.path for record, _, _ in plans)
+        selected = ", ".join(record.path for record, _, _, _ in plans)
 
         # Source-tree/output-tree overlap (step 5): an output root inside
         # the source tree (or vice versa, or symlink-aliased to it) makes
         # outputs indistinguishable from sources.
         for base in sorted({
             os.path.realpath(options.root or record.root)
-            for record, _, _ in plans
+            for record, _, _, _ in plans
         }):
 
             if _overlapping(base, out_real):
@@ -197,7 +200,7 @@ def preflight_destinations(
         # every platform.
         by_destination = {}
 
-        for record, _, destination in plans:
+        for record, _, destination, _ in plans:
 
             by_destination.setdefault(
                 destination.casefold(), []
@@ -216,9 +219,9 @@ def preflight_destinations(
         # A destination aliasing a selected source (step 5): both sides are
         # realpath'd, so a symlinked out_dir pointing back into the source
         # tree collides here rather than silently overwriting a source.
-        sources_real = {source for _, source, _ in plans}
+        sources_real = {source for _, source, _, _ in plans}
 
-        for record, _, destination in plans:
+        for record, _, destination, _ in plans:
 
             if destination in sources_real:
 
@@ -233,7 +236,7 @@ def preflight_destinations(
         # journal is readiness action 12, out of this loop's scope.
         if not options.skip_existing:
 
-            for record, _, destination in plans:
+            for record, _, destination, _ in plans:
 
                 if os.path.lexists(destination):
 

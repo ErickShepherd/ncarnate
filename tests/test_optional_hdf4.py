@@ -224,3 +224,84 @@ def test_hdf4_refusal_library_raise_carries_code(no_pyhdf_env, workdir):
     )
     assert completed.returncode == 0, completed.stderr
     assert not staged.with_suffix(".nc").exists()
+
+
+# --- manifest path: HDF4 refusal precedes directory creation (KD-L4) ---
+
+def test_manifest_hdf4_refusal_creates_no_directories(no_pyhdf_env, workdir):
+    # Reviewer note (pre-merge review 2026-07-16): a manifest authored on a
+    # full install can carry `ready` HDF4 records that pass the destination
+    # preflight on a runtime-less machine; the per-record HDF4 refusal must
+    # fire *before* that record's mirrored output directory is created, so
+    # a capability failure leaves no empty directories behind. Neighbouring
+    # supported records still convert (per-record isolation).
+    from ncarnate.audit.codes import RULESET_VERSION
+    from ncarnate.audit.models import SCHEMA_VERSION
+    from ncarnate.formats import detect_format
+    from ncarnate.hashing import sha256_of_file
+
+    archive = workdir / "archive"
+    out_dir = workdir / "modern"
+    hdf_staged = archive / "legacy" / HDFEOS2_FIXTURES[0].name
+    nc_staged = archive / "flat.nc"
+    hdf_staged.parent.mkdir(parents=True)
+    shutil.copyfile(HDFEOS2_FIXTURES[0], hdf_staged)
+    shutil.copyfile(NETCDF_FIXTURES[0], nc_staged)
+
+    def record(relpath, staged, plan):
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "ncarnate_version": "0.0.0",
+            "ruleset_version": RULESET_VERSION,
+            "mode": "metadata",
+            "audited_at": "2026-01-01T00:00:00Z",
+            "root": str(archive),
+            "path": relpath,
+            "size_bytes": staged.stat().st_size,
+            "sha256": sha256_of_file(str(staged)),
+            "format": detect_format(str(staged)).name,
+            "status": "ready",
+            "structures": [],
+            "issues": [],
+            "plan": plan,
+        }
+
+    manifest = workdir / "m.jsonl"
+    manifest.write_text("".join(json.dumps(r) + "\n" for r in [
+        record(f"legacy/{hdf_staged.name}", hdf_staged,
+               {"operation": "convert"}),
+        record("flat.nc", nc_staged, {"operation": "recompress"}),
+    ]), encoding="utf-8")
+
+    completed = _run_code(
+        f"""
+        import json
+        from ncarnate.convert import ConvertOptions, convert_manifest
+        result = convert_manifest({str(manifest)!r}, ConvertOptions(
+            out_dir={str(out_dir)!r}, allow_manifest_root=True,
+        ))
+        print(json.dumps({{
+            "converted": [r.path for r in result.converted],
+            "failed": [[r.path, r.reason] for r in result.failed],
+            "skipped": [r.path for r in result.skipped],
+        }}))
+        """,
+        no_pyhdf_env,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    outcome = json.loads(completed.stdout)
+
+    # Per-record isolation: the supported netCDF record still converted.
+    assert outcome["converted"] == ["flat.nc"]
+    assert (out_dir / "flat.nc").is_file()
+
+    # The HDF4 record failed with the KD-L4 refusal (cause + install cmd).
+    ((failed_path, reason),) = outcome["failed"]
+    assert failed_path == f"legacy/{hdf_staged.name}"
+    assert SIMULATED_CAUSE_MARKER in reason
+    assert CONDA_FORGE_COMMAND in reason
+
+    # The regression's core claim: the refusal preceded makedirs, so the
+    # failed record's mirrored directory was never created.
+    assert not (out_dir / "legacy").exists()
