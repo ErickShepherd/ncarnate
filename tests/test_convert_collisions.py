@@ -19,6 +19,8 @@ itself).
 import json
 import os
 import shutil
+import subprocess
+import sys
 
 import pytest
 
@@ -276,6 +278,44 @@ def test_pre_existing_destination_refused_without_resume_policy(workdir):
         involved=["a.nc"],
     )
     assert existing.read_bytes() == b"pre-existing sentinel"  # untouched
+
+
+# --- end-to-end negative fixture: the refusal through the REAL CLI ------
+# --- (gate G1 evidence — the wiring item: exit code, stderr code, and  ---
+# --- zero output-tree mutation, asserted at the process boundary)      ---
+
+def test_cli_collision_refusal_end_to_end(workdir):
+    """Drive a colliding manifest through `python -m ncarnate convert` and
+    assert the operator-facing contract end-to-end: exit code 2, the stable
+    ``DESTINATION_COLLISION`` code rendered on stderr with every involved
+    source and the contested destination (KD-L2), and — gate G1 — zero
+    output-tree mutation: no out_dir, no partial outputs, sources
+    byte-identical.
+    """
+    root, out_dir = workdir / "root", workdir / "out"
+    hdf = _stage_at(HDFEOS2_FIXTURES[0], root, "sub/a.hdf")
+    nc = _stage_at(NETCDF_FIXTURES[0], root, "sub/a.nc")
+    hashes_before = {
+        str(path): sha256_of_file(str(path)) for path in (hdf, nc)
+    }
+    manifest = _write_manifest(workdir, [
+        _hdf_record(root, "sub/a.hdf", hdf),   # converts to sub/a.nc ...
+        _nc_record(root, "sub/a.nc", nc),      # ... which this one mirrors
+    ])
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "ncarnate", "convert", "--manifest", manifest,
+         "--out-dir", str(out_dir), "--root", str(root)],
+        capture_output=True, text=True,
+    )
+
+    assert completed.returncode == 2           # whole-run refusal, not failure
+    assert COLLISION_CODE in completed.stderr  # the stable code, scriptable
+    for fragment in ("sub/a.hdf", "sub/a.nc"):
+        assert fragment in completed.stderr    # involved sources + destination
+    assert not out_dir.exists()                # gate G1: nothing was written
+    for path, before in hashes_before.items():
+        assert sha256_of_file(path) == before  # sources never touched
 
 
 def test_symlinked_out_dir_aliasing_source_tree_refused(workdir):

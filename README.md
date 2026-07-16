@@ -176,6 +176,19 @@ The end-of-run summary counts converted / skipped / failed with reasons, and the
 exit code is non-zero **iff** a selected record failed — so a partial failure on
 a terabyte run surfaces loudly instead of silently mis-converting.
 
+**Destination collision preflight.** Before any directory or output file is
+created, every selected record's destination is computed up front — from the
+source's *detected bytes*, never the manifest's declared format — and any
+collision refuses the **entire run** with exit code 2 and a stable
+`[DESTINATION_COLLISION]` message on stderr listing every involved source and
+the contested destination. No last-writer-wins, no auto-rename, no partial
+proceed, and nothing is written. Refused collisions include: two records
+landing on one output path (e.g. an `a.hdf` → `a.nc` conversion next to a real
+`a.nc` sibling), case-fold-equivalent names (one file on NTFS/APFS), duplicate
+records for one source, an output tree overlapping a source tree (symlinks
+resolved), and a pre-existing destination unless you pass `--skip-existing` to
+resume.
+
 ## Library usage
 
 ```python

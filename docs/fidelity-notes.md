@@ -64,6 +64,25 @@ edges). Interpolated variables carry a `comment` attribute saying they are inter
 edge pixels outside the geolocation envelope are linearly extrapolated; geolocation fill
 propagates, never interpolated across.
 
+### Manifest runs: destination collision preflight (no-data-loss gate)
+
+Fidelity is meaningless if two outputs silently overwrite each other, so
+manifest-driven runs (`convert --manifest`) add a **whole-run destination
+preflight** before any directory or output is created: every selected record's
+destination is computed up front from its *detected bytes* (never the
+manifest's declared format — the manifest is untrusted input), and any
+collision refuses the **entire run** with the stable `DESTINATION_COLLISION`
+code (exit code 2, rendered on stderr) listing every involved source and the
+contested destination. No last-writer-wins, no auto-rename, no partial
+proceed, zero output-tree mutation. Refused classes: duplicate or
+case-fold-equivalent destinations (one file on NTFS/APFS), an `.hdf` → `.nc`
+conversion colliding with a real `.nc` sibling, duplicate records for one
+source (symlink-aliased included), source-tree/output-tree overlap (symlinks
+resolved), a destination aliasing a selected source, and a pre-existing
+destination without `--skip-existing`. Pinned end-to-end — including the
+zero-mutation guarantee at the process boundary — by
+`tests/test_convert_collisions.py`.
+
 ### Guarantee boundary
 
 - Compound, VLen, enum, and opaque netCDF4 types are **out of scope for v2**: ncarnate

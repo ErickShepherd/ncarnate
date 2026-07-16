@@ -45,7 +45,7 @@ from ncarnate.convert.preflight import (
     preflight_destinations,
 )
 from ncarnate.convert.reader import read_manifest
-from ncarnate.convert.report import render_summary
+from ncarnate.convert.report import render_refusal, render_summary
 
 __all__ = [
     "ConvertOptions",
@@ -386,7 +386,11 @@ def main(argv : list[str]) -> int:
 
     except NcarnateError as error:
 
-        logger.error("%s", error)
+        # A whole-run refusal (destination preflight, containment) renders
+        # its stable registry code textually — [DESTINATION_COLLISION] … —
+        # so operators can script against stderr, not just the exception
+        # attribute the CLI boundary would otherwise swallow (KD-L2).
+        logger.error("%s", render_refusal(error))
 
         return 2
 
