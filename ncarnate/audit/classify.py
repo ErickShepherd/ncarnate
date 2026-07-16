@@ -60,6 +60,7 @@ _CODE_STATUS = {
     codes.MALFORMED_CONTAINER          : "malformed",
     codes.DECLARED_ALLOCATION_TOO_LARGE: "unsafe",
     codes.UNSUPPORTED_TYPE             : "unsupported",
+    codes.HDF4_RUNTIME_UNAVAILABLE     : "unsupported",
     codes.FORMAT_UNRECOGNIZED          : "unknown",
     codes.EOS_UNSUPPORTED_PROJECTION   : "ready_no_geolocation",
     codes.SWATH_GEOLOCATION_UNSUPPORTED: "ready_no_geolocation",

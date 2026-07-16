@@ -74,16 +74,22 @@ class FileFacts:
 
 def _inspect_hdf4(path : str, file_format : FileFormat) -> FileFacts:
 
-    # Imported here, not at module level, so importing the audit stack
+    # Acquired here, not at module level, so importing the audit stack
     # never touches the HDF4 runtime (KD-L3): pyhdf has no Windows pip
-    # wheel, and only this HDF4-dispatch path actually needs it.
+    # wheel, and only this HDF4-dispatch path actually needs it. The gate
+    # turns a missing runtime into the stable HDF4_RUNTIME_UNAVAILABLE
+    # blocker (KD-L4) — `issue_for_exception` maps it into the record and
+    # the whole-archive scan continues. Once the gate passes, pyhdf itself
+    # is importable (ncarnate.hdf4 already imported pyhdf.SD).
+    from ncarnate.hdf4_runtime import require_hdf4_runtime
+
+    hdf4 = require_hdf4_runtime()
+
     from pyhdf.SD import SD, SDC
 
-    from ncarnate.hdf4 import (
-        _DFNT_DTYPES,
-        _read_attributes,
-        _structmetadata_text,
-    )
+    _DFNT_DTYPES         = hdf4._DFNT_DTYPES
+    _read_attributes     = hdf4._read_attributes
+    _structmetadata_text = hdf4._structmetadata_text
 
     source = SD(path, SDC.READ)
 

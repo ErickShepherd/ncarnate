@@ -24,7 +24,9 @@ top-level LICENSE file.
 # destination preflight's whole-run refusal — a registry code so operators
 # script against one stable namespace, though it never appears in an audit
 # record's issues).
-RULESET_VERSION = 3
+# v4 (2026-07-16): added HDF4_RUNTIME_UNAVAILABLE (the degraded-capability
+# refusal when pyhdf cannot be imported — a Windows pip install; KD-L4).
+RULESET_VERSION = 4
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -54,6 +56,15 @@ MALFORMED_CONTAINER           = "MALFORMED_CONTAINER"
 # namespace archive managers script against.
 DESTINATION_COLLISION         = "DESTINATION_COLLISION"
 
+# HDF4_RUNTIME_UNAVAILABLE: an HDF4/HDF-EOS2 operation was attempted on an
+# install whose HDF4 runtime (pyhdf) cannot be imported — e.g. a Windows
+# pip install, which has no pyhdf wheel (KD-L4). Raised by
+# `ncarnate.hdf4_runtime.require_hdf4_runtime` before any output is
+# created; in an audit record it appears as a blocker issue folding to the
+# `unsupported` status (this install cannot convert the file — the file
+# itself may be fine).
+HDF4_RUNTIME_UNAVAILABLE      = "HDF4_RUNTIME_UNAVAILABLE"
+
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
@@ -67,4 +78,5 @@ ALL_CODES = frozenset({
     FORMAT_UNRECOGNIZED,
     MALFORMED_CONTAINER,
     DESTINATION_COLLISION,
+    HDF4_RUNTIME_UNAVAILABLE,
 })

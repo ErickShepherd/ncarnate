@@ -22,7 +22,7 @@ from tqdm import tqdm
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__
 from ncarnate.core import recompress
-from ncarnate.errors import NcarnateError
+from ncarnate.errors import NcarnateError, render_refusal
 
 # Input discovery and logging setup now live in ncarnate.discovery (extracted
 # to break the cli↔audit / cli↔convert import cycle); re-exported here so the
@@ -219,7 +219,11 @@ def main() -> int:
 
         except (NcarnateError, OSError) as error:
 
-            logger.error("%s", error)
+            # render_refusal prefixes the stable registry code ([CODE]
+            # message) when the raise site set one — e.g. the KD-L4
+            # HDF4_RUNTIME_UNAVAILABLE refusal — so operators can script
+            # against stderr; code-less errors render unchanged.
+            logger.error("%s", render_refusal(error))
 
             failures += 1
 

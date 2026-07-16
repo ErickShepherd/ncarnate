@@ -18,29 +18,6 @@ from __future__ import annotations
 
 # Local application imports.
 from ncarnate.convert.models import ConvertResult
-from ncarnate.errors import NcarnateError
-
-
-def render_refusal(error : NcarnateError) -> str:
-
-    '''
-
-    Renders a whole-run refusal (e.g. the destination preflight's
-    :class:`~ncarnate.convert.preflight.DestinationCollisionError`,
-    KD-L1/KD-L2) as operator-facing text: the stable registry code in a
-    ``[CODE]`` prefix, then the message listing every involved source and
-    the contested destination. The code is rendered *textually* — not just
-    carried on the exception — because the CLI surface is what operators
-    script against (grep stderr, branch on exit code 2). An error with no
-    ``code`` renders as its message alone, unchanged.
-
-    '''
-
-    if getattr(error, "code", None):
-
-        return f"[{error.code}] {error}"
-
-    return str(error)
 
 
 def render_summary(result : ConvertResult) -> str:

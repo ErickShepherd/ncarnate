@@ -23,6 +23,7 @@ The lazy-import chain does not exist yet (`import ncarnate` eagerly pulls
 items land (the pattern test_convert_collisions.py used for the preflight).
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -51,16 +52,18 @@ SIMULATED_CAUSE_MARKER = "simulated DLL load failed"
 
 
 @pytest.fixture
-def no_pyhdf_env(tmp_path):
+def no_pyhdf_env(tmp_path_factory):
     """os.environ with a shadow ``pyhdf`` package prepended to PYTHONPATH.
 
     The shadow raises the Windows-pip-shaped ImportError on package init,
     so any ``import pyhdf`` / ``from pyhdf.X import Y`` in a subprocess
     fails exactly as on a machine with no usable HDF4 runtime. PYTHONPATH
     precedes site-packages on sys.path, so the shadow wins over the real
-    pyhdf installed in the venv.
+    pyhdf installed in the venv. Built via ``tmp_path_factory`` in its own
+    directory — never inside ``workdir``, whose zero-output-mutation
+    assertions must see only what the code under test created.
     """
-    shadow = tmp_path / "shadow" / "pyhdf"
+    shadow = tmp_path_factory.mktemp("no_pyhdf") / "pyhdf"
     shadow.mkdir(parents=True)
     (shadow / "__init__.py").write_text(
         "raise ImportError(\n"
@@ -168,6 +171,36 @@ def test_hdf4_conversion_refuses_with_stable_code(no_pyhdf_env, workdir):
     # KD-L4: refusal happens before output creation.
     assert not staged.with_suffix(".nc").exists()
     assert sorted(p.name for p in workdir.iterdir()) == [staged.name]
+
+
+def test_audit_without_pyhdf_records_capability_blocker(no_pyhdf_env, workdir):
+    # The audit/plan path (KD-L4, priority-queue step 2.3): scanning an
+    # archive containing HDF4 files on a pyhdf-less install must survive
+    # (one capability gap never aborts the scan), recording the HDF4 file
+    # as a blocker with the stable code — a capability *result*, produced
+    # before any output creation, that a later convert run refuses on.
+    archive = workdir / "archive"
+    staged = archive / HDFEOS2_FIXTURES[0].name
+    staged.parent.mkdir(parents=True)
+    shutil.copyfile(HDFEOS2_FIXTURES[0], staged)
+    manifest = workdir / "m.jsonl"
+
+    completed = _run(
+        ["-m", "ncarnate", "audit", str(archive), "--output", str(manifest)],
+        no_pyhdf_env,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Traceback" not in completed.stderr
+    (record,) = [
+        json.loads(line)
+        for line in manifest.read_text().splitlines() if line.strip()
+    ]
+    assert record["status"] == "unsupported"
+    assert [issue["code"] for issue in record["issues"]] == [
+        HDF4_UNAVAILABLE_CODE
+    ]
+    assert record["plan"] is None               # never planned for conversion
 
 
 def test_hdf4_refusal_library_raise_carries_code(no_pyhdf_env, workdir):

@@ -50,7 +50,7 @@ except ImportError:
 from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
 from ncarnate.discovery import _configure_logging
-from ncarnate.errors import NcarnateError
+from ncarnate.errors import NcarnateError, render_refusal
 from ncarnate.convert.integrity import ContainmentError
 from ncarnate.convert.models import (
     ConvertOptions,
@@ -62,7 +62,7 @@ from ncarnate.convert.preflight import (
     preflight_destinations,
 )
 from ncarnate.convert.reader import read_manifest
-from ncarnate.convert.report import render_refusal, render_summary
+from ncarnate.convert.report import render_summary
 
 __all__ = [
     "ConvertOptions",

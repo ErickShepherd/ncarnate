@@ -100,11 +100,14 @@ def recompress(src         : str,
 
     if file_format is FileFormat.HDF4:
 
-        # Imported here, not at module level, so the netCDF-only surface
+        # Acquired here, not at module level, so the netCDF-only surface
         # never touches the HDF4 runtime (KD-L3): ncarnate.hdf4 pulls in
-        # pyhdf, which has no Windows pip wheel — an eager import would
-        # break `import ncarnate` on every pip-only install.
-        from ncarnate import hdf4
+        # pyhdf, which has no Windows pip wheel. The gate turns a missing
+        # runtime into the stable HDF4_RUNTIME_UNAVAILABLE refusal, before
+        # any output is created (KD-L4).
+        from ncarnate.hdf4_runtime import require_hdf4_runtime
+
+        hdf4 = require_hdf4_runtime()
 
         # Conversion, not recompression: the .hdf original is a different
         # format and is never destroyed.
