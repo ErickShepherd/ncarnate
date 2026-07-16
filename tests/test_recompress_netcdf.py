@@ -104,6 +104,12 @@ def test_user_defined_types_fail_loud(workdir):
         recompress(str(src), overwrite=False)
 
 
+@pytest.mark.skipif(
+    tuple(int(p) for p in nc.__version__.split(".")[:2]) < (1, 7),
+    reason="building the complex fixture needs netCDF4>=1.7 (auto_complex); "
+           "the refusal itself is version-independent (any compound type "
+           "is refused, tested by test_user_defined_types_fail_loud)",
+)
 @pytest.mark.parametrize("complex_dtype", [np.complex64, np.complex128])
 def test_complex_variables_are_refused(complex_dtype, workdir):
     # KD-L5 / readiness action 4 ("Exclude"): complex is outside the
