@@ -51,6 +51,8 @@ from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import recompress
 from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError, render_refusal
+from ncarnate.formats import FileFormat
+from ncarnate.hdf4_runtime import require_hdf4_runtime
 from ncarnate.convert.integrity import ContainmentError
 from ncarnate.convert.models import (
     ConvertOptions,
@@ -160,7 +162,7 @@ def convert_manifest(
     plans, preflight_failed = preflight_destinations(actionable, options)
     result.failed.extend(preflight_failed)
 
-    for record, source, destination in plans:
+    for record, source, destination, detected in plans:
 
         try:
 
@@ -170,6 +172,9 @@ def convert_manifest(
                 # exists is skipped, not re-converted (§Output destination).
                 # skip_existing is inert under in_place — there is no
                 # computed out_dir path to test (KD3, §Output destination).
+                # Checked before the runtime gate so a resumed run on a
+                # runtime-less install still *skips* already-converted HDF4
+                # records rather than failing them.
                 if options.skip_existing and os.path.exists(destination):
 
                     result.skipped.append(ConvertRecord(
@@ -177,6 +182,15 @@ def convert_manifest(
                         reason="output already exists (--skip-existing)",
                     ))
                     continue
+
+                # KD-L4 ordering: an HDF4 record on a runtime-less install
+                # refuses here, before its mirrored directory is created —
+                # still a per-record failure, but one that leaves the
+                # output tree untouched (recompress would only raise the
+                # same refusal after the makedirs below).
+                if detected is FileFormat.HDF4:
+
+                    require_hdf4_runtime()
 
                 os.makedirs(os.path.dirname(destination), exist_ok=True)
 
