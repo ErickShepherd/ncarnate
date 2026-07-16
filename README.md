@@ -41,7 +41,7 @@ Reach for ncarnate if you are trying to:
 - **Shrink an archive of scientific files** without risking the science: every
   output is verified value-for-value against its source before it replaces
   anything, and stored values round-trip value-identically (bit-for-bit for
-  integer and packed data; NaN- and signed-zero-insensitive for floating-point/complex).
+  integer and packed data; NaN- and signed-zero-insensitive for floating point).
 - **Batch-convert a directory tree** of legacy granules to modern netCDF4 in one
   command.
 
@@ -50,13 +50,19 @@ Reach for ncarnate if you are trying to:
 Converting or recompressing a file changes *storage*, never *science data*:
 
 - Every variable's stored values are preserved **value-identically** — bit-for-bit
-  for integer and packed data; for floating-point and complex data, distinct NaN
+  for integer and packed data; for floating-point data, distinct NaN
   bit-patterns and `-0.0`/`+0.0` compare equal. Packed integers stay packed;
   `scale_factor`/`add_offset`/`_FillValue` are carried across as declarations,
   never applied.
-- Every dimension (including unlimited-ness), attribute (including its type), and
-  group survives. HDF-EOS2 `StructMetadata` is preserved verbatim; names netCDF
-  cannot hold are sanitized with the original recorded in a companion attribute.
+- Every dimension (including unlimited-ness), attribute (including its exact
+  storage type — an `NC_STRING` scalar stays `NC_STRING`, verified via netCDF-C
+  type inquiry), and group survives. HDF-EOS2 `StructMetadata` is preserved
+  verbatim; names netCDF cannot hold are sanitized with the original recorded in
+  a companion attribute.
+- **Complex-valued variables (`complex64`/`complex128`) are excluded** from the
+  fidelity guarantee: netCDF stores them as compound types, which ncarnate
+  **refuses loudly** with the stable `UNSUPPORTED_TYPE` error rather than
+  guessing at a lossy copy. Complex support is a later, evidence-backed feature.
 - Geolocation reconstruction is strictly **additive**: the original information
   always rides along, so the conversion never becomes the only copy of the
   truth. Swath coordinates are attached to variables whose first two axes are

@@ -104,6 +104,27 @@ def test_user_defined_types_fail_loud(workdir):
         recompress(str(src), overwrite=False)
 
 
+@pytest.mark.parametrize("complex_dtype", [np.complex64, np.complex128])
+def test_complex_variables_are_refused(complex_dtype, workdir):
+    # KD-L5 / readiness action 4 ("Exclude"): complex is outside the
+    # fidelity guarantee. netCDF stores recognized complex encodings as
+    # compound types, so a complex input must refuse loudly with the
+    # stable UNSUPPORTED_TYPE code — never a silent partial copy — and
+    # write nothing.
+    src = workdir / "complex.nc"
+    with nc.Dataset(src, "w", format="NETCDF4", auto_complex=True) as f:
+        f.createDimension("x", 2)
+        var = f.createVariable("z", complex_dtype, ("x",))
+        var[:] = np.array([1 + 2j, 3 - 4j], dtype=complex_dtype)
+    dst = workdir / "out.nc"
+
+    with pytest.raises(UnsupportedTypeError) as excinfo:
+        recompress(str(src), dst=str(dst))
+
+    assert excinfo.value.code == "UNSUPPORTED_TYPE"
+    assert not dst.exists()
+
+
 def test_dst_equal_to_src_is_rejected(workdir):
     src = stage(NETCDF_FIXTURES[0], workdir)
     with pytest.raises(NcarnateError):
