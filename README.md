@@ -97,11 +97,18 @@ required. On platforms without a repaired `pyhdf` wheel (e.g. Linux aarch64),
 building from sdist requires the system HDF4 library first (Debian/Ubuntu:
 `apt install libhdf4-dev`).
 
-**Windows via pip:** the netCDF/HDF5 *recompression* path works from PyPI wheels
-out of the box, but the HDF4/HDF-EOS2 *conversion* path does **not** — `pyhdf`'s
-Windows wheel ships no HDF4 runtime, so `import pyhdf` fails with a DLL-load
-error. Use the conda-forge install above for HDF4 on Windows (or **WSL** with the
-pip instructions).
+**Windows via pip:** PyPI wheels give you the full netCDF/HDF5 surface —
+`import ncarnate`, the CLI (`--help`/`--version`), format detection, audits,
+manifest runs, and verified recompression — but **not** HDF4/HDF-EOS2
+*conversion*: `pyhdf`'s Windows wheel ships no HDF4 runtime. An HDF4 attempt
+is refused cleanly **before any output is created** with the stable
+`[HDF4_RUNTIME_UNAVAILABLE]` message naming the detected cause, the
+capabilities that still work, and the fix — never an unexplained import
+traceback. An audit of an archive containing HDF4 files still completes,
+recording those files as `unsupported` with the same code. For HDF4 on
+Windows use the conda-forge install above (or **WSL** with the pip
+instructions); a dedicated CI job pins this degraded-capability contract on
+every change.
 
 ## Command line usage
 
