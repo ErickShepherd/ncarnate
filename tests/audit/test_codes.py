@@ -25,7 +25,8 @@ V1_CODES = {
 
 # Append-only additions after v1, each of which bumped RULESET_VERSION.
 POST_V1_CODES = {
-    "MALFORMED_CONTAINER",   # ruleset v2
+    "MALFORMED_CONTAINER",     # ruleset v2
+    "DESTINATION_COLLISION",   # ruleset v3 — convert preflight whole-run refusal
 }
 
 

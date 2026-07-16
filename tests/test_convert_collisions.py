@@ -259,6 +259,25 @@ def test_destination_aliasing_a_selected_source_refused(workdir):
     assert sha256_of_file(str(staged)) == before   # source never touched
 
 
+def test_pre_existing_destination_refused_without_resume_policy(workdir):
+    # Readiness action 1 step 7: a computed destination that already exists
+    # collides with the filesystem unless the operator selected the resume
+    # policy (--skip-existing, whose skip behavior test_inplace_skip pins).
+    root, out_dir = workdir / "root", workdir / "out"
+    staged = _stage_at(NETCDF_FIXTURES[0], root, "a.nc")
+    existing = out_dir / "a.nc"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"pre-existing sentinel")
+    manifest = _write_manifest(workdir, [_nc_record(root, "a.nc", staged)])
+
+    _expect_refusal(
+        manifest,
+        ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True),
+        involved=["a.nc"],
+    )
+    assert existing.read_bytes() == b"pre-existing sentinel"  # untouched
+
+
 def test_symlinked_out_dir_aliasing_source_tree_refused(workdir):
     # The overlap check must hold after symlink resolution: an out_dir that
     # is a link back into the source tree aliases the sources.

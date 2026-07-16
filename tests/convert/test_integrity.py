@@ -230,11 +230,16 @@ def test_manifest_mode_refuses_untrusted_root_by_default(workdir):
 
 def test_allow_manifest_root_opts_into_trusting_recorded_root(workdir):
     """The explicit opt-in restores using the manifest's recorded root as the
-    base (today's behavior, now behind a flag)."""
-    _staged_record(workdir, record_true_hash=True)
+    base (today's behavior, now behind a flag). The archive is staged in a
+    subdirectory so the recorded root and out_dir stay disjoint — the
+    destination preflight refuses source/output-tree overlap
+    (test_convert_collisions)."""
+    archive = workdir / "archive"
+    archive.mkdir()
+    _staged_record(archive, record_true_hash=True)
     out_dir = workdir / "out"
     result = convert_manifest(
-        str(workdir / "m.jsonl"),
+        str(archive / "m.jsonl"),
         ConvertOptions(out_dir=str(out_dir), allow_manifest_root=True),
     )
     assert result.converted and not result.failed
