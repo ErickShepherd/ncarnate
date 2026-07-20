@@ -6,11 +6,14 @@
 The whole-manifest destination preflight (readiness action 1, KD-L1/KD-L2):
 before any directory or output file is created, every selected record's
 source is containment-resolved, sha256-verified, and byte-detected, and its
-normalized destination computed under the output root. Any collision —
-duplicate or case-fold-equivalent destinations, a destination aliasing a
-selected source, source-tree/output-tree overlap, duplicate actionable
-source records, or a pre-existing destination without the resume policy —
-refuses the **entire selected run** with the stable
+normalized destination computed — under the output root in ``--out-dir``
+mode, or as the derived ``<source-stem>.nc`` sibling for an HDF4
+``--in-place`` conversion (F1; a netCDF ``--in-place`` replacement writes
+over its own source and has no separate destination to collide). Any
+collision — duplicate or case-fold-equivalent destinations, a destination
+aliasing a selected source, source-tree/output-tree overlap, duplicate
+actionable source records, or a pre-existing destination without the resume
+policy — refuses the **entire selected run** with the stable
 ``DESTINATION_COLLISION`` code listing every involved source and the
 contested destination. No last-writer-wins, no auto-rename, no partial
 proceed.
@@ -103,8 +106,10 @@ def preflight_destinations(
     Resolve, verify, and plan every actionable record before anything is
     written. Returns ``(plans, failed)``: ``plans`` is one
     ``(record, resolved_source, destination, detected_format)`` tuple per
-    convertible record (``destination`` is ``None`` under ``--in-place``;
-    ``detected_format`` is the byte-detected :class:`FileFormat`, so the
+    convertible record (``destination`` is ``None`` only for a netCDF/HDF5
+    ``--in-place`` replacement; an HDF4 ``--in-place`` record carries its
+    derived ``<source-stem>.nc`` sibling so it joins the collision checks,
+    F1; ``detected_format`` is the byte-detected :class:`FileFormat`, so the
     convert loop can gate capability refusals before any directory is
     created); ``failed`` holds the per-record resolution/verification
     failures, preserving the loop's one-bad-file-never-aborts-the-run
@@ -133,9 +138,26 @@ def preflight_destinations(
 
             if options.in_place:
 
-                # No mirrored tree, hence no destination to collide (KD3);
-                # duplicate-source rejection below still applies.
-                destination = None
+                # --in-place is not uniformly "no destination" (F1). A
+                # netCDF/HDF5 source is genuinely replaced at its own path
+                # after a verified write (KD3), so it has no separate output
+                # to collide. But an HDF4/HDF-EOS2 source is a *conversion*:
+                # recompress derives a <source-stem>.nc sibling beside the
+                # source and never touches the HDF4 original. That derived
+                # sibling is a real output, so it must take part in the
+                # whole-run collision checks exactly as a mirrored out-dir
+                # destination does — otherwise two HDF4 sources deriving one
+                # .nc partially execute instead of refusing (violating G1's
+                # zero-mutation rule). `source` is already realpath'd
+                # (resolve_within), matching recompress's own realpath-based
+                # derivation, so the checks below dedup on the true path.
+                if detected is FileFormat.HDF4:
+
+                    destination = os.path.splitext(source)[0] + ".nc"
+
+                else:
+
+                    destination = None
 
             else:
 
@@ -174,6 +196,17 @@ def preflight_destinations(
                 f"duplicate records for source {source}: {', '.join(paths)}"
             )
 
+    # Destination-based collision checks run over every plan with a real
+    # output path — mirrored out-dir destinations and, under --in-place,
+    # HDF4 derived .nc siblings alike (F1). A netCDF --in-place replacement
+    # has destination None (a genuine in-place rewrite, no separate output)
+    # and takes no part in these checks.
+    dest_plans = [
+        (record, source, destination, detected)
+        for record, source, destination, detected in plans
+        if destination is not None
+    ]
+
     if plans and not options.in_place:
 
         out_real = os.path.realpath(options.out_dir)
@@ -181,7 +214,10 @@ def preflight_destinations(
 
         # Source-tree/output-tree overlap (step 5): an output root inside
         # the source tree (or vice versa, or symlink-aliased to it) makes
-        # outputs indistinguishable from sources.
+        # outputs indistinguishable from sources. Out-dir mode only — an
+        # --in-place run has no separate output tree to overlap; its derived
+        # siblings sit inside the source tree by design (KD3), and their
+        # data-loss shapes are caught by the destination checks below.
         for base in sorted({
             os.path.realpath(options.root or record.root)
             for record, _, _, _ in plans
@@ -194,13 +230,15 @@ def preflight_destinations(
                     f"selected sources: {selected}"
                 )
 
+    if dest_plans:
+
         # Duplicate or case-fold-equivalent destinations (step 4): exact
         # duplicates lose data everywhere; case-fold equivalents lose it on
         # case-insensitive filesystems (NTFS/APFS), so both are refused on
         # every platform.
         by_destination = {}
 
-        for record, _, destination, _ in plans:
+        for record, _, destination, _ in dest_plans:
 
             by_destination.setdefault(
                 destination.casefold(), []
@@ -218,10 +256,11 @@ def preflight_destinations(
 
         # A destination aliasing a selected source (step 5): both sides are
         # realpath'd, so a symlinked out_dir pointing back into the source
-        # tree collides here rather than silently overwriting a source.
+        # tree — or an HDF4 --in-place derived .nc that lands on a selected
+        # .nc source — collides here rather than silently overwriting it.
         sources_real = {source for _, source, _, _ in plans}
 
-        for record, _, destination, _ in plans:
+        for record, _, destination, _ in dest_plans:
 
             if destination in sources_real:
 
@@ -236,7 +275,7 @@ def preflight_destinations(
         # journal is readiness action 12, out of this loop's scope.
         if not options.skip_existing:
 
-            for record, _, destination, _ in plans:
+            for record, _, destination, _ in dest_plans:
 
                 if os.path.lexists(destination):
 

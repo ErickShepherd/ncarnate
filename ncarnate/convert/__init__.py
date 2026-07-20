@@ -168,10 +168,13 @@ def convert_manifest(
 
             if destination is not None:
 
-                # Resumability: a record whose mirrored output already
-                # exists is skipped, not re-converted (§Output destination).
-                # skip_existing is inert under in_place — there is no
-                # computed out_dir path to test (KD3, §Output destination).
+                # Resumability: a record whose output already exists is
+                # skipped, not re-converted (§Output destination). This
+                # covers a mirrored out-dir output and — since F1 models the
+                # HDF4 --in-place derived .nc sibling as a real destination —
+                # an in-place HDF4 conversion's sibling too. A netCDF
+                # --in-place replacement has destination None (a genuine
+                # in-place rewrite), so skip_existing stays inert there.
                 # Checked before the runtime gate so a resumed run on a
                 # runtime-less install still *skips* already-converted HDF4
                 # records rather than failing them.
