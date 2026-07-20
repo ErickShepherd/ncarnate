@@ -49,8 +49,9 @@ from ncarnate.constants import __version__ as _NCARNATE_VERSION
 #
 # v2 (step 5, the freeze): adds the caller-owned ``retention`` slot (ncarnate
 # always emits ``null``) and the computed ``plan_hash`` (a stable
-# executed-plan identity). Both additive; the JSON Schema
-# (tests/fixtures/operation_result/handoff.schema.json) freezes this number.
+# executed-plan identity). Both additive; the shipped JSON Schema
+# (ncarnate/schemas/handoff.schema.json, loaded via ncarnate.handoff) freezes
+# this number.
 OPERATION_RESULT_SCHEMA_VERSION = 2
 
 

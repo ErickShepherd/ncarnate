@@ -110,6 +110,21 @@ class AllocationTooLargeError(NcarnateError):
     '''
 
 
+class HandoffError(NcarnateError):
+
+    '''
+
+    Raised when a received handoff record is not a well-formed, materializable
+    ``OperationResult.to_record()`` per the frozen schema. A downstream
+    consumer (e.g. the Zarr tail) raises this to refuse a record before it
+    reads the destination or materializes a store — either a schema violation
+    (:func:`ncarnate.handoff.validate_handoff`) or a materializability refusal
+    (:func:`ncarnate.handoff.check_materializable` — a schema-valid but
+    empty/degraded record that would yield a silently-empty store).
+
+    '''
+
+
 def render_refusal(error : NcarnateError) -> str:
 
     '''

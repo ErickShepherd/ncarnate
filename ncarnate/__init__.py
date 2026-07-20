@@ -14,6 +14,7 @@ top-level LICENSE file.
 from ncarnate.constants import __author__
 from ncarnate.constants import __version__
 from ncarnate.core import recompress
+from ncarnate.errors import HandoffError
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
 from ncarnate.errors import UnsupportedTypeError
@@ -24,6 +25,11 @@ from ncarnate.audit import AuditOptions
 from ncarnate.audit import audit_path
 from ncarnate.convert import ConvertOptions
 from ncarnate.convert import convert_manifest
+from ncarnate.handoff import check_materializable
+from ncarnate.handoff import load_handoff_schema
+from ncarnate.handoff import materializability_error
+from ncarnate.handoff import schema_errors
+from ncarnate.handoff import validate_handoff
 from ncarnate.result import OPERATION_RESULT_SCHEMA_VERSION
 from ncarnate.result import OperationResult
 from ncarnate.result import canonical_json
@@ -47,8 +53,14 @@ __all__ = [
     "OperationResult",
     "OPERATION_RESULT_SCHEMA_VERSION",
     "canonical_json",
+    "validate_handoff",
+    "check_materializable",
+    "materializability_error",
+    "schema_errors",
+    "load_handoff_schema",
     "detect_format",
     "FileFormat",
+    "HandoffError",
     "NcarnateError",
     "UnsupportedFormatError",
     "UnsupportedTypeError",
