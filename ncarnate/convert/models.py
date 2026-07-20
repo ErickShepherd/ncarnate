@@ -66,12 +66,18 @@ class ConvertRecord:
 
     One file's outcome. ``path`` is the manifest-relative source path;
     ``reason`` explains a skip or failure (a converted file needs none, so
-    it defaults to ``None``).
+    it defaults to ``None``). ``code`` is the stable
+    :mod:`ncarnate.audit.codes` registry string of the underlying refusal
+    when the failure carried one (e.g. ``HDF4_RUNTIME_UNAVAILABLE``,
+    ``DESTINATION_COLLISION``), so a manifest failure exposes the *same*
+    scriptable code the one-file path and the audit path already do (F2) —
+    ``None`` for skips, successes, and failures with no registered code.
 
     '''
 
     path   : str
     reason : str | None = None
+    code   : str | None = None
 
 
 @dataclass

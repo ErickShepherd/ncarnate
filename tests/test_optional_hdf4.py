@@ -305,3 +305,106 @@ def test_manifest_hdf4_refusal_creates_no_directories(no_pyhdf_env, workdir):
     # The regression's core claim: the refusal preceded makedirs, so the
     # failed record's mirrored directory was never created.
     assert not (out_dir / "legacy").exists()
+
+
+# --- manifest failures expose the same stable code the one-file path does --
+# --- (independent-review finding F2; gate G2)                              --
+
+def test_manifest_hdf4_failure_carries_stable_code(no_pyhdf_env, workdir):
+    # The library seam (F2): a ready HDF4 record that fails in the convert
+    # loop on a runtime-less install must carry the stable
+    # HDF4_RUNTIME_UNAVAILABLE code on its ConvertRecord — not just prose —
+    # so an embedder branches on the same code the direct recompress() raise
+    # and the audit path already expose.
+    from ncarnate.audit.codes import RULESET_VERSION
+    from ncarnate.audit.models import SCHEMA_VERSION
+    from ncarnate.formats import detect_format
+    from ncarnate.hashing import sha256_of_file
+
+    archive = workdir / "archive"
+    out_dir = workdir / "modern"
+    staged = archive / HDFEOS2_FIXTURES[0].name
+    staged.parent.mkdir(parents=True)
+    shutil.copyfile(HDFEOS2_FIXTURES[0], staged)
+
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "ncarnate_version": "0.0.0",
+        "ruleset_version": RULESET_VERSION,
+        "mode": "metadata",
+        "audited_at": "2026-01-01T00:00:00Z",
+        "root": str(archive),
+        "path": HDFEOS2_FIXTURES[0].name,
+        "size_bytes": staged.stat().st_size,
+        "sha256": sha256_of_file(str(staged)),
+        "format": detect_format(str(staged)).name,
+        "status": "ready",
+        "structures": [],
+        "issues": [],
+        "plan": {"operation": "convert"},
+    }
+    manifest = workdir / "m.jsonl"
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    completed = _run_code(
+        f"""
+        import json
+        from ncarnate.convert import ConvertOptions, convert_manifest
+        result = convert_manifest({str(manifest)!r}, ConvertOptions(
+            out_dir={str(out_dir)!r}, allow_manifest_root=True,
+        ))
+        print(json.dumps([[r.path, r.code] for r in result.failed]))
+        """,
+        no_pyhdf_env,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    ((failed_path, code),) = json.loads(completed.stdout)
+    assert failed_path == HDFEOS2_FIXTURES[0].name
+    assert code == HDF4_UNAVAILABLE_CODE           # the stable code, not None
+
+
+def test_manifest_summary_renders_stable_code(no_pyhdf_env, workdir):
+    # The operator seam (F2): the same failure rendered through the real CLI
+    # carries the stable code as a [CODE] prefix in the run summary, so a
+    # manifest run's failures are as scriptable (grep stdout) as the
+    # one-file path's, and the run exits nonzero.
+    from ncarnate.audit.codes import RULESET_VERSION
+    from ncarnate.audit.models import SCHEMA_VERSION
+    from ncarnate.formats import detect_format
+    from ncarnate.hashing import sha256_of_file
+
+    archive = workdir / "archive"
+    out_dir = workdir / "modern"
+    staged = archive / HDFEOS2_FIXTURES[0].name
+    staged.parent.mkdir(parents=True)
+    shutil.copyfile(HDFEOS2_FIXTURES[0], staged)
+
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "ncarnate_version": "0.0.0",
+        "ruleset_version": RULESET_VERSION,
+        "mode": "metadata",
+        "audited_at": "2026-01-01T00:00:00Z",
+        "root": str(archive),
+        "path": HDFEOS2_FIXTURES[0].name,
+        "size_bytes": staged.stat().st_size,
+        "sha256": sha256_of_file(str(staged)),
+        "format": detect_format(str(staged)).name,
+        "status": "ready",
+        "structures": [],
+        "issues": [],
+        "plan": {"operation": "convert"},
+    }
+    manifest = workdir / "m.jsonl"
+    manifest.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    completed = _run(
+        ["-m", "ncarnate", "convert", "--manifest", str(manifest),
+         "--out-dir", str(out_dir), "--root", str(archive)],
+        no_pyhdf_env,
+    )
+
+    assert completed.returncode != 0               # a selected record failed
+    assert f"[{HDF4_UNAVAILABLE_CODE}]" in completed.stdout  # scriptable prefix
+    assert "Traceback" not in completed.stderr

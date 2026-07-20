@@ -217,7 +217,15 @@ def convert_manifest(
         # run abort — the same discipline as `audit._audit_file`.
         except (NcarnateError, OSError, HDF4Error) as error:
 
-            result.failed.append(ConvertRecord(record.path, reason=str(error)))
+            # Preserve the stable refusal code when the error carried one
+            # (e.g. an HDF4_RUNTIME_UNAVAILABLE raised by recompress on a
+            # runtime-less install), so a manifest failure exposes the same
+            # scriptable code the one-file path does (F2). OSError/HDF4Error
+            # have no `code`; getattr yields None.
+            result.failed.append(ConvertRecord(
+                record.path, reason=str(error),
+                code=getattr(error, "code", None),
+            ))
 
         except Exception as error:  # noqa: BLE001 — deliberate run-survival belt
 

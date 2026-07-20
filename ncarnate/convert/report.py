@@ -54,6 +54,13 @@ def render_summary(result : ConvertResult) -> str:
 
         for record in result.failed:
 
-            lines.append(f"  {record.path!r} — {record.reason}")
+            # Render the stable refusal code as a [CODE] prefix when the
+            # failure carried one (F2), so a manifest run's failures are as
+            # scriptable as the one-file path's — grep the summary for
+            # HDF4_RUNTIME_UNAVAILABLE / DESTINATION_COLLISION / etc. A
+            # failure with no registered code renders as its reason alone,
+            # unchanged.
+            prefix = f"[{record.code}] " if record.code else ""
+            lines.append(f"  {record.path!r} — {prefix}{record.reason}")
 
     return "\n".join(lines)

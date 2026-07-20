@@ -172,7 +172,10 @@ def preflight_destinations(
         # collision checks.
         except (NcarnateError, OSError) as error:
 
-            failed.append(ConvertRecord(record.path, reason=str(error)))
+            failed.append(ConvertRecord(
+                record.path, reason=str(error),
+                code=getattr(error, "code", None),
+            ))
             continue
 
         plans.append((record, source, destination, detected))
