@@ -29,6 +29,8 @@ POST_V1_CODES = {
     "DESTINATION_COLLISION",     # ruleset v3 — convert preflight whole-run refusal
     "HDF4_RUNTIME_UNAVAILABLE",  # ruleset v4 — missing pyhdf degraded-capability refusal
     "RESULT_READBACK_INCOMPLETE",  # ruleset v5 — stage-API result read-back warning
+    "HANDOFF_SCHEMA_INVALID",      # ruleset v6 — consumer handoff schema gate
+    "HANDOFF_NOT_MATERIALIZABLE",  # ruleset v6 — consumer handoff materializability gate
 }
 
 
