@@ -23,7 +23,9 @@
 
 Step 4A made `OperationResult` **sufficient** for a downstream Zarr tail: after an independent
 adversarial review it carries the full group / dimension / attribute layer, so a consumer can build
-array shape, `dimension_names`, dtype, fill, codecs, and coordinates *without re-opening the netCDF*.
+array shape, `dimension_names`, dtype, fill, codecs, and coordinate *identities/paths* *without
+re-opening the source granule* (the array *values*, including reconstructed coordinates, are read from
+the verified `destination` netCDF4 — see the post-freeze addendum on consumer obligations).
 Step 4A deliberately stopped short of the freeze: it left out the caller-owned `retention` field, the
 explicit executed-plan hash, and any JSON Schema, naming each as **step 5's** to own (4A Non-goals).
 
@@ -309,3 +311,40 @@ against pinned values and both fallbacks, is the gate.**
 
 No data migration: v2 is additive over v1 (two new fields, one caller-null); `recompress`'s public
 signature and the audit record schema are untouched.
+
+## Post-freeze addendum — handoff-contract hardening (before step 6)
+
+A multi-model panel (Haiku/Sonnet/Opus/Fable) reviewed this freeze as the step-6 foundation and found a
+cluster of cheap-now/expensive-later gaps at the seam a consumer compiles against — all docs + small
+tests + one packaging change, **none reopening the v2 record shape**. Landed on
+`fix/handoff-contract-hardening`:
+
+- **Schema promoted to `package_data` (resolves Open Q1).** The frozen schema now ships in the wheel at
+  `ncarnate/schemas/handoff.schema.json`, loaded via `ncarnate.handoff.load_handoff_schema()`; the
+  test-tree copy is gone (single source of truth — no vendored-copy drift). The stdlib `$ref` validator
+  moved into `ncarnate.handoff` (`validate_handoff` / `schema_errors`), so a consumer imports the same
+  validator the contract test uses. (Supersedes the "test tree, not `package_data`" note under
+  *The schema file — location & shape* and Rollout step 2.)
+- **The handoff is a two-artifact pair — record + digest-verified destination.** The record is
+  **metadata only** (no array bytes, not even reconstructed coordinate *values*); every byte lives in the
+  `destination` netCDF4. A consumer reads data from `destination`, never re-opens `source.path`, and MUST
+  verify `destination.sha256` before reading (`canonical_form` drops path/size/digest, so the digest is
+  the only durable byte identity). `destination.path` is advisory. This obligation is now in the schema
+  top-level `description`; it was previously implicit.
+- **The silent-empty-store trap.** The degraded `_minimal_result` (readback failed post-commit) is
+  schema-valid, `verified`, and empty — a naive "validate → derive → materialize" consumer would build an
+  empty store. New `ncarnate.handoff.check_materializable` refuses it (empty structure over a non-empty
+  destination, a lingering `RESULT_READBACK_INCOMPLETE`, or an unknown `schema_version`); a consumer gates
+  through it, not schema validation alone. Codes `HANDOFF_SCHEMA_INVALID` / `HANDOFF_NOT_MATERIALIZABLE`
+  (registry v6).
+- **`plan_hash` dedupes requests, not artifacts (sharpens KD-S3).** It excludes the output, so the same
+  request under a different HDF5/ncarnate version can yield a different store; artifact identity is the
+  pair `(plan_hash, destination.sha256)`, and the step-6 commit manifest must link the digest.
+- **Null-digest caveat corrected.** `execute()` *always* hashes the source, so the `--allow-unverified`
+  null-digest degradation the KD-S3 caveat described is **not reachable** through the stage API today
+  (that flag lives only in the separate `convert` manifest pipeline). The nullable branch is retained for
+  a future digest relaxation; the caveat prose (schema + `plan_hash` docstring) now says so rather than
+  implying a live path.
+- **Codec realizability is a step-6 profile decision, not proven by G5.** The G5 `_codecs` sketch emits
+  `{"name":"shuffle"}`, which is not a Zarr v3 *core* codec — G5 proved metadata *reachability*, not spec
+  *realizability*. The shuffle→(blosc/numcodecs) mapping is an explicit step-6 choice.

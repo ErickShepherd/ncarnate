@@ -528,19 +528,26 @@ class OperationResult:
         A stable identity of the **executed plan** — the sha256 hex digest of
         a canonical serialization of the conversion *inputs* (operation +
         requested encoding options + source identity), so "same source bytes +
-        same request ⇒ same ``plan_hash``" (design KD-S3). A Zarr tail keys
-        idempotent / retry-safe materialization on it.
+        same request ⇒ same ``plan_hash``" (design KD-S3).
 
-        It excludes the output ``structure`` (that is the *result* of
-        executing the plan, not the plan), the absolute source *path*
-        (machine-specific), and every ncarnate / native-library version (so
-        the identity is reproducible across releases).
+        It dedupes **requests, not artifacts**: it excludes the output
+        ``structure`` (that is the *result* of executing the plan, not the
+        plan), the absolute source *path* (machine-specific), and every
+        ncarnate / native-library version — so the *same* request re-run under
+        a different HDF5/ncarnate version can legitimately produce a different
+        store (e.g. different effective chunking; the KD-S6 reason outputs are
+        not hash-pinned). Artifact identity is therefore the **pair**
+        ``(plan_hash, destination.sha256)``: a consumer that keys "already
+        materialized" on ``plan_hash`` alone can serve a stale or
+        grid-mismatched store, so a step-6 commit manifest must link
+        ``destination.sha256``.
 
-        **Collision caveat:** this is collision-resistant only when
-        ``source.sha256`` is non-null. Under ``--allow-unverified`` the digest
-        is ``None`` and the projection degrades to
-        ``{operation, options, format, size}`` — a consumer must not key
-        idempotency on a null-digest plan.
+        **Null-digest caveat:** ``plan_hash`` is collision-resistant only when
+        ``source.sha256`` is non-null. :func:`ncarnate.core.execute` always
+        hashes the source, so no current path emits a null digest; the nullable
+        branch is reserved for a future digest relaxation, where the projection
+        would degrade to ``{operation, options, format, size}`` and a consumer
+        must refuse to key idempotency on it.
 
         '''
 
