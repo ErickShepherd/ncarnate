@@ -1,9 +1,12 @@
 """The verified-netCDF4 handoff contract (step 5, the freeze).
 
-Mirrors ``tests/audit/test_contract.py``: the frozen JSON Schema
-(``fixtures/operation_result/handoff.schema.json``) is the contract a
-downstream consumer validates a received ``OperationResult.to_record()``
-against. This test proves three things:
+Mirrors ``tests/audit/test_contract.py``: the frozen JSON Schema is the
+contract a downstream consumer validates a received
+``OperationResult.to_record()`` against. Since the handoff-contract hardening
+the schema and its validator **ship in the package** (``ncarnate/schemas/
+handoff.schema.json`` + :mod:`ncarnate.handoff`) — a single source of truth,
+so this test drives the *same* validator a real consumer imports rather than a
+test-local copy. It proves three things:
 
 1. every emitted record — over the in-repo netCDF and HDF-EOS2 fixtures —
    validates against the schema;
@@ -12,10 +15,8 @@ against. This test proves three things:
 3. the schema-version ``const`` tracks ``OPERATION_RESULT_SCHEMA_VERSION`` (so
    a shape bump that forgets the schema fails loudly).
 
-Validation uses a tiny stdlib JSON-Schema-subset validator — no new
-dependency (the audit-contract spec constraint). It extends the audit one with
-``$ref`` resolution (the group tree is recursive) and schema-valued
-``additionalProperties`` (the open-valued ``adapter_versions`` map).
+The validator is a tiny stdlib JSON-Schema-subset — no new dependency (the
+audit-contract spec constraint) — now living in :mod:`ncarnate.handoff`.
 """
 
 from __future__ import annotations
@@ -26,93 +27,23 @@ from pathlib import Path
 from conftest import HDFEOS2_FIXTURES, stage
 
 from ncarnate import core
+from ncarnate.handoff import load_handoff_schema, schema_errors
 from ncarnate.result import OPERATION_RESULT_SCHEMA_VERSION
 
-SCHEMA = json.loads(
-    (Path(__file__).parent / "fixtures" / "operation_result" / "handoff.schema.json")
-    .read_text(encoding="utf-8")
-)
+SCHEMA = load_handoff_schema()
 
 _PACKED_FILL = Path(__file__).parent / "fixtures" / "data" / "netcdf" / "packed_fill.nc"
 _AMSRE = next(f for f in HDFEOS2_FIXTURES if f.stem == "amsre_seaice12km_trim")
 _SNOW = next(f for f in HDFEOS2_FIXTURES if f.stem == "amsre_5daysnow_trim")
 
 
-# --- a minimal stdlib JSON Schema validator (the subset the schema uses) --
-# Extends tests/audit/test_contract.py with $ref (recursive group tree) and
-# schema-valued additionalProperties (the open-valued adapter_versions map).
-
-_JSON_TYPES = {
-    "object": dict, "array": list, "string": str, "null": type(None),
-}
-
-
-def _matches_type(instance, json_type):
-    if json_type == "integer":
-        return isinstance(instance, int) and not isinstance(instance, bool)
-    if json_type == "number":
-        return isinstance(instance, (int, float)) and not isinstance(instance, bool)
-    if json_type == "boolean":
-        return isinstance(instance, bool)
-    return isinstance(instance, _JSON_TYPES[json_type])
-
-
-def _resolve_ref(ref, root):
-    # Local JSON pointer only, e.g. "#/definitions/groupNode".
-    assert ref.startswith("#/"), f"only local refs supported: {ref!r}"
-    node = root
-    for part in ref[2:].split("/"):
-        node = node[part]
-    return node
-
-
-def _schema_errors(instance, schema, root, path="$"):
-    # $ref: resolve against the root and validate against the target. The
-    # instance shrinks with depth (groups -> [] at a leaf), so the recursive
-    # groupNode ref cannot loop.
-    if "$ref" in schema:
-        return _schema_errors(instance, _resolve_ref(schema["$ref"], root), root, path)
-
-    errors = []
-
-    if "type" in schema:
-        types = schema["type"]
-        types = [types] if isinstance(types, str) else types
-        if not any(_matches_type(instance, t) for t in types):
-            return [f"{path}: expected {types}, got {type(instance).__name__}"]
-
-    if "const" in schema and instance != schema["const"]:
-        errors.append(f"{path}: expected const {schema['const']!r}")
-
-    if "enum" in schema and instance not in schema["enum"]:
-        errors.append(f"{path}: {instance!r} not in enum {schema['enum']}")
-
-    if isinstance(instance, dict):
-        for key in schema.get("required", []):
-            if key not in instance:
-                errors.append(f"{path}: missing required {key!r}")
-        properties = schema.get("properties", {})
-        additional = schema.get("additionalProperties", True)
-        for key in instance:
-            if key in properties:
-                continue
-            if additional is False:
-                errors.append(f"{path}: unexpected property {key!r}")
-            elif isinstance(additional, dict):
-                errors += _schema_errors(instance[key], additional, root, f"{path}.{key}")
-        for key, subschema in properties.items():
-            if key in instance:
-                errors += _schema_errors(instance[key], subschema, root, f"{path}.{key}")
-
-    if isinstance(instance, list) and "items" in schema:
-        for index, item in enumerate(instance):
-            errors += _schema_errors(item, schema["items"], root, f"{path}[{index}]")
-
-    return errors
-
+# The consumer-facing validator is what the tests exercise (single source of
+# truth: `ncarnate.handoff`). `_errors`/`_validate` stay as thin local aliases
+# so the assertions below (and the G5 gate that imports `_validate`) read the
+# same as before the promotion.
 
 def _errors(instance):
-    return _schema_errors(instance, SCHEMA, SCHEMA)
+    return schema_errors(instance)
 
 
 def _validate(instance):

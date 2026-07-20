@@ -29,7 +29,11 @@ top-level LICENSE file.
 # v5 (2026-07-20): added RESULT_READBACK_INCOMPLETE (a non-fatal warning on a
 # structured operation result whose conversion verified and committed but whose
 # post-commit read-back could not assemble the full result; stage API step 4B).
-RULESET_VERSION = 5
+# v6 (2026-07-20): added HANDOFF_SCHEMA_INVALID + HANDOFF_NOT_MATERIALIZABLE
+# (the consumer-side handoff gates in `ncarnate.handoff`, refusing a received
+# record that is not well-formed / not safe to materialize a store from; the
+# handoff-contract hardening before the step-6 Zarr tail).
+RULESET_VERSION = 6
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -76,6 +80,19 @@ HDF4_RUNTIME_UNAVAILABLE      = "HDF4_RUNTIME_UNAVAILABLE"
 # conversion as a failure. Raised nowhere; only ever a `ResultWarning.code`.
 RESULT_READBACK_INCOMPLETE    = "RESULT_READBACK_INCOMPLETE"
 
+# HANDOFF_SCHEMA_INVALID / HANDOFF_NOT_MATERIALIZABLE: the consumer-side gates
+# a downstream (the step-6 Zarr tail) runs a *received* handoff record through
+# before materializing a store. SCHEMA_INVALID = the record is not well-formed
+# per the frozen schema; NOT_MATERIALIZABLE = it is schema-valid but unsafe to
+# build a store from (an unknown schema_version, a degraded read-back record
+# still bearing RESULT_READBACK_INCOMPLETE, or an empty structure over a
+# non-empty destination — the silent-empty-store trap). Raised by
+# `ncarnate.handoff.validate_handoff` / `check_materializable`; like
+# DESTINATION_COLLISION they never appear in an audit record's issues — they
+# live here because this registry is the single stable code namespace.
+HANDOFF_SCHEMA_INVALID        = "HANDOFF_SCHEMA_INVALID"
+HANDOFF_NOT_MATERIALIZABLE    = "HANDOFF_NOT_MATERIALIZABLE"
+
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
@@ -91,4 +108,6 @@ ALL_CODES = frozenset({
     DESTINATION_COLLISION,
     HDF4_RUNTIME_UNAVAILABLE,
     RESULT_READBACK_INCOMPLETE,
+    HANDOFF_SCHEMA_INVALID,
+    HANDOFF_NOT_MATERIALIZABLE,
 })

@@ -45,7 +45,16 @@ _AMSRE_RESULT = json.loads(
 # --------------------------------------------------------------------------
 
 def _codecs(encoding: dict) -> list[dict]:
-    """A representation-preserving codec chain from the effective encoding."""
+    """A representation-preserving codec chain from the effective encoding.
+
+    NOTE (panel C6 — realizability vs reachability): the tokens here are a
+    *sketch* proving the encoding booleans/level are **reachable** from the
+    record, NOT a ready-to-open Zarr v3 codec chain. ``{"name": "shuffle"}`` is
+    not a Zarr v3 *core* codec — HDF5 byte-shuffle maps to blosc-with-shuffle
+    or a numcodecs extension (and needs the dtype's element size). Choosing the
+    concrete v3 codec mapping is an explicit **step-6 profile decision**; G5
+    proves the inputs are present, not that this exact spec materializes.
+    """
     codecs: list[dict] = []
     if encoding["shuffle"]:
         codecs.append({"name": "shuffle"})

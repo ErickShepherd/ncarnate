@@ -17,6 +17,7 @@ backend are test dependencies, so no network fetch is needed.
 import subprocess
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -100,4 +101,39 @@ def test_sdist_includes_package_tests_and_contract(sdist_members):
     assert any(
         m.startswith("tests/fixtures/") and m.endswith(".hdf")
         for m in sdist_members
+    )
+
+
+# --- the WHEEL must ship the frozen handoff schema --------------------
+# The whole point of promoting the schema to package_data is that a
+# `pip install ncarnate` (a wheel) carries the frozen contract a downstream
+# consumer validates against. The sdist tests above don't cover the wheel; a
+# future `[tool.hatch.build.targets.wheel]` include/exclude narrowing could
+# silently drop the schema. This guards that invariant directly.
+
+@pytest.fixture(scope="module")
+def wheel_members(tmp_path_factory) -> set[str]:
+    pytest.importorskip("build", reason="build is a test dependency")
+    pytest.importorskip("hatchling", reason="hatchling is a test dependency")
+
+    out_dir = tmp_path_factory.mktemp("wheel")
+    completed = subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--no-isolation",
+         "--outdir", str(out_dir), str(PROJECT_ROOT)],
+        capture_output=True, text=True,
+    )
+    assert completed.returncode == 0, (
+        f"wheel build failed:\n{completed.stdout}\n{completed.stderr}"
+    )
+
+    wheels = list(out_dir.glob("*.whl"))
+    assert len(wheels) == 1, f"expected one wheel, got {wheels}"
+    with zipfile.ZipFile(wheels[0]) as whl:
+        return set(whl.namelist())
+
+
+def test_wheel_ships_the_frozen_handoff_schema(wheel_members):
+    assert "ncarnate/schemas/handoff.schema.json" in wheel_members, (
+        "the frozen handoff schema must ship in the wheel (package_data); "
+        f"wheel schemas: {sorted(m for m in wheel_members if 'schema' in m)}"
     )
