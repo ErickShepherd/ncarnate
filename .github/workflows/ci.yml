@@ -6,11 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
-# No system HDF libraries are installed anywhere in this workflow on
-# purpose: the netCDF4 wheels bundle libhdf5/libnetcdf, and the pyhdf
-# >= 0.11.6 manylinux wheels bundle libhdf4 (verified against PyPI
+# The pip-based jobs (test, test-windows-degraded, build) install no system
+# HDF libraries on purpose: the netCDF4 wheels bundle libhdf5/libnetcdf, and
+# the pyhdf >= 0.11.6 manylinux wheels bundle libhdf4 (verified against PyPI
 # 2026-07-08 for cp310-cp313). Platforms without a pyhdf wheel (e.g.
-# linux-aarch64) need a system libhdf4 for the sdist build instead.
+# linux-aarch64) need a system libhdf4 for the sdist build instead. The
+# one deliberate exception is test-conda-forge, which provisions the whole
+# runtime stack (incl. a system-HDF4-linked pyhdf) from conda-forge to prove
+# the *supported* install channel delivers full HDF4 capability (KD-L7, G2).
 
 jobs:
   lint:
@@ -80,6 +83,57 @@ jobs:
         # HDF4 attempt refuses with the stable HDF4_RUNTIME_UNAVAILABLE
         # message before output creation, never an import traceback.
         run: python -m pytest tests/test_optional_hdf4.py -q
+
+  test-conda-forge:
+    name: pytest full-capability (conda-forge)
+    runs-on: ubuntu-latest
+    # conda-forge is the *supported* HDF4 install channel (the refusal and
+    # the README point Windows/aarch64 users at `conda install -c
+    # conda-forge ncarnate`). This lane proves that channel actually
+    # delivers the full HDF4/HDF-EOS2 capability — a promise the pip matrix
+    # cannot make, since it relies on the bundled-libhdf4 pyhdf wheels
+    # rather than the conda-forge pyhdf built against a system HDF4
+    # (KD-L7 / priority step 2.5; gate G2 cannot close without it).
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Provision a conda-forge full-capability environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: ncarnate-cf
+          # The runtime stack comes wholly from conda-forge — pyhdf here is
+          # built against a real HDF4 library, unlike the pip wheel's
+          # bundled runtime. Pin Python; float the rest to what the channel
+          # currently ships (the point is the channel's promise, not a
+          # frozen resolution).
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
+          create-args: >-
+            python=3.12
+            pyhdf
+            netCDF4
+            numpy
+            pyproj
+            tqdm
+            pytest
+      - name: Install ncarnate from source without replacing native deps
+        # --no-deps: install only ncarnate; the native stack (pyhdf,
+        # netCDF4, numpy, pyproj, tqdm) stays the conda-forge build. Build
+        # isolation still fetches the hatchling backend into a throwaway
+        # env, which never touches the runtime dependencies above.
+        run: python -m pip install -e . --no-deps
+      - name: Prove the conda-forge HDF4 runtime imports
+        run: |
+          python -c "from ncarnate.hdf4_runtime import require_hdf4_runtime; require_hdf4_runtime(); print('conda-forge HDF4 runtime OK')"
+      - name: Full suite — HDF4 import, conversion, audit, manifest on real fixtures
+        # The committed HDF4/HDF-EOS2 fixtures drive real conversions here
+        # (unlike the pip matrix's bundled-wheel path), exercising the
+        # supported channel end to end. Raw-granule tests self-skip offline.
+        run: python -m pytest -q
 
   build:
     name: build + twine check

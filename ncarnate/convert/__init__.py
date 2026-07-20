@@ -168,10 +168,13 @@ def convert_manifest(
 
             if destination is not None:
 
-                # Resumability: a record whose mirrored output already
-                # exists is skipped, not re-converted (§Output destination).
-                # skip_existing is inert under in_place — there is no
-                # computed out_dir path to test (KD3, §Output destination).
+                # Resumability: a record whose output already exists is
+                # skipped, not re-converted (§Output destination). This
+                # covers a mirrored out-dir output and — since F1 models the
+                # HDF4 --in-place derived .nc sibling as a real destination —
+                # an in-place HDF4 conversion's sibling too. A netCDF
+                # --in-place replacement has destination None (a genuine
+                # in-place rewrite), so skip_existing stays inert there.
                 # Checked before the runtime gate so a resumed run on a
                 # runtime-less install still *skips* already-converted HDF4
                 # records rather than failing them.
@@ -214,7 +217,15 @@ def convert_manifest(
         # run abort — the same discipline as `audit._audit_file`.
         except (NcarnateError, OSError, HDF4Error) as error:
 
-            result.failed.append(ConvertRecord(record.path, reason=str(error)))
+            # Preserve the stable refusal code when the error carried one
+            # (e.g. an HDF4_RUNTIME_UNAVAILABLE raised by recompress on a
+            # runtime-less install), so a manifest failure exposes the same
+            # scriptable code the one-file path does (F2). OSError/HDF4Error
+            # have no `code`; getattr yields None.
+            result.failed.append(ConvertRecord(
+                record.path, reason=str(error),
+                code=getattr(error, "code", None),
+            ))
 
         except Exception as error:  # noqa: BLE001 — deliberate run-survival belt
 

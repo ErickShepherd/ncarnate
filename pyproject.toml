@@ -22,7 +22,7 @@ keywords = [
     "GIS", "atmospheric science",
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Topic :: Scientific/Engineering :: GIS",
@@ -51,7 +51,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+# build + the hatchling backend are test deps so tests/test_sdist_contents.py
+# can build a real sdist offline with --no-isolation and assert its contents
+# (the F5 distribution-content guard). Keep hatchling in step with the
+# build-system floor above.
+test = ["pytest", "build>=1.0", "hatchling>=1.27"]
 
 [project.scripts]
 ncarnate = "ncarnate.cli:main"
@@ -79,6 +83,13 @@ exclude = [
     "docs/design",
     "docs/owner-checklist-*.md",
     "docs/audits",
+    # Root-level loop artifacts are development material like the docs/
+    # internals above — the exclusions there do not match a repository-root
+    # path, so these must be named explicitly or they ship in the sdist
+    # (independent review F5). tests/test_sdist_contents.py asserts they stay
+    # out.
+    "IMPLEMENTATION_PLAN.md",
+    "LOOP_LEARNINGS.md",
 ]
 
 [tool.pytest.ini_options]
