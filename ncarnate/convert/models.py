@@ -23,6 +23,9 @@ from __future__ import annotations
 # Standard library imports.
 from dataclasses import dataclass, field
 
+# Local application imports.
+from ncarnate.result import OperationResult
+
 
 @dataclass
 class ConvertOptions:
@@ -73,11 +76,19 @@ class ConvertRecord:
     scriptable code the one-file path and the audit path already do (F2) —
     ``None`` for skips, successes, and failures with no registered code.
 
+    ``result`` carries the structured :class:`~ncarnate.result.OperationResult`
+    for a **converted** record — the full per-file digest a downstream
+    integration consumes (step 4A). It is ``None`` for a skip or a failure:
+    nothing executed, so there is no verified output to describe (design KD1).
+    The manifest-relative ``path`` stays the summary/scripting handle;
+    ``result.source.path`` is the absolute realpath identity.
+
     '''
 
     path   : str
     reason : str | None = None
     code   : str | None = None
+    result : OperationResult | None = None
 
 
 @dataclass
