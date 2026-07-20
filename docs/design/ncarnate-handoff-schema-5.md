@@ -1,6 +1,8 @@
 # Freeze the verified-netCDF4 handoff schema (step 5) — Design
 
-> **Status:** **DRAFT** (step 5 on `feat/handoff-schema-5`). Freezes the `OperationResult` shipped in
+> **Status:** **REVIEWED** (step 5 on `feat/handoff-schema-5`; rev 2 folds an independent adversarial
+> review — MUST-FIX `adapter_versions` schematization, plan_hash null-digest caveat, strengthened G5
+> gate, `definitions` over `$defs`, deferral-cost note). Freezes the `OperationResult` shipped in
 > step 4A ([`docs/design/ncarnate-operation-result.md`](ncarnate-operation-result.md)) into a versioned
 > JSON Schema + a caller-owned `retention` slot + an explicit `plan_hash`, with a contract test and a
 > real-fixture golden. Scoped to **step 5** of the production-readiness roadmap
@@ -88,10 +90,13 @@ the schema to shipped `package_data` later is additive and non-breaking — defe
 Open questions.)
 
 Draft-07, `type: object`, `additionalProperties: false` on **every structural object**, with `required`
-listing every ncarnate-emitted key. The recursive group tree is expressed with `$defs` + `$ref`
-(`groupNode` references itself through `groups`). Four leaves are **intentionally open** — declared
-`object` / `["object","null"]` with **no** `additionalProperties: false`, because they are caller- or
-data-owned bags whose interior ncarnate does not constrain:
+listing every ncarnate-emitted key. The recursive group tree is expressed with `definitions` + `$ref`
+(`groupNode` references itself through `groups`; draft-07's idiomatic keyword is `definitions`, and the
+hand-rolled validator resolves by JSON-pointer regardless). Two classes of node are **not**
+strictly-closed:
+
+*Intentionally-open bags* — declared `object` / `["object","null"]` with **no**
+`additionalProperties: false`, because their interior is caller- or data-owned and not ours to constrain:
 
 - `retention` (`["object","null"]`) — caller-owned;
 - `validation.record` (`["object","null"]`) — the pipeline's validation evidence;
@@ -99,6 +104,16 @@ data-owned bags whose interior ncarnate does not constrain:
 - `attributes[].value` — an arbitrary JSON-safe attribute value (scalar, string, array, or the
   non-finite-float string tokens `"NaN"`/`"Infinity"`/`"-Infinity"`), typed as the draft-07 union of
   permitted JSON types rather than pinned.
+
+*The adapter-version map* — `environment.adapter_versions` is a dict keyed by adapter name (`numpy`,
+`netCDF4`, `netcdf_c`, `libhdf5`, `pyhdf`, `libhdf4`; [`core.py:926`](../../ncarnate/core.py#L926)) with
+`string | null` values (a runtime absent from the install → `null`). The **key set is a probe list, not
+a frozen contract** (a future adapter is additive), so it is schematized as an *open-valued* object —
+`{"type": "object", "additionalProperties": {"type": ["string", "null"]}}` — rather than a closed
+property list. This is the review's headline catch: the freeze validates the **full** `to_record()`
+(which carries `environment`), so an un-schematized `adapter_versions` would red the contract test on
+authoring. It is dropped from `canonical_form` (environment is nondeterministic), so only the
+full-record contract test exercises it.
 
 ### The two new fields
 
@@ -131,6 +146,14 @@ source identity, digest included so two different sources don't collide), **not*
 `plan_hash` is derived from fields already in `canonical_form`, so it is deterministic there too; it is
 kept in both serializations as a convenience index.
 
+**Collision caveat (review SHOULD-FIX):** `plan_hash` is a collision-resistant key **only when
+`source.sha256` is non-null.** Under `--allow-unverified` the digest is `None`
+([`result.py:143`](../../ncarnate/result.py#L143)), and the projection degrades to
+`{operation, options, format, size}` — two *different* unverified granules of equal
+size+format+options then share a `plan_hash`. A step-6 consumer must therefore **refuse to key
+idempotency/retry on a null-digest plan** (`source.sha256 is None`); this is documented on the field and
+in the schema `description`, not silently assumed away.
+
 ### `to_record()` v2 shape (delta from v1)
 
 ```
@@ -151,14 +174,30 @@ fields (`ncarnate_version`, `elapsed_seconds`, `environment`, absolute paths, ou
 
 `tests/test_g5_handoff_sufficiency.py` produces the AMSR-E result from the **committed** trim fixture
 (`amsre_seaice12km_trim.hdf`, in-repo — no raw granule), validates its `to_record()` against the frozen
-schema, then, **from the schema-valid record alone** (no netCDF re-open, no `ncarnate.core` structural
-introspection), derives for every variable a Zarr-v3 array spec: `shape` (resolved from the group's
-`dimensions` against each `Variable.dimensions` names), `dimension_names`, `dtype`, `fill_value` (the
-`_FillValue` attribute, non-finite tokens included), `codecs` (from the effective `encoding`
-zlib/shuffle/complevel/chunksizes), and the coordinate variables (`coordinates.generated`). The test
-asserts the spec is fully derivable for the AMSR-E grid — a shape with a real `_FillValue`, real chunks,
-and reconstructed `lat`/`lon`/`polar_stereographic`. **That derivation is the gate**: if it succeeds from
-the record alone, G5 holds.
+schema, then derives a Zarr-v3 array spec per variable. To make "record alone" **mechanical, not
+disciplinary** (review SHOULD-FIX), the derivation is a module-level helper `zarr_array_spec(record:
+dict) -> dict` that takes **only the JSON dict** — no `OperationResult`, no `ncarnate.core`, no netCDF
+handle in scope — so record-insufficiency is a `KeyError`, not a silent re-open. Per variable it derives:
+
+- `shape` — each `Variable.dimensions` name resolved against the group's `dimensions` sizes;
+- `dimension_names` — the names verbatim (Zarr-v3 native);
+- `dtype` — from `Variable.dtype` (`var.dtype.str`, e.g. `<i2`/`|i1`), which **already carries
+  byteorder**; the derivation must read byteorder from `dtype` and **never** from `endian` (which is
+  `"native"` for native vars, [`core.py:980`](../../ncarnate/core.py#L980) — not a concrete order);
+- `fill_value` — the `_FillValue` attribute value if present, else `None` (the source may not declare
+  one, [`core.py:654`](../../ncarnate/core.py#L654));
+- `chunks` — `encoding.chunksizes` if present, else the full `shape` (contiguous → `chunksizes` is
+  `None`, [`result.py:273`](../../ncarnate/result.py#L273));
+- `codecs` — from `encoding.zlib`/`shuffle`/`complevel`;
+- the coordinate variables from `coordinates.generated`.
+
+The gate asserts **concrete expected values** for named AMSR-E variables (exact `shape`, `dtype`,
+`fill_value`, `chunks`, `dimension_names`) — not merely "derivable", which a partial-spec return could
+pass vacuously — **and** asserts reconstructed `lat`/`lon`/`polar_stereographic` appear in
+`coordinates.generated`. It **also** asserts both None-fallbacks explicitly (a synthetic /
+minimal-record case with `chunksizes: null` → `chunks == shape`, and no `_FillValue` → `fill_value is
+None`), since the AMSR-E grid alone (explicit chunks + real fill) exercises neither. **That derivation,
+against pinned values and both fallbacks, is the gate.**
 
 ## Key decisions
 
@@ -171,14 +210,20 @@ the record alone, G5 holds.
 - **KD-S3 — `plan_hash` explicit and computed, over the executed-plan *inputs*.** A Zarr tail wants a
   stable plan identity for idempotency; deriving it ad-hoc in every consumer invites drift. Computed
   (not stored) so construction sites are untouched. Projection = operation + options + source identity
-  (digest in, path/versions out) — the plan, not the result structure.
-- **KD-S4 — `additionalProperties: false` on all structural objects; four open bags typed but not
-  closed.** Strict-closed catches ncarnate drift loudly (the whole point of a freeze); the caller-owned
-  / data-owned bags (`retention`, `validation.record`, `warnings[].context`, `attributes[].value`) stay
-  open because their interior is not ours to constrain. Matches audit `issues[].context`.
-- **KD-S5 — schema lives in the test tree, `$ref` for recursion, stdlib validator extended.** Mirrors
-  `tests/audit/record.schema.json`; the recursive `groupNode` needs `$ref`, so the audit test's tiny
-  validator is extended to resolve `#/$defs/*` — still no third-party dependency.
+  (digest in, path/versions out) — the plan, not the result structure. Collision-resistant only with a
+  non-null `source.sha256`; the null-digest (`--allow-unverified`) degradation is documented on the
+  field, not assumed away.
+- **KD-S4 — `additionalProperties: false` on all structural objects; open bags typed but not closed.**
+  Strict-closed catches ncarnate drift loudly (the whole point of a freeze); the caller-owned /
+  data-owned bags (`retention`, `validation.record`, `warnings[].context`, `attributes[].value`) stay
+  open (matches audit `issues[].context`), and `environment.adapter_versions` is an **open-valued**
+  object (probe-list keys, `string|null` values) — not one of the four data bags but likewise not a
+  frozen key set. Missing this last one would red the contract test, since the freeze validates the
+  full `to_record()`.
+- **KD-S5 — schema lives in the test tree, `definitions` + `$ref` for recursion, stdlib validator
+  extended.** Mirrors `tests/audit/record.schema.json`; the recursive `groupNode` needs `$ref`, so the
+  audit test's tiny validator is extended to resolve `#/definitions/*` JSON-pointers (recursion
+  terminates on the finite instance tree — `groups: []` — so no loop) — still no third-party dependency.
 - **KD-S6 — two goldens with two jobs.** The **hash** golden is the explicitly-chunked `packed_fill`
   canonical JSON (deterministic across HDF5 versions), regenerated for v2 — the drift tripwire. The
   **real** fixture is AMSR-E, checked in as a schema-validation + G5 reference and validated
@@ -239,7 +284,11 @@ the record alone, G5 holds.
 ## Open questions
 
 1. **Ship the schema as `package_data`?** Deferred to when step 6 lands and its consumption pattern is
-   known (vendor vs import). Additive; does not block the freeze.
+   known (vendor vs import), mirroring the test-scoped audit precedent per the owner convention. Additive
+   and non-breaking; does not block the freeze. **Honest cost of the deferral (review SHOULD-FIX):** until
+   promotion, the step-6 consumer can only *vendor a copy* of the test-tree file — no installed
+   `ncarnate` artifact carries the frozen contract — so a promotion to `package_data` is the natural
+   first move when step 6 starts, and is called out here rather than left implicit.
 2. **Schema file name.** `handoff.schema.json` (this doc) vs `record.schema.json` (exact audit mirror).
    Leaning `handoff.schema.json` — it is *the* handoff schema and the name says so; confirm in review.
 
