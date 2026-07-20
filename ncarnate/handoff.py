@@ -202,25 +202,35 @@ def validate_handoff(record : dict[str, Any]) -> None:
         )
 
 
-def _variable_count(group : dict[str, Any]) -> int:
+def _variable_count(group : Any) -> int:
 
-    # Total variables anywhere in the (recursive) group tree.
-    total = len(group.get("variables", []))
-    for child in group.get("groups", []):
-        total += _variable_count(child)
+    # Total variables anywhere in the (recursive) group tree. Defensive: this
+    # runs over an untrusted record, so a non-dict node or non-list field
+    # contributes zero rather than raising.
+    if not isinstance(group, dict):
+        return 0
+    variables = group.get("variables")
+    total = len(variables) if isinstance(variables, list) else 0
+    children = group.get("groups")
+    if isinstance(children, list):
+        for child in children:
+            total += _variable_count(child)
     return total
 
 
-def materializability_error(record : dict[str, Any]) -> str | None:
+def materializability_error(record : Any) -> str | None:
 
     '''
 
     Return a human-readable reason ``record`` is unsafe to materialize a store
-    from, or ``None`` if it is safe. Assumes ``record`` is already
-    schema-valid (call :func:`validate_handoff` first). Refuses, in order:
+    from, or ``None`` if it is safe. Intended to run *after*
+    :func:`validate_handoff` (see :func:`check_materializable`), but written
+    **defensively** so it never leaks a stdlib exception on a hostile record at
+    this untrusted boundary — a malformed shape fails closed to *unsafe* (a
+    reason string), never to ``None`` (safe). Refuses, in order:
 
-    * an unknown ``schema_version`` (this ncarnate expects
-      ``OPERATION_RESULT_SCHEMA_VERSION``);
+    * a non-object record, or an unknown ``schema_version`` (this ncarnate
+      expects ``OPERATION_RESULT_SCHEMA_VERSION``);
     * a degraded read-back record — one still bearing the
       ``RESULT_READBACK_INCOMPLETE`` warning (the write was verified but the
       structure was never read back, so the record cannot describe the store);
@@ -231,6 +241,9 @@ def materializability_error(record : dict[str, Any]) -> str | None:
 
     '''
 
+    if not isinstance(record, dict):
+        return f"record is not a JSON object: {type(record).__name__}"
+
     version = record.get("schema_version")
     if version != OPERATION_RESULT_SCHEMA_VERSION:
         return (
@@ -238,16 +251,23 @@ def materializability_error(record : dict[str, Any]) -> str | None:
             f"version {OPERATION_RESULT_SCHEMA_VERSION}"
         )
 
-    warnings = record.get("warnings", [])
-    if any(w.get("code") == RESULT_READBACK_INCOMPLETE for w in warnings):
+    warnings = record.get("warnings")
+    warnings = warnings if isinstance(warnings, list) else []
+    if any(
+        isinstance(w, dict) and w.get("code") == RESULT_READBACK_INCOMPLETE
+        for w in warnings
+    ):
         return (
             f"record carries a {RESULT_READBACK_INCOMPLETE} warning: the "
             "conversion was verified and committed but its structure was never "
             "read back, so the record cannot describe the store to build"
         )
 
-    size_bytes = record.get("destination", {}).get("size_bytes", 0)
-    if _variable_count(record.get("structure", {})) == 0 and size_bytes > 0:
+    destination = record.get("destination")
+    size_bytes = destination.get("size_bytes", 0) if isinstance(destination, dict) else 0
+    if not isinstance(size_bytes, (int, float)) or isinstance(size_bytes, bool):
+        size_bytes = 0
+    if _variable_count(record.get("structure")) == 0 and size_bytes > 0:
         return (
             "record describes no variables but the destination is non-empty "
             f"({size_bytes} bytes): materializing it would yield a silently "

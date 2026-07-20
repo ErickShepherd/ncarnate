@@ -113,3 +113,26 @@ def test_unknown_schema_version_refused():
     record["schema_version"] = OPERATION_RESULT_SCHEMA_VERSION + 99
     reason = materializability_error(record)
     assert reason is not None and "schema_version" in reason
+
+
+@pytest.mark.parametrize("hostile", [None, "not a record", 42, [], {}])
+def test_materializability_error_fails_closed_on_hostile_input(hostile):
+    # This runs at an untrusted boundary: a non-object record (or a missing /
+    # unknown schema_version) must fail CLOSED to a reason string (unsafe),
+    # never leak a stdlib exception and never return None ("safe").
+    reason = materializability_error(hostile)            # no raise
+    assert reason is not None
+
+
+def test_materializability_error_no_raise_on_malformed_subfields():
+    # A well-versioned record whose sub-objects are the wrong shape must not
+    # leak a stdlib exception (the reviewer's threat-model finding). The return
+    # value is unconstrained here — such a record is rejected upstream by
+    # validate_handoff / check_materializable; the guarantee is "no crash".
+    record = {
+        "schema_version": OPERATION_RESULT_SCHEMA_VERSION,
+        "destination": "not-a-dict",
+        "warnings": ["not-a-dict"],
+        "structure": "not-a-dict",
+    }
+    materializability_error(record)                      # no raise
