@@ -29,6 +29,7 @@ top-level LICENSE file.
 from __future__ import annotations
 
 # Standard library imports.
+import hashlib
 import json
 import math
 from dataclasses import dataclass, field
@@ -45,7 +46,12 @@ from ncarnate.constants import __version__ as _NCARNATE_VERSION
 # different artifact (design KD3) and is the number step 5 freezes. Bumped
 # only on a breaking change to the result shape; the canonical-hash golden
 # test is its drift tripwire.
-OPERATION_RESULT_SCHEMA_VERSION = 1
+#
+# v2 (step 5, the freeze): adds the caller-owned ``retention`` slot (ncarnate
+# always emits ``null``) and the computed ``plan_hash`` (a stable
+# executed-plan identity). Both additive; the JSON Schema
+# (tests/fixtures/operation_result/handoff.schema.json) freezes this number.
+OPERATION_RESULT_SCHEMA_VERSION = 2
 
 
 # ---------------------------------------------------------------------------
@@ -507,12 +513,61 @@ class OperationResult:
     name_mappings : list[NameMapping] = field(default_factory=list)
     coordinates   : CoordinateActions = field(default_factory=CoordinateActions)
     warnings      : list[ResultWarning] = field(default_factory=list)
+    # The caller/pipeline-owned retention slot (step 5, design KD-S1). ncarnate
+    # NEVER sets this — it stays ``None`` (serialized ``null``), reserving the
+    # slot so a downstream can attach retention metadata to the same record it
+    # received without a schema change. The always-null value is kept in the
+    # canonical form so the golden pins that ncarnate never fills it (KD-S2).
+    retention     : dict[str, Any] | None = None
+
+    def plan_hash(self) -> str:
+
+        '''
+
+        A stable identity of the **executed plan** — the sha256 hex digest of
+        a canonical serialization of the conversion *inputs* (operation +
+        requested encoding options + source identity), so "same source bytes +
+        same request ⇒ same ``plan_hash``" (design KD-S3). A Zarr tail keys
+        idempotent / retry-safe materialization on it.
+
+        It excludes the output ``structure`` (that is the *result* of
+        executing the plan, not the plan), the absolute source *path*
+        (machine-specific), and every ncarnate / native-library version (so
+        the identity is reproducible across releases).
+
+        **Collision caveat:** this is collision-resistant only when
+        ``source.sha256`` is non-null. Under ``--allow-unverified`` the digest
+        is ``None`` and the projection degrades to
+        ``{operation, options, format, size}`` — a consumer must not key
+        idempotency on a null-digest plan.
+
+        '''
+
+        projection = {
+            "operation": self.operation,
+            "options"  : self.options.to_record(),
+            "source"   : {
+                "detected_format": self.source.detected_format,
+                "size_bytes"     : self.source.size_bytes,
+                "sha256"         : self.source.sha256,
+            },
+        }
+        payload = json.dumps(
+            projection,
+            sort_keys    = True,
+            separators   = (",", ":"),
+            ensure_ascii = False,
+            allow_nan    = False,
+        )
+
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def to_record(self) -> dict[str, Any]:
         return {
             "schema_version"  : OPERATION_RESULT_SCHEMA_VERSION,
             "ncarnate_version": _NCARNATE_VERSION,
             "operation"       : self.operation,
+            "plan_hash"       : self.plan_hash(),
             "source"          : self.source.to_record(),
             "destination"     : self.destination.to_record(),
             "options"         : self.options.to_record(),
@@ -521,6 +576,7 @@ class OperationResult:
             "coordinates"     : self.coordinates.to_record(),
             "verification"    : self.verification.to_record(),
             "validation"      : self.validation.to_record(),
+            "retention"       : self.retention,
             "environment"     : self.environment.to_record(),
             "warnings"        : [w.to_record() for w in self.warnings],
             "elapsed_seconds" : self.elapsed_seconds,
@@ -538,7 +594,12 @@ class OperationResult:
         ``sha256`` (HDF5-version-dependent), and ``verification``'s
         ``verifier_version`` (ncarnate's own version, which moves every
         release) — while keeping the structural content that is
-        deterministic for a fixture at a fixed schema version. ``structure``
+        deterministic for a fixture at a fixed schema version. The v2 fields
+        are both deterministic and therefore **kept**: ``plan_hash`` (derived
+        only from operation + options + source identity — all canonical-form
+        fields) and ``retention`` (always ``null`` from ncarnate, so the
+        golden pins that ncarnate never fills the caller's slot — KD-S2).
+        ``structure``
         is kept in full; a Zarr-relevant residual (library-default chunking
         on a *contiguous* source can vary by HDF5 version) is pinned by
         using an explicitly-chunked golden fixture (design §Risks). Note that

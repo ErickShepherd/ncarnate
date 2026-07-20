@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ncarnate verified-netCDF4 handoff record (OperationResult, schema v2)",
+  "description": "One executed conversion, fully described: the frozen handoff a downstream (e.g. a Zarr tail) validates a received record against and builds an array spec from without re-opening the netCDF or reading ncarnate internals (gate G5). Exactly one OperationResult.to_record() per record. The `verification` record attests conversion INTEGRITY — re-read value identity within the dtype scope, at the per-verifier fidelity scope its `method` field states (see docs/fidelity-notes.md) — NOT scientific correctness, which is the separate `validation` record ncarnate never performs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "ncarnate_version", "operation", "plan_hash",
+    "source", "destination", "options", "structure", "name_mappings",
+    "coordinates", "verification", "validation", "retention",
+    "environment", "warnings", "elapsed_seconds"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "ncarnate_version": {"type": "string"},
+    "operation": {
+      "type": "string",
+      "description": "The executed operation token: `recompress` (netCDF/HDF5 in place) or `convert` (HDF4/HDF-EOS2 to a new netCDF4)."
+    },
+    "plan_hash": {
+      "type": "string",
+      "description": "sha256 hex of the canonical executed-plan projection (operation + requested options + source identity: detected_format, size_bytes, sha256). A stable, ncarnate/library-version-independent identity of the request, for idempotent/retry-safe materialization. COLLISION CAVEAT: distinct only when source.sha256 is non-null; under --allow-unverified the digest is null and the key degrades to {operation, options, format, size} — a consumer must not key idempotency on a null-digest plan."
+    },
+    "source": {"$ref": "#/definitions/sourceIdentity"},
+    "destination": {"$ref": "#/definitions/outputIdentity"},
+    "options": {"$ref": "#/definitions/encodingOptions"},
+    "structure": {"$ref": "#/definitions/groupNode"},
+    "name_mappings": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/nameMapping"}
+    },
+    "coordinates": {"$ref": "#/definitions/coordinateActions"},
+    "verification": {"$ref": "#/definitions/verificationRecord"},
+    "validation": {"$ref": "#/definitions/validationRecord"},
+    "retention": {
+      "type": ["object", "null"],
+      "description": "Caller/pipeline-owned retention metadata. ncarnate NEVER sets this: it always emits null, reserving the slot. Interior is intentionally open (not ours to constrain)."
+    },
+    "environment": {"$ref": "#/definitions/environment"},
+    "warnings": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/resultWarning"}
+    },
+    "elapsed_seconds": {"type": "number"}
+  },
+  "definitions": {
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "detected_format", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string"},
+        "detected_format": {"type": "string"},
+        "size_bytes": {"type": "integer"},
+        "sha256": {
+          "type": ["string", "null"],
+          "description": "sha256 hex of the source bytes ncarnate read, or null when hashing was relaxed (--allow-unverified)."
+        }
+      }
+    },
+    "outputIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "container_format", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string"},
+        "container_format": {"type": "string"},
+        "size_bytes": {"type": "integer"},
+        "sha256": {
+          "type": "string",
+          "description": "sha256 hex of the committed output. HDF5-library-version-dependent, so excluded from the canonical hash."
+        }
+      }
+    },
+    "encodingOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zlib", "shuffle", "complevel", "geolocation"],
+      "description": "The REQUESTED run encoding. Per-variable EFFECTIVE encoding is on each variable, read back from the output.",
+      "properties": {
+        "zlib": {"type": "boolean"},
+        "shuffle": {"type": "boolean"},
+        "complevel": {"type": "integer"},
+        "geolocation": {"type": "boolean"}
+      }
+    },
+    "groupNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "dimensions", "attributes", "variables", "groups"],
+      "description": "One group of the output, recursively (root path `/`). Empty/metadata-only groups are included so the HDFEOS_INFORMATION group carrying verbatim StructMetadata.0 survives into the handoff.",
+      "properties": {
+        "path": {"type": "string"},
+        "dimensions": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/dimension"}
+        },
+        "attributes": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/attribute"}
+        },
+        "variables": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/variable"}
+        },
+        "groups": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/groupNode"}
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "size", "unlimited"],
+      "description": "A group dimension: name, size, and whether it is an appendable unlimited/record dimension. Gives a consumer the array shape a variable's `dimensions` names resolve against.",
+      "properties": {
+        "name": {"type": "string"},
+        "size": {"type": "integer"},
+        "unlimited": {"type": "boolean"}
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "dtype", "endian", "dimensions", "encoding", "attributes"],
+      "properties": {
+        "name": {"type": "string"},
+        "dtype": {
+          "type": "string",
+          "description": "numpy dtype string (var.dtype.str, e.g. `<i2`, `|i1`). Carries byteorder; a consumer reconstructs the Zarr dtype from THIS, never from `endian`."
+        },
+        "endian": {
+          "type": "string",
+          "description": "`native` | `big` | `little`. `native` is not a concrete order — read byteorder from `dtype`."
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "The dimension NAMES this variable spans; shape resolves against the group's `dimensions` sizes."
+        },
+        "encoding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["zlib", "shuffle", "complevel", "chunksizes"],
+          "description": "The EFFECTIVE per-variable encoding read back from the committed output.",
+          "properties": {
+            "zlib": {"type": "boolean"},
+            "shuffle": {"type": "boolean"},
+            "complevel": {"type": "integer"},
+            "chunksizes": {
+              "type": ["array", "null"],
+              "items": {"type": "integer"},
+              "description": "Per-dimension chunk lengths, or null for contiguous storage (a consumer falls back to the full shape)."
+            }
+          }
+        },
+        "attributes": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/attribute"},
+          "description": "Full attribute set including the scale_factor / add_offset / _FillValue packing declarations the fidelity contract preserves. _FillValue may be ABSENT (the source declared none)."
+        }
+      }
+    },
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "storage_type", "value"],
+      "properties": {
+        "name": {"type": "string"},
+        "storage_type": {
+          "type": "string",
+          "description": "`NC_STRING` | `NC_CHAR` for text (the KD-L6 distinction), or the numpy dtype string for a numeric attribute."
+        },
+        "value": {
+          "type": ["string", "number", "boolean", "null", "array"],
+          "description": "A JSON-safe attribute value: a scalar, an array, or a non-finite-float string token (`NaN`/`Infinity`/`-Infinity`). Never a bare object."
+        }
+      }
+    },
+    "nameMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["netcdf_name", "original_name", "kind", "parent_path"],
+      "description": "A sanitized-name companion: the output name, the original HDF4/HDF-EOS2 name, its kind, and the parent_path of its owner (which disambiguates an attribute rename that recurs on many owners).",
+      "properties": {
+        "netcdf_name": {"type": "string"},
+        "original_name": {"type": "string"},
+        "kind": {"type": "string"},
+        "parent_path": {"type": "string"}
+      }
+    },
+    "coordinateActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated", "skipped"],
+      "properties": {
+        "generated": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Reconstructed coordinate / grid-mapping variable paths (empty on the storage-only recompression path)."
+        },
+        "skipped": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/skippedCoordinate"}
+        }
+      }
+    },
+    "skippedCoordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "reason", "code"],
+      "properties": {
+        "name": {"type": "string"},
+        "reason": {"type": "string"},
+        "code": {
+          "type": ["string", "null"],
+          "description": "A stable ncarnate.audit.codes registry code where one applies, else null."
+        }
+      }
+    },
+    "verificationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "verifier", "verifier_version", "method"],
+      "description": "Conversion-INTEGRITY status — ncarnate always fills this. A failed verification raises and leaves no output, so `status` has no failure value. `method` states the exact fidelity scope PER VERIFIER: re-read value identity within the dtype scope on both paths; the netCDF path is storage-only, while the HDF4 path additionally reconstructs geolocation ADDITIVELY (the output tree is a superset of the SDS payload) and transforms character-attribute NUL padding (docs/fidelity-notes.md). It never attests scientific correctness.",
+      "properties": {
+        "status": {"type": "string", "enum": ["verified"]},
+        "verifier": {"type": "string"},
+        "verifier_version": {"type": "string"},
+        "method": {"type": "string"}
+      }
+    },
+    "validationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "validator", "method", "record"],
+      "description": "Scientific-VALIDATION status — structurally separate from conversion integrity. ncarnate never performs it and only ever sets status=`not_performed`, leaving validator/method/record for a downstream pipeline to fill.",
+      "properties": {
+        "status": {"type": "string"},
+        "validator": {"type": ["string", "null"]},
+        "method": {"type": ["string", "null"]},
+        "record": {
+          "type": ["object", "null"],
+          "description": "The pipeline's validation evidence. Interior intentionally open."
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter_versions"],
+      "properties": {
+        "adapter_versions": {
+          "type": "object",
+          "additionalProperties": {"type": ["string", "null"]},
+          "description": "Native-library versions that produced the output, keyed by adapter name (numpy, netCDF4, netcdf_c, libhdf5, pyhdf, libhdf4). The key set is a probe list (additive), so it is open-valued; an adapter absent from the install maps to null."
+        }
+      }
+    },
+    "resultWarning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "context"],
+      "description": "A non-fatal note about a successful conversion, carrying a stable ncarnate.audit.codes registry code.",
+      "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "context": {
+          "type": "object",
+          "description": "Per-warning context; interior open (matches the audit issue context)."
+        }
+      }
+    }
+  }
+}

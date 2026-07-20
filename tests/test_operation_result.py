@@ -106,7 +106,7 @@ def test_golden_hash_is_pinned(tmp_path):
     golden = (_GOLDEN_DIR / "packed_fill.canonical.json").read_text(encoding="utf-8")
     digest = hashlib.sha256(golden.encode("utf-8")).hexdigest()
     assert digest == (
-        "893b2c2be71c92dca7df81024e0662680e534c43b2fde09bf39036d6e51c2207"
+        "841933cfbb27ba16fb2651f2b4697a74f6421fae3362785405604c196e3d801a"
     )
 
 

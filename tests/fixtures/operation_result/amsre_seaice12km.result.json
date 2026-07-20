@@ -1,0 +1,575 @@
+{
+  "schema_version": 2,
+  "ncarnate_version": "2.2.1",
+  "operation": "convert",
+  "plan_hash": "af65c9a7adf3e2479c4053723890b3de1cf9ea5b3d55d7a1639a8f988584c93a",
+  "source": {
+    "path": "/data/granules/AMSR_E_L3_SeaIce12km_V15_20070101.hdf",
+    "detected_format": "HDF4",
+    "size_bytes": 166692,
+    "sha256": "8ddf6b407b461f5b6e4492f5ba59dcfadac1a0905aad965574707e298349c6d9"
+  },
+  "destination": {
+    "path": "/data/out/amsre.nc",
+    "container_format": "NETCDF4",
+    "size_bytes": 10757576,
+    "sha256": "2e5d99a9f6e6e9f6223e9854752522d2c4aee5ce37b53252daf0f8bac6f74dfc"
+  },
+  "options": {
+    "zlib": true,
+    "shuffle": true,
+    "complevel": 7,
+    "geolocation": true
+  },
+  "structure": {
+    "path": "/",
+    "dimensions": [],
+    "attributes": [
+      {
+        "name": "HDFEOSVersion",
+        "storage_type": "NC_CHAR",
+        "value": "HDFEOS_V2.10"
+      }
+    ],
+    "variables": [],
+    "groups": [
+      {
+        "path": "/HDFEOS_INFORMATION",
+        "dimensions": [],
+        "attributes": [
+          {
+            "name": "CoreMetadata.0",
+            "storage_type": "NC_CHAR",
+            "value": "GROUP = INVENTORYMETADATA\n   GROUPTYPE = MASTERGROUP\n   GROUP = ECSDATAGRANULE\n      OBJECT = LOCALGRANULEID\n         NUM_VAL = 1\n         VALUE = \"AMSR_E_L3_SeaIce12km_B02_20020619.hdf\"\n      END_OBJECT = LOCALGRANULEID\n      OBJECT = PRODUCTIONDATETIME\n         NUM_VAL = 1\n         VALUE = \"2004-05-11T20:52:50Z\"\n      END_OBJECT = PRODUCTIONDATETIME\n   END_GROUP = ECSDATAGRANULE\n   GROUP = MEASUREDPARAMETER\n      OBJECT = MEASUREDPARAMETERCONTAINER\n         CLASS = \"1\"\n         OBJECT = PARAMETERNAME\n            NUM_VAL = 1\n            CLASS = \"1\"\n            VALUE = \"Sea Ice Parameters\"\n         END_OBJECT = PARAMETERNAME\n         GROUP = QAFLAGS\n            CLASS = \"1\"\n            OBJECT = AUTOMATICQUALITYFLAG\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Passed\"\n            END_OBJECT = AUTOMATICQUALITYFLAG\n            OBJECT = AUTOMATICQUALITYFLAGEXPLANATION\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Program Execution Completed\"\n            END_OBJECT = AUTOMATICQUALITYFLAGEXPLANATION\n            OBJECT = OPERATIONALQUALITYFLAG\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Not Investigated\"\n            END_OBJECT = OPERATIONALQUALITYFLAG\n            OBJECT = OPERATIONALQUALITYFLAGEXPLANATION\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Currently not used\"\n            END_OBJECT = OPERATIONALQUALITYFLAGEXPLANATION\n            OBJECT = SCIENCEQUALITYFLAG\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Not Investigated\"\n            END_OBJECT = SCIENCEQUALITYFLAG\n            OBJECT = SCIENCEQUALITYFLAGEXPLANATION\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = \"Currently not used\"\n            END_OBJECT = SCIENCEQUALITYFLAGEXPLANATION\n         END_GROUP = QAFLAGS\n         GROUP = QASTATS\n            CLASS = \"1\"\n            OBJECT = QAPERCENTMISSINGDATA\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = 0\n            END_OBJECT = QAPERCENTMISSINGDATA\n            OBJECT = QAPERCENTOUTOFBOUNDSDATA\n               NUM_VAL = 1\n               CLASS = \"1\"\n               VALUE = 0\n            END_OBJECT = QAPERCENTOUTOFBOUNDSDATA\n         END_GROUP = QASTATS\n      END_OBJECT = MEASUREDPARAMETERCONTAINER\n   END_GROUP = MEASUREDPARAMETER\n   GROUP = COLLECTIONDESCRIPTIONCLASS\n      OBJECT = SHORTNAME\n         NUM_VAL = 1\n         VALUE = \"AE_SI12\"\n      END_OBJECT = SHORTNAME\n      OBJECT = VERSIONID\n         NUM_VAL = 1\n         VALUE = 1\n      END_OBJECT = VERSIONID\n   END_GROUP = COLLECTIONDESCRIPTIONCLASS\n   GROUP = INPUTGRANULE\n      OBJECT = INPUTPOINTER\n         NUM_VAL = 1\n         VALUE = \"AMSR_E_L2A_BrightnessTemperatures_B01_200206190029_D.hdf\"\n      END_OBJECT = INPUTPOINTER\n   END_GROUP = INPUTGRANULE\n   GROUP = SPATIALDOMAINCONTAINER\n      GROUP = HORIZONTALSPATIALDOMAINCONTAINER\n         GROUP = BOUNDINGRECTANGLE\n            OBJECT = WESTBOUNDINGCOORDINATE\n               NUM_VAL = 1\n               VALUE = -180.0\n            END_OBJECT = WESTBOUNDINGCOORDINATE\n            OBJECT = NORTHBOUNDINGCOORDINATE\n               NUM_VAL = 1\n               VALUE = 90.0\n            END_OBJECT = NORTHBOUNDINGCOORDINATE\n            OBJECT = EASTBOUNDINGCOORDINATE\n               NUM_VAL = 1\n               VALUE = 180.0\n            END_OBJECT = EASTBOUNDINGCOORDINATE\n            OBJECT = SOUTHBOUNDINGCOORDINATE\n               NUM_VAL = 1\n               VALUE = -90.0\n            END_OBJECT = SOUTHBOUNDINGCOORDINATE\n         END_GROUP = BOUNDINGRECTANGLE\n      END_GROUP = HORIZONTALSPATIALDOMAINCONTAINER\n   END_GROUP = SPATIALDOMAINCONTAINER\n   GROUP = RANGEDATETIME\n      OBJECT = RANGEBEGINNINGDATE\n         NUM_VAL = 1\n         VALUE = \"2002-06-19\"\n      END_OBJECT = RANGEBEGINNINGDATE\n      OBJECT = RANGEBEGINNINGTIME\n         NUM_VAL = 1\n         VALUE = \"00:29:47.10Z\"\n      END_OBJECT = RANGEBEGINNINGTIME\n      OBJECT = RANGEENDINGDATE\n         NUM_VAL = 1\n         VALUE = \"2002-06-20\"\n      END_OBJECT = RANGEENDINGDATE\n      OBJECT = RANGEENDINGTIME\n         NUM_VAL = 1\n         VALUE = \"00:24:01.75Z\"\n      END_OBJECT = RANGEENDINGTIME\n   END_GROUP = RANGEDATETIME\n   GROUP = PGEVERSIONCLASS\n      OBJECT = PGEVERSION\n         NUM_VAL = 1\n         VALUE = \"02\"\n      END_OBJECT = PGEVERSION\n   END_GROUP = PGEVERSIONCLASS\nEND_GROUP = INVENTORYMETADATA\nEND\n"
+          },
+          {
+            "name": "StructMetadata.0",
+            "storage_type": "NC_CHAR",
+            "value": "GROUP=SwathStructure\nEND_GROUP=SwathStructure\nGROUP=GridStructure\n\tGROUP=GRID_1\n\t\tGridName=\"NpPolarGrid12km\"\n\t\tXDim=608\n\t\tYDim=896\n\t\tUpperLeftPointMtrs=(-3850000.000000,5850000.000000)\n\t\tLowerRightMtrs=(3750000.000000,-5350000.000000)\n\t\tProjection=GCTP_PS\n\t\tProjParams=(6378273,-0.006694,0,0,-45000000,70000000,0,0,0,0,0,0,0)\n\t\tSphereCode=-1\n\t\tGridOrigin=HDFE_GD_UL\n\t\tGROUP=Dimension\n\t\tEND_GROUP=Dimension\n\t\tGROUP=DataField\n\t\t\tOBJECT=DataField_1\n\t\t\t\tDataFieldName=\"SI_12km_NH_18V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_1\n\t\t\tOBJECT=DataField_2\n\t\t\t\tDataFieldName=\"SI_12km_NH_18V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_2\n\t\t\tOBJECT=DataField_3\n\t\t\t\tDataFieldName=\"SI_12km_NH_18V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_3\n\t\t\tOBJECT=DataField_4\n\t\t\t\tDataFieldName=\"SI_12km_NH_18H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_4\n\t\t\tOBJECT=DataField_5\n\t\t\t\tDataFieldName=\"SI_12km_NH_18H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_5\n\t\t\tOBJECT=DataField_6\n\t\t\t\tDataFieldName=\"SI_12km_NH_18H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_6\n\t\t\tOBJECT=DataField_7\n\t\t\t\tDataFieldName=\"SI_12km_NH_23V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_7\n\t\t\tOBJECT=DataField_8\n\t\t\t\tDataFieldName=\"SI_12km_NH_23V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_8\n\t\t\tOBJECT=DataField_9\n\t\t\t\tDataFieldName=\"SI_12km_NH_23V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_9\n\t\t\tOBJECT=DataField_10\n\t\t\t\tDataFieldName=\"SI_12km_NH_23H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_10\n\t\t\tOBJECT=DataField_11\n\t\t\t\tDataFieldName=\"SI_12km_NH_23H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_11\n\t\t\tOBJECT=DataField_12\n\t\t\t\tDataFieldName=\"SI_12km_NH_23H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_12\n\t\t\tOBJECT=DataField_13\n\t\t\t\tDataFieldName=\"SI_12km_NH_36V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_13\n\t\t\tOBJECT=DataField_14\n\t\t\t\tDataFieldName=\"SI_12km_NH_36V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_14\n\t\t\tOBJECT=DataField_15\n\t\t\t\tDataFieldName=\"SI_12km_NH_36V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_15\n\t\t\tOBJECT=DataField_16\n\t\t\t\tDataFieldName=\"SI_12km_NH_36H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_16\n\t\t\tOBJECT=DataField_17\n\t\t\t\tDataFieldName=\"SI_12km_NH_36H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_17\n\t\t\tOBJECT=DataField_18\n\t\t\t\tDataFieldName=\"SI_12km_NH_36H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_18\n\t\t\tOBJECT=DataField_19\n\t\t\t\tDataFieldName=\"SI_12km_NH_89V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_19\n\t\t\tOBJECT=DataField_20\n\t\t\t\tDataFieldName=\"SI_12km_NH_89V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_20\n\t\t\tOBJECT=DataField_21\n\t\t\t\tDataFieldName=\"SI_12km_NH_89V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_21\n\t\t\tOBJECT=DataField_22\n\t\t\t\tDataFieldName=\"SI_12km_NH_89H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_22\n\t\t\tOBJECT=DataField_23\n\t\t\t\tDataFieldName=\"SI_12km_NH_89H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_23\n\t\t\tOBJECT=DataField_24\n\t\t\t\tDataFieldName=\"SI_12km_NH_89H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_24\n\t\t\tOBJECT=DataField_25\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICECON_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_25\n\t\t\tOBJECT=DataField_26\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICECON_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_26\n\t\t\tOBJECT=DataField_27\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICECON_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_27\n\t\t\tOBJECT=DataField_28\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICEDIFF_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_28\n\t\t\tOBJECT=DataField_29\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICEDIFF_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_29\n\t\t\tOBJECT=DataField_30\n\t\t\t\tDataFieldName=\"SI_12km_NH_ICEDIFF_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_30\n\t\t\tOBJECT=DataField_31\n\t\t\t\tDataFieldName=\"SI_12km_NH_SNOWDEPTH_5DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_31\n\t\tEND_GROUP=DataField\n\t\tGROUP=MergedFields\n\t\tEND_GROUP=MergedFields\n\tEND_GROUP=GRID_1\n\tGROUP=GRID_2\n\t\tGridName=\"SpPolarGrid12km\"\n\t\tXDim=632\n\t\tYDim=664\n\t\tUpperLeftPointMtrs=(-3950000.000000,4350000.000000)\n\t\tLowerRightMtrs=(3950000.000000,-3950000.000000)\n\t\tProjection=GCTP_PS\n\t\tProjParams=(6378273,-0.006694,0,0,0,-70000000,0,0,0,0,0,0,0)\n\t\tSphereCode=-1\n\t\tGridOrigin=HDFE_GD_UL\n\t\tGROUP=Dimension\n\t\tEND_GROUP=Dimension\n\t\tGROUP=DataField\n\t\t\tOBJECT=DataField_1\n\t\t\t\tDataFieldName=\"SI_12km_SH_18V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_1\n\t\t\tOBJECT=DataField_2\n\t\t\t\tDataFieldName=\"SI_12km_SH_18V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_2\n\t\t\tOBJECT=DataField_3\n\t\t\t\tDataFieldName=\"SI_12km_SH_18V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_3\n\t\t\tOBJECT=DataField_4\n\t\t\t\tDataFieldName=\"SI_12km_SH_18H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_4\n\t\t\tOBJECT=DataField_5\n\t\t\t\tDataFieldName=\"SI_12km_SH_18H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_5\n\t\t\tOBJECT=DataField_6\n\t\t\t\tDataFieldName=\"SI_12km_SH_18H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_6\n\t\t\tOBJECT=DataField_7\n\t\t\t\tDataFieldName=\"SI_12km_SH_23V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_7\n\t\t\tOBJECT=DataField_8\n\t\t\t\tDataFieldName=\"SI_12km_SH_23V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_8\n\t\t\tOBJECT=DataField_9\n\t\t\t\tDataFieldName=\"SI_12km_SH_23V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_9\n\t\t\tOBJECT=DataField_10\n\t\t\t\tDataFieldName=\"SI_12km_SH_23H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_10\n\t\t\tOBJECT=DataField_11\n\t\t\t\tDataFieldName=\"SI_12km_SH_23H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_11\n\t\t\tOBJECT=DataField_12\n\t\t\t\tDataFieldName=\"SI_12km_SH_23H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_12\n\t\t\tOBJECT=DataField_13\n\t\t\t\tDataFieldName=\"SI_12km_SH_36V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_13\n\t\t\tOBJECT=DataField_14\n\t\t\t\tDataFieldName=\"SI_12km_SH_36V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_14\n\t\t\tOBJECT=DataField_15\n\t\t\t\tDataFieldName=\"SI_12km_SH_36V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_15\n\t\t\tOBJECT=DataField_16\n\t\t\t\tDataFieldName=\"SI_12km_SH_36H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_16\n\t\t\tOBJECT=DataField_17\n\t\t\t\tDataFieldName=\"SI_12km_SH_36H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_17\n\t\t\tOBJECT=DataField_18\n\t\t\t\tDataFieldName=\"SI_12km_SH_36H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_18\n\t\t\tOBJECT=DataField_19\n\t\t\t\tDataFieldName=\"SI_12km_SH_89V_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_19\n\t\t\tOBJECT=DataField_20\n\t\t\t\tDataFieldName=\"SI_12km_SH_89V_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_20\n\t\t\tOBJECT=DataField_21\n\t\t\t\tDataFieldName=\"SI_12km_SH_89V_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_21\n\t\t\tOBJECT=DataField_22\n\t\t\t\tDataFieldName=\"SI_12km_SH_89H_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_22\n\t\t\tOBJECT=DataField_23\n\t\t\t\tDataFieldName=\"SI_12km_SH_89H_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_23\n\t\t\tOBJECT=DataField_24\n\t\t\t\tDataFieldName=\"SI_12km_SH_89H_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_24\n\t\t\tOBJECT=DataField_25\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICECON_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_25\n\t\t\tOBJECT=DataField_26\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICECON_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_26\n\t\t\tOBJECT=DataField_27\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICECON_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_27\n\t\t\tOBJECT=DataField_28\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICEDIFF_ASC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_28\n\t\t\tOBJECT=DataField_29\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICEDIFF_DSC\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_29\n\t\t\tOBJECT=DataField_30\n\t\t\t\tDataFieldName=\"SI_12km_SH_ICEDIFF_DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_30\n\t\t\tOBJECT=DataField_31\n\t\t\t\tDataFieldName=\"SI_12km_SH_SNOWDEPTH_5DAY\"\n\t\t\t\tDataType=DFNT_INT16\n\t\t\t\tDimList=(\"YDim\",\"XDim\")\n\t\t\tEND_OBJECT=DataField_31\n\t\tEND_GROUP=DataField\n\t\tGROUP=MergedFields\n\t\tEND_GROUP=MergedFields\n\tEND_GROUP=GRID_2\nEND_GROUP=GridStructure\nGROUP=PointStructure\nEND_GROUP=PointStructure\nEND\n"
+          }
+        ],
+        "variables": [],
+        "groups": []
+      },
+      {
+        "path": "/NpPolarGrid12km",
+        "dimensions": [
+          {
+            "name": "XDim",
+            "size": 608,
+            "unlimited": false
+          },
+          {
+            "name": "YDim",
+            "size": 896,
+            "unlimited": false
+          }
+        ],
+        "attributes": [],
+        "variables": [
+          {
+            "name": "SI_12km_NH_ICECON_DAY",
+            "dtype": "<i2",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                896,
+                608
+              ]
+            },
+            "attributes": [
+              {
+                "name": "coordinates",
+                "storage_type": "NC_CHAR",
+                "value": "lon lat"
+              },
+              {
+                "name": "grid_mapping",
+                "storage_type": "NC_CHAR",
+                "value": "polar_stereographic"
+              }
+            ]
+          },
+          {
+            "name": "lat",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                896,
+                608
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "inverse-projected from the reconstructed grid coordinates"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "latitude"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "degrees_north"
+              }
+            ]
+          },
+          {
+            "name": "lon",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                896,
+                608
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "inverse-projected from the reconstructed grid coordinates"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "longitude"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "degrees_east"
+              }
+            ]
+          },
+          {
+            "name": "polar_stereographic",
+            "dtype": "<i4",
+            "endian": "native",
+            "dimensions": [],
+            "encoding": {
+              "zlib": false,
+              "shuffle": false,
+              "complevel": 0,
+              "chunksizes": null
+            },
+            "attributes": [
+              {
+                "name": "false_easting",
+                "storage_type": "<f8",
+                "value": 0.0
+              },
+              {
+                "name": "false_northing",
+                "storage_type": "<f8",
+                "value": 0.0
+              },
+              {
+                "name": "grid_mapping_name",
+                "storage_type": "NC_CHAR",
+                "value": "polar_stereographic"
+              },
+              {
+                "name": "latitude_of_projection_origin",
+                "storage_type": "<f8",
+                "value": 90.0
+              },
+              {
+                "name": "semi_major_axis",
+                "storage_type": "<f8",
+                "value": 6378273.0
+              },
+              {
+                "name": "semi_minor_axis",
+                "storage_type": "<f8",
+                "value": 6356889.074179982
+              },
+              {
+                "name": "standard_parallel",
+                "storage_type": "<f8",
+                "value": 70.0
+              },
+              {
+                "name": "straight_vertical_longitude_from_pole",
+                "storage_type": "<f8",
+                "value": -45.0
+              }
+            ]
+          },
+          {
+            "name": "x",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                608
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "cell centers reconstructed from the HDF-EOS2 grid corner points"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "projection_x_coordinate"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "name": "y",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                896
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "cell centers reconstructed from the HDF-EOS2 grid corner points"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "projection_y_coordinate"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "m"
+              }
+            ]
+          }
+        ],
+        "groups": []
+      },
+      {
+        "path": "/SpPolarGrid12km",
+        "dimensions": [
+          {
+            "name": "XDim",
+            "size": 632,
+            "unlimited": false
+          },
+          {
+            "name": "YDim",
+            "size": 664,
+            "unlimited": false
+          }
+        ],
+        "attributes": [],
+        "variables": [
+          {
+            "name": "SI_12km_SH_ICECON_DAY",
+            "dtype": "<i2",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                664,
+                632
+              ]
+            },
+            "attributes": [
+              {
+                "name": "coordinates",
+                "storage_type": "NC_CHAR",
+                "value": "lon lat"
+              },
+              {
+                "name": "grid_mapping",
+                "storage_type": "NC_CHAR",
+                "value": "polar_stereographic"
+              }
+            ]
+          },
+          {
+            "name": "lat",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                664,
+                632
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "inverse-projected from the reconstructed grid coordinates"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "latitude"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "degrees_north"
+              }
+            ]
+          },
+          {
+            "name": "lon",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim",
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                664,
+                632
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "inverse-projected from the reconstructed grid coordinates"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "longitude"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "degrees_east"
+              }
+            ]
+          },
+          {
+            "name": "polar_stereographic",
+            "dtype": "<i4",
+            "endian": "native",
+            "dimensions": [],
+            "encoding": {
+              "zlib": false,
+              "shuffle": false,
+              "complevel": 0,
+              "chunksizes": null
+            },
+            "attributes": [
+              {
+                "name": "false_easting",
+                "storage_type": "<f8",
+                "value": 0.0
+              },
+              {
+                "name": "false_northing",
+                "storage_type": "<f8",
+                "value": 0.0
+              },
+              {
+                "name": "grid_mapping_name",
+                "storage_type": "NC_CHAR",
+                "value": "polar_stereographic"
+              },
+              {
+                "name": "latitude_of_projection_origin",
+                "storage_type": "<f8",
+                "value": -90.0
+              },
+              {
+                "name": "semi_major_axis",
+                "storage_type": "<f8",
+                "value": 6378273.0
+              },
+              {
+                "name": "semi_minor_axis",
+                "storage_type": "<f8",
+                "value": 6356889.074179982
+              },
+              {
+                "name": "standard_parallel",
+                "storage_type": "<f8",
+                "value": -70.0
+              },
+              {
+                "name": "straight_vertical_longitude_from_pole",
+                "storage_type": "<f8",
+                "value": 0.0
+              }
+            ]
+          },
+          {
+            "name": "x",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "XDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                632
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "cell centers reconstructed from the HDF-EOS2 grid corner points"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "projection_x_coordinate"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "name": "y",
+            "dtype": "<f8",
+            "endian": "native",
+            "dimensions": [
+              "YDim"
+            ],
+            "encoding": {
+              "zlib": true,
+              "shuffle": true,
+              "complevel": 7,
+              "chunksizes": [
+                664
+              ]
+            },
+            "attributes": [
+              {
+                "name": "comment",
+                "storage_type": "NC_CHAR",
+                "value": "cell centers reconstructed from the HDF-EOS2 grid corner points"
+              },
+              {
+                "name": "standard_name",
+                "storage_type": "NC_CHAR",
+                "value": "projection_y_coordinate"
+              },
+              {
+                "name": "units",
+                "storage_type": "NC_CHAR",
+                "value": "m"
+              }
+            ]
+          }
+        ],
+        "groups": []
+      }
+    ]
+  },
+  "name_mappings": [],
+  "coordinates": {
+    "generated": [
+      "/NpPolarGrid12km/lat",
+      "/NpPolarGrid12km/lon",
+      "/NpPolarGrid12km/polar_stereographic",
+      "/NpPolarGrid12km/x",
+      "/NpPolarGrid12km/y",
+      "/SpPolarGrid12km/lat",
+      "/SpPolarGrid12km/lon",
+      "/SpPolarGrid12km/polar_stereographic",
+      "/SpPolarGrid12km/x",
+      "/SpPolarGrid12km/y"
+    ],
+    "skipped": []
+  },
+  "verification": {
+    "status": "verified",
+    "verifier": "ncarnate.hdf4.verify_conversion",
+    "verifier_version": "2.2.1",
+    "method": "SDS values re-read value-identical (bit-for-bit integer / char8, equal_nan float); reconstructed geolocation is additive (the output tree is a superset of the SDS payload); character-attribute NUL padding stripped and embedded-NUL attributes recoded to uint8 per the fidelity contract."
+  },
+  "validation": {
+    "status": "not_performed",
+    "validator": null,
+    "method": null,
+    "record": null
+  },
+  "retention": null,
+  "environment": {
+    "adapter_versions": {
+      "numpy": "2.5.1",
+      "netCDF4": "1.7.4",
+      "netcdf_c": "4.9.3",
+      "libhdf5": "1.14.6",
+      "pyhdf": "0.11.6",
+      "libhdf4": null
+    }
+  },
+  "warnings": [],
+  "elapsed_seconds": 0.5034104619990103
+}
