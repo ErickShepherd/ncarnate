@@ -1,9 +1,14 @@
 # `OperationResult` — the structured operation result (stage API step 4A) — Design
 
-> **Status:** designed, build not started. **Rev 2** (2026-07-20) — reshaped after an independent
-> adversarial review found the rev-1 draft modeled only the variable-value/storage layer and dropped
-> the dimension + attribute layer (the layer that makes the result sufficient for a Zarr tail without
-> re-opening the file). Review findings and their resolutions are recorded inline (marked *R2:*).
+> **Status:** **BUILT** (step 4A implemented on `feat/stage-api-4a`; 337 tests green, ruff clean,
+> build + twine pass). **Rev 3** (2026-07-20) — one implementation-driven refinement to KD1: a
+> converted `ConvertRecord` *carries* an optional `OperationResult` rather than `ConvertResult.converted`
+> changing element type, because the manifest-relative `path` is load-bearing for the summary and the
+> per-record scripting handle (and is distinct from `OperationResult.source.path`, the absolute-realpath
+> identity). **Rev 2** (2026-07-20) — reshaped after an independent adversarial review found the rev-1
+> draft modeled only the variable-value/storage layer and dropped the dimension + attribute layer (the
+> layer that makes the result sufficient for a Zarr tail without re-opening the file). Review findings
+> and their resolutions are recorded inline (marked *R2:*).
 > Scoped to **step 4A** of the production-readiness roadmap
 > ([`docs/plans/next-steps-priority-2026-07-15.md:172`](../plans/next-steps-priority-2026-07-15.md),
 > action 13 in [`docs/plans/production-readiness-actions-2026-07-15.md:218`](../plans/production-readiness-actions-2026-07-15.md)).
@@ -242,12 +247,20 @@ an output that does not exist.
 
 ### Relationship to `ConvertRecord` / `ConvertResult`
 
-**`OperationResult` does not replace `ConvertRecord`; it replaces the success payload** (KD1).
-`ConvertResult.converted` becomes `list[OperationResult]`; `skipped` and `failed` stay
-`list[ConvertRecord]` (nothing executed → no digest). The summary renderer gains an `OperationResult`
-overload (renders `.source.path`, size delta, and any warnings — `!r`-escaped, KD9). A one-shot
-`recompress` caller still gets a `str`; the rich result is reachable through the 4B `execute` primitive
-and, internally in 4A, the manifest journal.
+**`OperationResult` does not replace `ConvertRecord`; the converted record carries it** (KD1, rev 3).
+`ConvertRecord` gains `result : OperationResult | None` — populated for a converted record, `None` for a
+skip or a failure (nothing executed → no digest). `ConvertResult.converted` stays `list[ConvertRecord]`,
+so the manifest-relative `path` (the summary/scripting handle, distinct from the absolute-realpath
+`OperationResult.source.path`) and the existing `.code` are unchanged, and every current caller/test
+keeps working. The summary renderer prints each converted record's size delta from `record.result`
+(`!r`-escaped, KD9). A one-shot `recompress` caller still gets a `str`; the rich result is reachable
+through the manifest run today (`record.result`) and through the 4B `execute` primitive for a one-shot
+call.
+
+**G4 in 4A** is demonstrated through the public manifest path: `convert_manifest` (public) returns a
+`ConvertResult` whose `converted[i].result` is a fully-understandable `OperationResult` — a downstream
+consumer performs and understands a conversion with no CLI, no log parsing, and no private imports
+(`tests/test_stage_api_g4.py`). The 4B primitives formalize the same reachability for a single call.
 
 ### Manifest journal
 
@@ -259,9 +272,11 @@ never the human summary.
 
 ## Key decisions
 
-- **KD1 — new `OperationResult`, `ConvertRecord` survives.** `ConvertRecord` also models **skips** and
-  **pre-execution failures** where nothing executed and a digest is meaningless; forcing those through
-  a rich all-`None` result is worse than an honest split.
+- **KD1 — new `OperationResult`, `ConvertRecord` survives and carries it (rev 3).** `ConvertRecord` also
+  models **skips** and **pre-execution failures** where nothing executed and a digest is meaningless;
+  forcing those through a rich all-`None` result is worse than the honest split. `ConvertRecord` gains an
+  optional `result` field (populated only where a conversion executed) rather than `converted` changing
+  element type — preserving the load-bearing manifest-relative `path`.
 - **KD2 — `recompress(...) -> str` unchanged (released contract).** An internal
   `_recompress_result(...) -> OperationResult`; `recompress` returns `result.destination.path`. 4B's
   public `execute(plan) -> OperationResult` wraps the same internal.
@@ -355,7 +370,9 @@ never the human summary.
    shape of `_verify_group`).
 3. Thread it through the execute engine (internal `_recompress_result`); `recompress` returns
    `.destination.path` (no signature change).
-4. `ConvertResult.converted -> list[OperationResult]`; summary-renderer overload; `--result-journal`.
+4. `ConvertRecord.result : OperationResult | None`; the manifest loop attaches it; summary size-delta
+   section; `render_result_journal` + the `--result-journal` CLI flag; export `OperationResult` /
+   `canonical_json` / `OPERATION_RESULT_SCHEMA_VERSION` on `ncarnate.__all__`.
 5. Golden `canonical_json` serialization + hash tests over an **explicitly-chunked** fixture; one
    real-fixture (AMSR-E grid) result fixture checked into `tests/`; unit tests for non-finite-float and
    NC_STRING/NC_CHAR attribute coercion.

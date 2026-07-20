@@ -48,7 +48,7 @@ except ImportError:
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
-from ncarnate.core import recompress
+from ncarnate.core import _recompress_result
 from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError, render_refusal
 from ncarnate.formats import FileFormat
@@ -64,7 +64,7 @@ from ncarnate.convert.preflight import (
     preflight_destinations,
 )
 from ncarnate.convert.reader import read_manifest
-from ncarnate.convert.report import render_summary
+from ncarnate.convert.report import render_result_journal, render_summary
 
 __all__ = [
     "ConvertOptions",
@@ -203,12 +203,14 @@ def convert_manifest(
                            if record.status != "ready_no_geolocation"
                            else False)
 
-            recompress(
+            operation_result = _recompress_result(
                 source, dst=destination, zlib=options.zlib,
                 shuffle=options.shuffle, complevel=options.complevel,
                 geolocation=geolocation,
             )
-            result.converted.append(ConvertRecord(record.path))
+            result.converted.append(
+                ConvertRecord(record.path, result=operation_result)
+            )
 
         # OSError and pyhdf's HDF4Error (a direct Exception subclass)
         # alongside NcarnateError: a source deleted/unreadable between audit
@@ -320,6 +322,15 @@ def _build_convert_parser() -> argparse.ArgumentParser:
         action = "store_true",
         help   = "Skip a record whose mirrored output already exists, making "
                  "an --out-dir run resumable.",
+    )
+
+    parser.add_argument(
+        "--result-journal",
+        dest   = "result_journal",
+        default = None,
+        help   = "Write a JSONL operation-result journal (one structured "
+                 "OperationResult record per converted file) to this path, so "
+                 "automation need not scrape the summary.",
     )
 
     parser.add_argument(
@@ -435,6 +446,17 @@ def main(argv : list[str]) -> int:
         logger.error("%s", render_refusal(error))
 
         return 2
+
+    if args.result_journal:
+
+        # The machine-readable journal (action 13): one structured
+        # OperationResult per converted file. Written newline-terminated so a
+        # consumer can `for line in open(...)` cleanly.
+        journal = render_result_journal(result)
+
+        with open(args.result_journal, "w", encoding="utf-8") as stream:
+
+            stream.write(journal + "\n" if journal else "")
 
     print(render_summary(result))
 

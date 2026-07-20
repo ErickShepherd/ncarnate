@@ -24,6 +24,9 @@ from ncarnate.audit import AuditOptions
 from ncarnate.audit import audit_path
 from ncarnate.convert import ConvertOptions
 from ncarnate.convert import convert_manifest
+from ncarnate.result import OPERATION_RESULT_SCHEMA_VERSION
+from ncarnate.result import OperationResult
+from ncarnate.result import canonical_json
 
 __all__ = [
     "recompress",
@@ -31,6 +34,9 @@ __all__ = [
     "AuditOptions",
     "convert_manifest",
     "ConvertOptions",
+    "OperationResult",
+    "OPERATION_RESULT_SCHEMA_VERSION",
+    "canonical_json",
     "detect_format",
     "FileFormat",
     "NcarnateError",
