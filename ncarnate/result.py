@@ -541,7 +541,12 @@ class OperationResult:
         deterministic for a fixture at a fixed schema version. ``structure``
         is kept in full; a Zarr-relevant residual (library-default chunking
         on a *contiguous* source can vary by HDF5 version) is pinned by
-        using an explicitly-chunked golden fixture (design §Risks).
+        using an explicitly-chunked golden fixture (design §Risks). Note that
+        ``structure`` carries native-byte-order-tagged dtype fields
+        (``Variable.dtype`` / ``endian``, numeric ``Attribute.storage_type``),
+        so the canonical form is stable on a **fixed-endianness** host (the
+        little-endian CI/dev target) — a big-endian host would tag the same
+        values differently.
 
         '''
 
@@ -583,9 +588,10 @@ def canonical_json(result : OperationResult) -> str:
     The deterministic byte serialization of ``result.canonical_form()``:
     sorted keys, tight separators, ``ensure_ascii=False``,
     ``allow_nan=False`` (non-finite floats are already tokenized to strings
-    by :func:`json_safe`). Stable across runs and machines for a fixed
-    fixture + schema version — the exact function step 5's golden-hash test
-    pins.
+    by :func:`json_safe`). Stable across runs and across same-endianness
+    machines for a fixed fixture + schema version (see
+    :meth:`OperationResult.canonical_form` on the byte-order residual) — the
+    exact function step 5's golden-hash test pins.
 
     '''
 

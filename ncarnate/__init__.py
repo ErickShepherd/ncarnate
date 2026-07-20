@@ -27,6 +27,11 @@ from ncarnate.convert import convert_manifest
 from ncarnate.result import OPERATION_RESULT_SCHEMA_VERSION
 from ncarnate.result import OperationResult
 from ncarnate.result import canonical_json
+from ncarnate.stage import Plan
+from ncarnate.stage import execute
+from ncarnate.stage import execute_batch
+from ncarnate.stage import inspect
+from ncarnate.stage import plan
 
 __all__ = [
     "recompress",
@@ -34,6 +39,11 @@ __all__ = [
     "AuditOptions",
     "convert_manifest",
     "ConvertOptions",
+    "inspect",
+    "plan",
+    "execute",
+    "execute_batch",
+    "Plan",
     "OperationResult",
     "OPERATION_RESULT_SCHEMA_VERSION",
     "canonical_json",

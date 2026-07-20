@@ -20,10 +20,13 @@ top-level LICENSE file.
 
 # Standard library imports.
 import importlib.metadata
+import logging
 import os
 import tempfile
 import time
+from dataclasses import dataclass
 from typing import Callable
+from typing import Iterator
 from typing import TypeAlias
 
 # Third party imports.
@@ -32,6 +35,8 @@ import numpy as np
 
 # Local application imports.
 from ncarnate.atttypes import string_attributes_of
+from ncarnate.audit.codes import RESULT_READBACK_INCOMPLETE
+from ncarnate.constants import PACKAGE_NAME
 from ncarnate.constants import __version__ as _NCARNATE_VERSION
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
@@ -50,6 +55,7 @@ from ncarnate.result import GroupNode
 from ncarnate.result import NameMapping
 from ncarnate.result import OperationResult
 from ncarnate.result import OutputIdentity
+from ncarnate.result import ResultWarning
 from ncarnate.result import SkippedCoordinate
 from ncarnate.result import SourceIdentity
 from ncarnate.result import Variable
@@ -76,6 +82,35 @@ _VERIFY_METHOD_HDF4 = (
 )
 
 
+@dataclass(frozen=True)
+class Plan:
+
+    '''
+
+    An immutable conversion plan (stage API step 4B): the resolved
+    ``source``, the concrete ``destination`` the verified output will be
+    atomically moved onto (equal to ``source`` for an in-place netCDF
+    recompression), the byte-detected ``detected_format``, the
+    ``operation`` (``"recompress"`` | ``"convert"``), and the encoding
+    ``options``. :func:`execute` consumes exactly this — it resolves no
+    paths and reads no policy of its own — so a plan is a faithful,
+    reviewable description of what a conversion will do.
+
+    '''
+
+    source          : str
+    destination     : str
+    detected_format : FileFormat
+    operation       : str
+    options         : EncodingOptions
+
+    @property
+    def in_place(self) -> bool:
+
+        # An in-place netCDF recompression writes over its own source.
+        return self.destination == self.source
+
+
 def recompress(src         : str,
                dst         : str | None = None,
                zlib        : bool       = True,
@@ -88,34 +123,6 @@ def recompress(src         : str,
 
     Rewrites the file at ``src`` as a netCDF4 file with the given
     compression settings, losslessly, and returns the output path.
-
-    This is the released public entry point; its ``-> str`` return is
-    unchanged (design KD2). The full structured
-    :class:`~ncarnate.result.OperationResult` is produced by
-    :func:`_recompress_result` underneath (the stage API's ``execute``
-    primitive, step 4B, wraps the same internal); ``recompress`` returns
-    only ``result.destination.path``.
-
-    '''
-
-    return _recompress_result(
-        src, dst, zlib, shuffle, complevel, overwrite, geolocation,
-    ).destination.path
-
-
-def _recompress_result(src         : str,
-                       dst         : str | None = None,
-                       zlib        : bool       = True,
-                       shuffle     : bool       = True,
-                       complevel   : int        = 7,
-                       overwrite   : bool       = True,
-                       geolocation : bool       = True) -> OperationResult:
-
-    '''
-
-    Rewrites the file at ``src`` as a netCDF4 file with the given
-    compression settings, losslessly, and returns a structured
-    :class:`~ncarnate.result.OperationResult` describing what it did.
 
     For netCDF3/netCDF4/HDF5 input the output target is resolved as:
 
@@ -138,6 +145,38 @@ def _recompress_result(src         : str,
     directory, verified value-for-value against the source, and only then
     atomically moved onto the target. On any failure the source file is
     untouched and the temporary file is removed.
+
+    This released entry point (``-> str``, unchanged) is a thin caller of
+    the stage-API primitives (step 4B): it :func:`plans <_plan_from_path>`
+    the operation and runs its verified write via :func:`_execute_core`,
+    returning the output path. It does **not** compute the structured
+    :class:`~ncarnate.result.OperationResult` — a one-shot ``-> str`` caller
+    never sees it, so the extra source/output digests are skipped. Use
+    :func:`execute` on a :class:`Plan` when the structured result is wanted.
+
+    '''
+
+    return _execute_core(
+        _plan_from_path(src, dst, zlib, shuffle, complevel, overwrite, geolocation)
+    )
+
+
+def _plan_from_path(src         : str,
+                    dst         : str | None = None,
+                    zlib        : bool       = True,
+                    shuffle     : bool       = True,
+                    complevel   : int        = 7,
+                    overwrite   : bool       = True,
+                    geolocation : bool       = True) -> Plan:
+
+    '''
+
+    Resolve a raw source path (plus the ``recompress`` ``dst``/``overwrite``
+    semantics) into an immutable :class:`Plan`: realpath the source, detect
+    its format from bytes, derive the concrete destination, and guard the
+    auto-derived destinations. Shared by :func:`recompress` and the public
+    :func:`ncarnate.stage.plan`. Resolves paths only — no runtime is
+    acquired and nothing is written here (KD3).
 
     '''
 
@@ -163,15 +202,6 @@ def _recompress_result(src         : str,
 
     if file_format is FileFormat.HDF4:
 
-        # Acquired here, not at module level, so the netCDF-only surface
-        # never touches the HDF4 runtime (KD-L3): ncarnate.hdf4 pulls in
-        # pyhdf, which has no Windows pip wheel. The gate turns a missing
-        # runtime into the stable HDF4_RUNTIME_UNAVAILABLE refusal, before
-        # any output is created (KD-L4).
-        from ncarnate.hdf4_runtime import require_hdf4_runtime
-
-        hdf4 = require_hdf4_runtime()
-
         # Conversion, not recompression: the .hdf original is a different
         # format and is never destroyed.
         if dst is not None:
@@ -192,19 +222,7 @@ def _recompress_result(src         : str,
                 "the HDF4 source; give dst a different path."
             )
 
-        tree = hdf4.read_hdf4(src_path, geolocation = geolocation)
-
-        def _write(tmp_path : str) -> None:
-
-            hdf4.write_netcdf(tree, tmp_path, zlib, shuffle, complevel)
-
-        def _verify(tmp_path : str) -> None:
-
-            hdf4.verify_conversion(src_path, tmp_path)
-
-        operation      = "convert"
-        verifier       = "ncarnate.hdf4.verify_conversion"
-        verify_method  = _VERIFY_METHOD_HDF4
+        operation = "convert"
 
     else:
 
@@ -230,45 +248,224 @@ def _recompress_result(src         : str,
 
             _guard_auto_destination(dst_path)
 
+        operation = "recompress"
+
+    return Plan(
+        source          = src_path,
+        destination     = dst_path,
+        detected_format = file_format,
+        operation       = operation,
+        options         = EncodingOptions(
+            zlib=zlib, shuffle=shuffle, complevel=complevel,
+            geolocation=geolocation,
+        ),
+    )
+
+
+def _execute_core(plan : Plan) -> str:
+
+    '''
+
+    Run a :class:`Plan`'s verified write-then-atomic-replace and return the
+    destination path. Builds the format-specific write/verify closures from
+    ``plan.detected_format`` and drives the shared :func:`_write_verified`
+    scaffold — the *only* writer and the *only* mover. A verified output is
+    atomically renamed into place and **never deleted**; on any failure the
+    source is untouched and the temporary file is removed.
+
+    For HDF4 input the runtime gate (``require_hdf4_runtime``) fires here,
+    before any output is created (KD-L4/KD3) — planning stays runtime-free.
+
+    '''
+
+    options = plan.options
+
+    if plan.detected_format is FileFormat.HDF4:
+
+        # Acquired here, not at module level, so the netCDF-only surface
+        # never touches the HDF4 runtime (KD-L3): ncarnate.hdf4 pulls in
+        # pyhdf, which has no Windows pip wheel. The gate turns a missing
+        # runtime into the stable HDF4_RUNTIME_UNAVAILABLE refusal, before
+        # any output is created (KD-L4).
+        from ncarnate.hdf4_runtime import require_hdf4_runtime
+
+        hdf4 = require_hdf4_runtime()
+
+        tree = hdf4.read_hdf4(plan.source, geolocation = options.geolocation)
+
         def _write(tmp_path : str) -> None:
 
-            with nc.Dataset(src_path, mode = "r") as src_file, \
-                 nc.Dataset(tmp_path, mode = "w",
-                            format = "NETCDF4") as dst_file:
-
-                _copy_group(src_file, dst_file, zlib, shuffle, complevel)
+            hdf4.write_netcdf(
+                tree, tmp_path, options.zlib, options.shuffle, options.complevel
+            )
 
         def _verify(tmp_path : str) -> None:
 
-            _verify_lossless(src_path, tmp_path)
+            hdf4.verify_conversion(plan.source, tmp_path)
 
-        operation      = "recompress"
-        verifier       = "ncarnate._verify_lossless"
-        verify_method  = _VERIFY_METHOD_NETCDF
+    else:
 
-    # Source identity is captured BEFORE the write: an in-place recompression
-    # replaces the source at its own path, so its original bytes and size must
-    # be read now, while they still exist (design KD10). The digest is over the
-    # bytes this conversion reads; hashing is unconditional here (the manifest
-    # path's separate preflight hash is discarded, so there is none to reuse).
+        def _write(tmp_path : str) -> None:
+
+            with nc.Dataset(plan.source, mode = "r") as src_file, \
+                 nc.Dataset(tmp_path, mode = "w",
+                            format = "NETCDF4") as dst_file:
+
+                _copy_group(
+                    src_file, dst_file, options.zlib, options.shuffle,
+                    options.complevel,
+                )
+
+        def _verify(tmp_path : str) -> None:
+
+            _verify_lossless(plan.source, tmp_path)
+
+    _write_verified(plan.source, plan.destination, _write, _verify)
+
+    return plan.destination
+
+
+def _verifier_for(file_format : FileFormat) -> "tuple[str, str]":
+
+    # The (verifier identity, per-verifier method wording) for the result's
+    # conversion-verification record.
+    if file_format is FileFormat.HDF4:
+
+        return "ncarnate.hdf4.verify_conversion", _VERIFY_METHOD_HDF4
+
+    return "ncarnate._verify_lossless", _VERIFY_METHOD_NETCDF
+
+
+def execute(plan : Plan) -> OperationResult:
+
+    '''
+
+    The stage API's ``execute`` primitive (step 4B): run a :class:`Plan`'s
+    verified write-then-atomic-replace and return the structured
+    :class:`~ncarnate.result.OperationResult`. Source identity is captured
+    **before** the write (an in-place recompression replaces its own source,
+    KD10); the committed output is read back for its effective structure,
+    encoding, and digest.
+
+    If the conversion succeeds but the post-commit read-back cannot assemble
+    the full result, the output is already verified and committed (never
+    deleted), so a completed conversion is **not** misreported as a failure:
+    ``execute`` logs the read-back error and returns a minimal *verified*
+    result carrying a ``RESULT_READBACK_INCOMPLETE`` warning (KD4).
+
+    '''
+
+    verifier, verify_method = _verifier_for(plan.detected_format)
+
     source = SourceIdentity(
-        path            = src_path,
-        detected_format = file_format.name,
-        size_bytes      = os.path.getsize(src_path),
-        sha256          = sha256_of_file(src_path),
-    )
-
-    options = EncodingOptions(
-        zlib=zlib, shuffle=shuffle, complevel=complevel, geolocation=geolocation,
+        path            = plan.source,
+        detected_format = plan.detected_format.name,
+        size_bytes      = os.path.getsize(plan.source),
+        sha256          = sha256_of_file(plan.source),
     )
 
     start = time.monotonic()
-    _write_verified(src_path, dst_path, _write, _verify)
+    dst_path = _execute_core(plan)
     elapsed = time.monotonic() - start
 
-    return _build_operation_result(
-        source, dst_path, operation, options, verifier, verify_method, elapsed,
+    try:
+
+        return _build_operation_result(
+            source, dst_path, plan.operation, plan.options,
+            verifier, verify_method, elapsed,
+        )
+
+    except Exception as error:  # noqa: BLE001 — see below
+
+        # The conversion already succeeded: `_execute_core` verified the
+        # output and atomically committed it (the source/target were never
+        # left in a bad state, and the good output is never deleted). Only
+        # the post-commit read-back tripped, so this must not surface as a
+        # failed conversion. Log the traceback (a genuine reader bug stays
+        # visible) and return a minimal verified result with a warning.
+        logging.getLogger(PACKAGE_NAME).exception(
+            "Conversion of %s succeeded and was committed, but the result "
+            "read-back failed; returning a minimal result", plan.source,
+        )
+
+        return _minimal_result(
+            source, dst_path, plan, verifier, verify_method, elapsed, error,
+        )
+
+
+def _minimal_result(source        : SourceIdentity,
+                    dst_path      : str,
+                    plan          : Plan,
+                    verifier      : str,
+                    verify_method : str,
+                    elapsed       : float,
+                    error         : BaseException) -> OperationResult:
+
+    '''
+
+    The degraded result for a verified-and-committed conversion whose
+    read-back failed (KD4): best-effort output identity, a ``verified``
+    verification record (the write *was* verified), an empty structure, and
+    a ``RESULT_READBACK_INCOMPLETE`` warning naming the read-back error.
+
+    '''
+
+    try:
+
+        size = os.path.getsize(dst_path)
+
+    except OSError:
+
+        size = 0
+
+    try:
+
+        digest = sha256_of_file(dst_path)
+
+    except OSError:
+
+        digest = ""
+
+    return OperationResult(
+        source       = source,
+        destination  = OutputIdentity(
+            path=dst_path, container_format="NETCDF4",
+            size_bytes=size, sha256=digest,
+        ),
+        operation    = plan.operation,
+        options      = plan.options,
+        structure    = GroupNode(path="/"),
+        verification = VerificationRecord(
+            status="verified", verifier=verifier,
+            verifier_version=_NCARNATE_VERSION, method=verify_method,
+        ),
+        environment  = Environment(adapter_versions=_adapter_versions()),
+        elapsed_seconds = elapsed,
+        warnings     = [ResultWarning(
+            code=RESULT_READBACK_INCOMPLETE,
+            message=(
+                "conversion verified and committed, but the result read-back "
+                f"failed: {error}"
+            ),
+        )],
     )
+
+
+def execute_batch(plans : "Iterator[Plan] | list[Plan]") -> Iterator[OperationResult]:
+
+    '''
+
+    Lazily execute a sequence of :class:`Plan`s, yielding each
+    :class:`~ncarnate.result.OperationResult` as it completes (step 4B lazy
+    result iteration). **Serial and single-threaded — embedded/library
+    operation never starts a nested worker pool.** A downstream consumer can
+    stream results without materializing them all in memory.
+
+    '''
+
+    for plan in plans:
+
+        yield execute(plan)
 
 
 def _guard_auto_destination(dst_path : str) -> None:

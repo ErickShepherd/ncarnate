@@ -28,6 +28,7 @@ POST_V1_CODES = {
     "MALFORMED_CONTAINER",       # ruleset v2
     "DESTINATION_COLLISION",     # ruleset v3 — convert preflight whole-run refusal
     "HDF4_RUNTIME_UNAVAILABLE",  # ruleset v4 — missing pyhdf degraded-capability refusal
+    "RESULT_READBACK_INCOMPLETE",  # ruleset v5 — stage-API result read-back warning
 }
 
 
