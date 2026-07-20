@@ -48,11 +48,12 @@ except ImportError:
 
 # Local application imports.
 from ncarnate.constants import PACKAGE_NAME
-from ncarnate.core import _recompress_result
+from ncarnate.core import Plan, execute
 from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError, render_refusal
 from ncarnate.formats import FileFormat
 from ncarnate.hdf4_runtime import require_hdf4_runtime
+from ncarnate.result import EncodingOptions
 from ncarnate.convert.integrity import ContainmentError
 from ncarnate.convert.models import (
     ConvertOptions,
@@ -203,11 +204,28 @@ def convert_manifest(
                            if record.status != "ready_no_geolocation"
                            else False)
 
-            operation_result = _recompress_result(
-                source, dst=destination, zlib=options.zlib,
-                shuffle=options.shuffle, complevel=options.complevel,
-                geolocation=geolocation,
+            # Build the immutable Plan from the preflighted record and run it
+            # through the stage API's `execute` — the single execution path
+            # (step 4B). `destination` is None only for a netCDF --in-place
+            # replacement, whose plan destination is the source itself (an
+            # in-place rewrite); every other record carries its concrete
+            # mirrored/derived output. The preflight already resolved and
+            # collision-checked these paths, so the Plan is built directly
+            # rather than re-resolved.
+            plan = Plan(
+                source          = source,
+                destination     = destination if destination is not None
+                                  else source,
+                detected_format = detected,
+                operation       = ("convert" if detected is FileFormat.HDF4
+                                   else "recompress"),
+                options         = EncodingOptions(
+                    zlib=options.zlib, shuffle=options.shuffle,
+                    complevel=options.complevel, geolocation=geolocation,
+                ),
             )
+
+            operation_result = execute(plan)
             result.converted.append(
                 ConvertRecord(record.path, result=operation_result)
             )

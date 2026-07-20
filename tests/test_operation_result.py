@@ -3,7 +3,7 @@ canonical serialization, the golden canonical-hash pin (step 5 freezes this),
 and the read-back result over real fixtures.
 
 Design: docs/design/ncarnate-operation-result.md. These are white-box tests —
-they exercise `ncarnate.core._recompress_result` and `ncarnate.result`
+they exercise the `ncarnate.core` execute engine and `ncarnate.result`
 internals. The *public*-surface G4 gate lives in test_stage_api_g4.py.
 """
 
@@ -58,7 +58,9 @@ def test_json_safe_leaves_text_and_none():
 # --- canonical_form / canonical_json determinism --------------------------
 
 def _recompress(tmp_path: Path, dst_name: str = "out.nc"):
-    return core._recompress_result(str(_PACKED_FILL), dst=str(tmp_path / dst_name))
+    return core.execute(
+        core._plan_from_path(str(_PACKED_FILL), str(tmp_path / dst_name))
+    )
 
 
 def test_canonical_form_excludes_nondeterministic_fields(tmp_path):
@@ -140,7 +142,7 @@ _SNOW = next(f for f in HDFEOS2_FIXTURES if f.stem == "amsre_5daysnow_trim")
 
 def test_convert_result_reports_geolocation_and_preserves_structmetadata(tmp_path):
     staged = stage(_AMSRE, tmp_path)
-    res = core._recompress_result(str(staged), dst=str(tmp_path / "amsre.nc"))
+    res = core.execute(core._plan_from_path(str(staged), str(tmp_path / "amsre.nc")))
     assert res.operation == "convert"
     assert res.verification.verifier == "ncarnate.hdf4.verify_conversion"
 
@@ -159,7 +161,7 @@ def test_convert_result_reports_geolocation_and_preserves_structmetadata(tmp_pat
 
 def test_convert_result_reports_name_mappings_with_parent_path(tmp_path):
     staged = stage(_SNOW, tmp_path)          # grid names contain spaces
-    res = core._recompress_result(str(staged), dst=str(tmp_path / "snow.nc"))
+    res = core.execute(core._plan_from_path(str(staged), str(tmp_path / "snow.nc")))
     groups = {m.original_name: m for m in res.name_mappings if m.kind == "group"}
     assert "Northern Hemisphere" in groups
     mapping = groups["Northern Hemisphere"]
@@ -169,8 +171,8 @@ def test_convert_result_reports_name_mappings_with_parent_path(tmp_path):
 
 def test_convert_geolocation_off_records_a_skip(tmp_path):
     staged = stage(_AMSRE, tmp_path)
-    res = core._recompress_result(
-        str(staged), dst=str(tmp_path / "sds.nc"), geolocation=False
-    )
+    res = core.execute(core._plan_from_path(
+        str(staged), str(tmp_path / "sds.nc"), geolocation=False
+    ))
     assert res.coordinates.generated == []
     assert [s.name for s in res.coordinates.skipped] == ["geolocation"]

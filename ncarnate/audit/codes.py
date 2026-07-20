@@ -26,7 +26,10 @@ top-level LICENSE file.
 # record's issues).
 # v4 (2026-07-16): added HDF4_RUNTIME_UNAVAILABLE (the degraded-capability
 # refusal when pyhdf cannot be imported — a Windows pip install; KD-L4).
-RULESET_VERSION = 4
+# v5 (2026-07-20): added RESULT_READBACK_INCOMPLETE (a non-fatal warning on a
+# structured operation result whose conversion verified and committed but whose
+# post-commit read-back could not assemble the full result; stage API step 4B).
+RULESET_VERSION = 5
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -65,6 +68,14 @@ DESTINATION_COLLISION         = "DESTINATION_COLLISION"
 # itself may be fine).
 HDF4_RUNTIME_UNAVAILABLE      = "HDF4_RUNTIME_UNAVAILABLE"
 
+# RESULT_READBACK_INCOMPLETE: a non-fatal warning on a structured operation
+# result (stage API step 4B). The conversion's verified output was written and
+# atomically committed (never deleted), but the post-commit read-back that
+# assembles the full OperationResult failed — so `execute` returns a minimal
+# verified result carrying this warning rather than misreporting a completed
+# conversion as a failure. Raised nowhere; only ever a `ResultWarning.code`.
+RESULT_READBACK_INCOMPLETE    = "RESULT_READBACK_INCOMPLETE"
+
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
@@ -79,4 +90,5 @@ ALL_CODES = frozenset({
     MALFORMED_CONTAINER,
     DESTINATION_COLLISION,
     HDF4_RUNTIME_UNAVAILABLE,
+    RESULT_READBACK_INCOMPLETE,
 })
