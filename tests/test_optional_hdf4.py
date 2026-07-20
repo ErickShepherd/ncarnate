@@ -43,8 +43,11 @@ from conftest import (
 # operator-facing contract is the string.
 HDF4_UNAVAILABLE_CODE = "HDF4_RUNTIME_UNAVAILABLE"
 
-# KD-L4: the refusal names the *exact* supported install command.
-CONDA_FORGE_COMMAND = "conda install -c conda-forge pyhdf"
+# KD-L4 / F4: the refusal names the *exact* supported product install
+# command — `ncarnate` from conda-forge, which brings the HDF4 runtime with
+# it — not the bare `pyhdf` dependency (installing only pyhdf into an
+# unrelated env does not ensure ncarnate is installed or invoked).
+CONDA_FORGE_COMMAND = "conda install -c conda-forge ncarnate"
 
 # A distinctive marker proving the refusal carried the *detected cause*
 # (the shadow package's ImportError text) rather than a canned message.

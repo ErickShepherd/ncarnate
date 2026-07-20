@@ -72,7 +72,10 @@ def require_hdf4_runtime():
             "netCDF operations are unaffected — detection, netCDF "
             "recompression, audits of netCDF files, and netCDF-only "
             "manifests all work without it. To enable HDF4/HDF-EOS2 "
-            "conversion, install the supported runtime with: "
-            "conda install -c conda-forge pyhdf",
+            "conversion, install ncarnate from conda-forge, which supplies "
+            "the HDF4 runtime it needs: conda install -c conda-forge "
+            "ncarnate. (Adding only pyhdf to an existing environment can "
+            "work but is unsupported — the pip wheel ships no HDF4 runtime "
+            "on Windows; see the README for that troubleshooting.)",
             code = HDF4_RUNTIME_UNAVAILABLE,
         ) from error
