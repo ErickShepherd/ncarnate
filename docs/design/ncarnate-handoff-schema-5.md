@@ -277,7 +277,7 @@ against pinned values and both fallbacks, is the gate.**
 - **Overclaim in schema prose.** The `description`/`title` verification wording is the overclaim
   surface; pinned to the 4A per-verifier strings (already guarded against `fidelity-notes.md`) and
   re-checked with `overclaim-guard` before merge.
-- **`$ref` validator correctness.** The extended stdlib validator must resolve `#/$defs/*` and recurse
+- **`$ref` validator correctness.** The extended stdlib validator must resolve `#/definitions/*` and recurse
   without infinite loops on the self-referential `groupNode`. Covered by the malformed-record negative
   and by validating the deeply-nested AMSR-E group tree (a real recursion depth > 1).
 

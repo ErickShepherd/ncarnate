@@ -189,7 +189,8 @@ def test_schema_rejects_bare_object_attribute_value(tmp_path):
     plan = core._plan_from_path(str(_PACKED_FILL), str(tmp_path / "out.nc"))
     record = core.execute(plan).to_record()
     record["structure"]["variables"][0]["attributes"][0]["value"] = {"nope": 1}
-    assert _errors(record)
+    # specific, not just non-empty: the error must concern the mutated value.
+    assert any(".value" in e for e in _errors(record))
 
 
 # --- 3. schema-version const tracks the code --------------------------
