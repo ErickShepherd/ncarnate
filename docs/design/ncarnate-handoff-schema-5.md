@@ -5,8 +5,7 @@
 > gate, `definitions` over `$defs`, deferral-cost note). Freezes the `OperationResult` shipped in
 > step 4A ([`docs/design/ncarnate-operation-result.md`](ncarnate-operation-result.md)) into a versioned
 > JSON Schema + a caller-owned `retention` slot + an explicit `plan_hash`, with a contract test and a
-> real-fixture golden. Scoped to **step 5** of the production-readiness roadmap
-> ([`docs/plans/next-steps-priority-2026-07-15.md:198`](../plans/next-steps-priority-2026-07-15.md)).
+> real-fixture golden. Scoped to the frozen verified-netCDF4 handoff contract.
 > **This doc must be reviewed before the schema is written** (the 4A adversarial-review pattern).
 > **Codebase facts** verified against `ncarnate` on `feat/handoff-schema-5` off `main` `8465ad4`,
 > 2026-07-20: `OPERATION_RESULT_SCHEMA_VERSION = 1` at

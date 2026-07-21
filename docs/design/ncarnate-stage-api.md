@@ -1,7 +1,7 @@
 # `inspect → plan → execute` — the ncarnate stage API (step 4B) — Design
 
-> **Status:** designed, build in progress on `feat/stage-api-4b`. Scoped to **step 4B**
-> ([`docs/plans/next-steps-priority-2026-07-15.md:185`](../plans/next-steps-priority-2026-07-15.md)).
+> **Status:** built as the public stage-API increment. Scoped to the
+> `inspect → plan → execute` integration boundary.
 > Builds directly on **4A** ([`ncarnate-operation-result.md`](ncarnate-operation-result.md)) — `execute`
 > returns the 4A `OperationResult`. Verified against `ncarnate` on `feat/stage-api-4b` off
 > `main` `ba4d89f` (2026-07-20): `recompress` / `_recompress_result` at

@@ -9,9 +9,8 @@
 > draft modeled only the variable-value/storage layer and dropped the dimension + attribute layer (the
 > layer that makes the result sufficient for a Zarr tail without re-opening the file). Review findings
 > and their resolutions are recorded inline (marked *R2:*).
-> Scoped to **step 4A** of the production-readiness roadmap
-> ([`docs/plans/next-steps-priority-2026-07-15.md:172`](../plans/next-steps-priority-2026-07-15.md),
-> action 13 in [`docs/plans/production-readiness-actions-2026-07-15.md:218`](../plans/production-readiness-actions-2026-07-15.md)).
+> Scoped to the structured-result increment used by the public stage API and
+> frozen handoff schema.
 > The `inspect → plan → execute` **primitives** are step 4B, designed separately
 > (`ncarnate-stage-api.md`, forthcoming); this doc defines only the *result object* those primitives
 > return. **This is the artifact step 5 freezes into a JSON Schema** — get the shape right here.

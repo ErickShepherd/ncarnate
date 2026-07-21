@@ -2,9 +2,8 @@
 
 **Date:** 2026-07-08
 **Status:** DRAFT — grounded in the 2026-07-08 fixture survey of three real granules.
-**Parent design:** [2026-07-08-netcdf-recompressor-v2.md](2026-07-08-netcdf-recompressor-v2.md)
-(this doc details the Phase-3b geolocation scope the owner selected: full grid/swath
-reconstruction, not HDF4-SDS-only).
+**Scope:** This document details the geolocation subsystem: full grid/swath
+reconstruction, not HDF4-SDS-only conversion.
 
 ## Context / problem
 
