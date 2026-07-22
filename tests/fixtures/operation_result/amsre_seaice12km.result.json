@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "ncarnate_version": "2.2.1",
+  "ncarnate_version": "2.2.2",
   "operation": "convert",
   "plan_hash": "af65c9a7adf3e2479c4053723890b3de1cf9ea5b3d55d7a1639a8f988584c93a",
   "source": {
@@ -550,7 +550,7 @@
   "verification": {
     "status": "verified",
     "verifier": "ncarnate.hdf4.verify_conversion",
-    "verifier_version": "2.2.1",
+    "verifier_version": "2.2.2",
     "method": "SDS values re-read value-identical (bit-for-bit integer / char8, equal_nan float); reconstructed geolocation is additive (the output tree is a superset of the SDS payload); character-attribute NUL padding stripped and embedded-NUL attributes recoded to uint8 per the fidelity contract."
   },
   "validation": {

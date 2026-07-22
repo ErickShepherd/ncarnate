@@ -1,6 +1,9 @@
 schema_version: 1
 
 context:
+  # Keep this on the last published PyPI artifact. Updating the recipe to a
+  # new release requires that release's definitive sdist SHA-256 and therefore
+  # happens only after the new sdist exists on PyPI.
   version: "2.2.1"
 
 package:

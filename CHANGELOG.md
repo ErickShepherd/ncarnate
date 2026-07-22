@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.2.2] - 2026-07-21
+
+Maintenance release with packaging and CI updates. Conversion, recompression,
+audit, and verification behavior are unchanged.
+
+### Changed
+- Standardized package metadata and normalized bundled test fixtures.
+- Added automated distribution-policy validation.
+- Pinned GitHub Actions to reviewed immutable commits and current Node 24 action
+  releases.
+- Kept the bundled conda recipe on the last published PyPI artifact; its version
+  and source hash will be advanced together in a post-publication update after
+  the definitive 2.2.2 sdist exists.
+
 ## [2.2.1] - 2026-07-12
 
 A documentation and branding patch. **No functional changes** to conversion,
