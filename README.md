@@ -8,6 +8,8 @@
 [![CI status](https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml/badge.svg)](https://github.com/ErickShepherd/ncarnate/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/ncarnate.svg)](https://pypi.org/project/ncarnate/)
 [![conda-forge version](https://img.shields.io/conda/vn/conda-forge/ncarnate.svg)](https://anaconda.org/conda-forge/ncarnate)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/ncarnate.svg?label=PyPI%20downloads)](https://pypi.org/project/ncarnate/)
+[![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/ncarnate.svg?label=Conda%20downloads)](https://anaconda.org/conda-forge/ncarnate)
 [![Docs](https://readthedocs.org/projects/ncarnate/badge/?version=latest)](https://ncarnate.readthedocs.io/en/latest/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ErickShepherd/ncarnate/blob/main/LICENSE)
 [![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg)](https://pypi.org/project/ncarnate/)
