@@ -17,10 +17,31 @@ phoenix rises from it, an ember crest at its head — the spark of rebirth.
 | `ncarnate-lockup.png` / `-dark.png` | **Shipped lockup** — source mark tile (raster) + wordmark, horizontal. `-dark` recolours the wordmark off-white for dark backgrounds (the mark tile reads on both themes). |
 | `ncarnate-mark.png` | The source mark tile alone, with transparent rounded corners (favicon / social / reuse). |
 | `ncarnate-lockup.svg` / `-dark.svg` | Fully-vector lockup — **work in progress**, not yet shipped (see below). |
+| `ncarnate-social-preview.png` | The GitHub social-preview card, 1280×640 — the OpenGraph image served wherever the repo URL is shared. |
 
 The project README header swaps `ncarnate-lockup.png` ⇄ `-dark.png` by
 `prefers-color-scheme` via `<picture>`. The wordmark inside is glyph **outlines**
 (no font needed to render); it is rasterized into the shipped PNG lockup.
+
+## Social preview
+
+`ncarnate-social-preview.png` is built by [`build_social_preview.py`](build_social_preview.py) from
+the shipped dark lockup: it composes the lockup, a tagline, and a fact line over the deep-navy field,
+so the card is reproducible from what is committed here rather than existing only as an upload. Unlike
+the lockup PNG (whose wordmark is baked-in outlines), the card typesets live text, so the wordmark's
+Sora font (`sora-600.ttf`, OFL — see [`OFL.txt`](OFL.txt)) is vendored for it.
+
+```bash
+# deps: pillow
+python3 build_social_preview.py            # -> ncarnate-social-preview.png
+```
+
+**It is a hosted repo setting, not a file GitHub reads from the tree** — committing it does not publish
+it. To apply or update it: *repo → Settings → General → Social preview → Edit → Upload an image*. There
+is no API to *set* it (though GraphQL's `usesCustomOpenGraphImage` can *check* one is set), it does not
+travel with a fork or clone, and consumers cache OpenGraph — after a change, verify with
+`curl -sL https://github.com/ErickShepherd/ncarnate | grep og:image`. It renders where a URL is
+unfurled in a post or message body, **not** in a LinkedIn comment.
 
 ### Vector globe: deferred
 
