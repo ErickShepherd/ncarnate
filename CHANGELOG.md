@@ -6,7 +6,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-## [2.3.0] - Unreleased candidate
+## [2.3.0] - 2026-10-08
 
 - Add explicit-output prepared plans, shared finite-batch collision checks and
   digest-verified resume journals. Existing one-shot defaults remain compatible.
@@ -30,7 +30,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   the Docs, and synchronize package, citation, Zenodo and conda recipe metadata.
 - Gate publication on the complete CI suite, test built packages outside the
   checkout on Linux, Windows and macOS, and test the separate Zarr companion.
-  Add manual full-granule validation that refuses incomplete evidence; require
+  Add release-PR and manual full-granule validation that refuses incomplete evidence; require
   matching production tags and fail duplicate TestPyPI uploads.
 - Reconcile MYD05 fixture regeneration with its recorded trimmed metadata and
   emit canonical source-archive gzip headers for publication inspection.
