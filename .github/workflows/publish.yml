@@ -27,28 +27,19 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build sdist + wheel
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
-        with:
-          python-version: "3.12"
-      - name: Build
-        run: |
-          python -m pip install --upgrade build twine
-          python -m build
-          python -m twine check dist/*
-          python tools/validate_distributions.py --allowed-email dev@erickshepherd.com --allowed-email ca@trufo.ai dist/*
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
-        with:
-          name: dist
-          path: dist/
+  verify:
+    name: Test and build the exact release revision
+    # A local reusable workflow uses the same revision as this caller.
+    # Its dist artifact is installed by the package tests and then published
+    # unchanged below. Failure of ANY CI job prevents either upload.
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_tag: ${{ github.event_name == 'release' && github.event.release.tag_name || (github.ref_type == 'tag' && github.ref_name || '') }}
+      publish_target: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
 
   publish-testpypi:
     name: Publish to TestPyPI
-    needs: build
+    needs: verify
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     runs-on: ubuntu-latest
     environment: testpypi
@@ -62,11 +53,11 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # v1.14.1
         with:
           repository-url: https://test.pypi.org/legacy/
-          skip-existing: true  # re-dispatching a dry run for an existing version won't fail
+          # Duplicate versions fail: success must mean these files were uploaded.
 
   publish-pypi:
     name: Publish to PyPI
-    needs: build
+    needs: verify
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
     runs-on: ubuntu-latest
     environment: pypi

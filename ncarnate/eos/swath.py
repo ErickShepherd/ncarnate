@@ -23,6 +23,7 @@ import numpy as np
 # Local application imports.
 from ncarnate.errors import UnsupportedGeolocationError
 from ncarnate.limits import check_array_size
+from ncarnate.streaming import slices
 
 
 def _axis_weights(data_size  : int,
@@ -125,15 +126,7 @@ def interpolate_geolocation(latitude   : np.ndarray,
     # intermediate (the widest of the arrays allocated below).
     check_array_size(data_shape, 8, "swath geolocation interpolation")
 
-    valid = np.isfinite(latitude) & np.isfinite(longitude)
-
-    if fill_value is not None:
-
-        valid &= (latitude != fill_value) & (longitude != fill_value)
-
-    xyz = _to_unit_xyz(latitude, longitude)
-    ok  = valid.astype(np.float64)
-
+    weights = []
     for axis, mapping in enumerate(axis_maps):
 
         if mapping is None:
@@ -147,12 +140,52 @@ def interpolate_geolocation(latitude   : np.ndarray,
                     code="SWATH_DIMMAP_UNRESOLVED",
                 )
 
+            weights.append(None)
             continue
 
         offset, increment = mapping
-        lower, weight     = _axis_weights(
+        weights.append(_axis_weights(
             data_shape[axis], latitude.shape[axis], offset, increment
+        ))
+
+    # Keep only the two final float32 fields in full. Previously, each mapped
+    # axis expanded several full float64 XYZ arrays; MOD03 needed over 1 GiB
+    # in temporaries alone. Tiles use global weights, preserving extrapolation
+    # and the original axis order exactly, including across tile boundaries.
+    out_latitude = np.empty(data_shape, dtype=np.float32)
+    out_longitude = np.empty(data_shape, dtype=np.float32)
+    for selection in slices(data_shape, 64):
+        source_slices, tile_weights = [], []
+        for part, mapping in zip(selection, weights):
+            if mapping is None:
+                source_slices.append(part)
+                tile_weights.append(None)
+            else:
+                lower, weight = mapping
+                indices = lower[part]
+                start = int(indices.min())
+                source_slices.append(slice(start, int(indices.max()) + 2))
+                tile_weights.append((indices - start, weight[part]))
+        source_selection = tuple(source_slices)
+        tile_lat, tile_lon = _interpolate_tile(
+            latitude[source_selection], longitude[source_selection],
+            tile_weights, fill_value,
         )
+        out_latitude[selection] = tile_lat
+        out_longitude[selection] = tile_lon
+    return out_latitude, out_longitude
+
+
+def _interpolate_tile(latitude, longitude, weights, fill_value):
+    valid = np.isfinite(latitude) & np.isfinite(longitude)
+    if fill_value is not None:
+        valid &= (latitude != fill_value) & (longitude != fill_value)
+    xyz = _to_unit_xyz(latitude, longitude)
+    ok = valid.astype(np.float64)
+    for axis, mapping in enumerate(weights):
+        if mapping is None:
+            continue
+        lower, weight = mapping
 
         # +1 skips the stacked-component axis of `xyz`.
         xyz = _interpolate_axis(xyz, axis + 1, lower, weight)

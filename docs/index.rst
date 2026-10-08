@@ -28,3 +28,5 @@
 
    Overview <self>
    API reference <api>
+   Release notes <release-notes>
+   Releasing ncarnate <releasing>

@@ -1,5 +1,12 @@
 # Freeze the verified-netCDF4 handoff schema (step 5) — Design
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 > **Status:** **REVIEWED** (step 5 on `feat/handoff-schema-5`; rev 2 folds an independent adversarial
 > review — MUST-FIX `adapter_versions` schematization, plan_hash null-digest caveat, strengthened G5
 > gate, `definitions` over `$defs`, deferral-cost note). Freezes the `OperationResult` shipped in

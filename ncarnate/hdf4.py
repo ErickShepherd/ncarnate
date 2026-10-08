@@ -17,6 +17,21 @@ EOS metadata (``StructMetadata.0`` etc.) is preserved verbatim under an
 ``HDFEOS_INFORMATION`` group. Geolocation reconstruction is strictly
 additive.
 
+Memory discipline. ``read_hdf4(..., stream=False)`` (the default) is the
+eager path: every SDS is read into an ndarray held by the tree.
+``stream=True`` is the bounded path: SDS variables carry an
+:class:`~ncarnate.hdf4_stream.SdsPayload` handle instead of values, and
+``write_netcdf``/``verify_conversion`` reopen the source and move each
+SDS in blocks sized by :func:`ncarnate.streaming.slices` (the array
+budget), re-checking the source's identity on every reopen. What is still
+allocated in full, explicitly: the coarse swath Latitude/Longitude fields
+needed for dimension-map interpolation (materialized under
+``hdf4_stream.MAX_COORDINATE_SOURCE_BYTES``), and the *generated*
+geolocation arrays — a projected grid's 2-D lat/lon mesh and a swath's
+interpolated coordinates — which :mod:`ncarnate.eos` builds eagerly under
+:func:`ncarnate.limits.check_array_size`'s per-array ceiling and the
+caller's process memory limit.
+
 Copyright (c) 2020-2026 Erick Edward Shepherd. MIT License — see the
 top-level LICENSE file.
 
@@ -41,7 +56,12 @@ from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedGeolocationError
 from ncarnate.errors import UnsupportedTypeError
 from ncarnate.errors import VerificationError
+from ncarnate import hdf4_stream
+from ncarnate.hdf4_stream import SdsPayload
+from ncarnate.hdf4_stream import SourceIdentity
+from ncarnate.hdf4_stream import SourceSession
 from ncarnate.limits import check_array_size
+from ncarnate.streaming import limit_cache
 
 # HDF4 DFNT type code -> numpy dtype for SDS payloads. CHAR8 *attributes*
 # become Python strings (handled before this table); CHAR8 *datasets* map
@@ -76,11 +96,20 @@ _logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class TreeVariable:
 
-    '''One variable of the intermediate tree the writer serializes.'''
+    '''
+
+    One variable of the intermediate tree the writer serializes.
+    ``values`` is an ndarray (or numpy scalar) on the eager path and for
+    every reconstructed variable; on the streaming path an SDS variable
+    carries an :class:`~ncarnate.hdf4_stream.SdsPayload` instead, which
+    the writer/verifier slice from the reopened source. Nothing else is
+    accepted (``_values_facts`` is the single type dispatch).
+
+    '''
 
     name       : str
     dimensions : tuple[str, ...]
-    values     : np.ndarray
+    values     : "np.ndarray | np.generic | SdsPayload"
     attributes : dict
 
 
@@ -159,6 +188,37 @@ def sanitize_name(name : str) -> str:
     '''
 
     return re.sub(r"[/\s]+", "_", name)
+
+
+def _values_facts(
+    variable : TreeVariable,
+) -> "tuple[np.dtype, tuple[int, ...], np.ndarray | None]":
+
+    '''
+
+    The single place the tree's two value representations are told
+    apart — by explicit type, never by attribute probing. Returns
+    ``(dtype, shape, array)`` where ``array`` is ``None`` for a lazy
+    :class:`SdsPayload` and the materialized ndarray otherwise.
+
+    '''
+
+    values = variable.values
+
+    if isinstance(values, SdsPayload):
+
+        return values.dtype, values.shape, None
+
+    if isinstance(values, (np.ndarray, np.generic)):
+
+        array = np.asarray(values)
+
+        return array.dtype, array.shape, array
+
+    raise TypeError(
+        f"TreeVariable {variable.name!r}: values must be an ndarray, a "
+        f"numpy scalar, or an SdsPayload, not {type(values).__name__}."
+    )
 
 
 def _attribute_value(dfnt_code : int, value):
@@ -300,7 +360,10 @@ def _field_index(metadata : structmeta.EosStructMetadata) -> dict:
     return index
 
 
-def read_hdf4(path : str, geolocation : bool = True) -> TreeGroup:
+def read_hdf4(path        : str,
+              geolocation : bool = True,
+              *,
+              stream      : bool = False) -> TreeGroup:
 
     '''
 
@@ -310,13 +373,22 @@ def read_hdf4(path : str, geolocation : bool = True) -> TreeGroup:
     ``geolocation`` is true and the file is HDF-EOS2) reconstructed CF
     coordinates added on top.
 
+    With ``stream=False`` (default) every SDS is read eagerly into an
+    ndarray. With ``stream=True`` no SDS values are read here: each SDS
+    variable holds an :class:`~ncarnate.hdf4_stream.SdsPayload`, the
+    source's stat identity is captured, and ``write_netcdf`` /
+    ``verify_conversion`` later stream the values in bounded blocks from
+    a reopened handle. The returned tree is otherwise identical
+    (dimensions, attributes, groups, reconstructed coordinates).
+
     '''
 
-    source = SD(path, SDC.READ)
+    identity = SourceIdentity.capture(path) if stream else None
+    source   = SD(path, SDC.READ)
 
     try:
 
-        root, metadata = _read_payload(source)
+        root, metadata = _read_payload(source, identity)
 
     finally:
 
@@ -337,9 +409,12 @@ def _eos_metadata(root : TreeGroup) -> TreeGroup:
 
 
 def _read_payload(
-    source : SD,
+    source   : SD,
+    identity : "SourceIdentity | None" = None,
 ) -> "tuple[TreeGroup, structmeta.EosStructMetadata | None]":
 
+    # ``identity`` is None on the eager path; on the streaming path it is
+    # the source's captured stat identity that every payload refers to.
     root = TreeGroup.empty("")
 
     dataset_count, attribute_count = source.info()
@@ -374,7 +449,8 @@ def _read_payload(
 
         try:
 
-            _read_dataset(dataset, field_index, root)
+            _read_dataset(dataset, field_index, root,
+                          index = index, identity = identity)
 
         finally:
 
@@ -383,14 +459,24 @@ def _read_payload(
     return root, metadata
 
 
-def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
+def _read_dataset(dataset,
+                  field_index : dict,
+                  root        : TreeGroup,
+                  *,
+                  index       : "int | None"            = None,
+                  identity    : "SourceIdentity | None" = None) -> None:
+
+    '''
+
+    Adds one SDS to the tree. Eager when ``identity`` is None (values are
+    read now); streaming otherwise (a payload naming SDS ``index`` of the
+    identified source is stored and no values are read).
+
+    '''
 
     hdf4_name, rank, shape, dfnt_code, attribute_count = dataset.info()
 
-    if rank == 1 and not isinstance(shape, (list, tuple)):
-
-        shape = [shape]
-
+    shape = hdf4_stream.sds_shape(rank, shape)
     dtype = _DFNT_DTYPES.get(dfnt_code)
 
     if dtype is None:
@@ -433,18 +519,51 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
         dim_names  = tuple(pyhdf_dims)
 
     # `shape` is attacker-controlled; a tiny file can declare a giant SDS
-    # that only materializes on get(). Bound it before reading.
+    # that only materializes on get(). Bound it before reading — on the
+    # streaming path too, as the declared-size work limit (the same
+    # discipline as the netCDF streaming copy in core).
     check_array_size(shape, dtype.itemsize, f"SDS {hdf4_name!r}")
 
-    values = np.asarray(dataset.get())
+    if identity is not None:
 
-    if values.dtype != dtype:
+        if index is None:
 
-        raise UnsupportedTypeError(
-            f"SDS {hdf4_name!r}: pyhdf returned dtype {values.dtype}, "
-            f"expected {dtype} from the declared HDF4 type.",
-            code="UNSUPPORTED_TYPE",
+            raise ValueError("streaming _read_dataset needs the SDS index")
+
+        values = SdsPayload(
+            source    = identity,
+            index     = int(index),
+            reference = int(dataset.ref()),
+            hdf4_name = hdf4_name,
+            dfnt_code = int(dfnt_code),
+            dtype     = dtype,
+            shape     = shape,
         )
+
+    elif 0 in shape:
+
+        # An empty (zero-length unlimited) SDS has nothing to read; pyhdf's
+        # get() cannot express an empty hyperslab.
+        values = np.empty(shape, dtype = dtype)
+
+    else:
+
+        values = np.asarray(dataset.get())
+
+        if values.dtype != dtype:
+
+            raise UnsupportedTypeError(
+                f"SDS {hdf4_name!r}: pyhdf returned dtype {values.dtype}, "
+                f"expected {dtype} from the declared HDF4 type.",
+                code="UNSUPPORTED_TYPE",
+            )
+
+        if values.shape != shape:
+
+            raise NcarnateError(
+                f"SDS {hdf4_name!r}: pyhdf returned shape {values.shape}, "
+                f"expected the declared {shape}."
+            )
 
     attributes = _read_attributes(dataset, attribute_count)
     name       = sanitize_name(hdf4_name)
@@ -474,7 +593,7 @@ def _read_dataset(dataset, field_index : dict, root : TreeGroup) -> None:
             f"dataset after sanitization in group {group.name or '/'!r}."
         )
 
-    for dim_name, size in zip(dim_names, values.shape):
+    for dim_name, size in zip(dim_names, shape):
 
         group.add_dimension(dim_name, size)
 
@@ -921,10 +1040,16 @@ def _build_interpolated(group          : TreeGroup,
 
     data_shape = tuple(group.dimensions[dim] for dim in target_dims)
 
+    latitude_values, longitude_values = _coordinate_arrays(
+        latitude, longitude, f"Swath {eos_swath_.name!r}"
+    )
+
+    # Final float32 fields remain eager under the per-array ceiling;
+    # eos.swath computes its float64 interpolation temporaries in tiles.
     interpolated_latitude, interpolated_longitude = \
         eos_swath.interpolate_geolocation(
-            latitude.values,
-            longitude.values,
+            latitude_values,
+            longitude_values,
             list(specifications),
             data_shape,
             fill_value,
@@ -974,6 +1099,45 @@ def _build_interpolated(group          : TreeGroup,
     return lon_name, lat_name
 
 
+def _coordinate_arrays(latitude  : TreeVariable,
+                       longitude : TreeVariable,
+                       context   : str) -> "tuple[np.ndarray, np.ndarray]":
+
+    '''
+
+    The coarse geolocation pair as ndarrays. Eager variables are returned
+    as they are; streaming payloads are the one deliberate full read on
+    the streaming path, each checked against
+    ``hdf4_stream.MAX_COORDINATE_SOURCE_BYTES`` before allocation and
+    filled in bounded blocks from a reopened source handle that is closed
+    before returning. (Interpolation to several data resolutions
+    re-materializes the pair per target resolution; that is bounded, if
+    not minimal.)
+
+    '''
+
+    arrays = []
+
+    with SourceSession() as session:
+
+        for variable in (latitude, longitude):
+
+            _, _, array = _values_facts(variable)
+
+            if array is None:
+
+                array = hdf4_stream.materialize(
+                    variable.values, session,
+                    f"{context}: geolocation field {variable.name!r} "
+                    f"(materialized for dimension-map interpolation)",
+                    max_bytes = hdf4_stream.MAX_COORDINATE_SOURCE_BYTES,
+                )
+
+            arrays.append(array)
+
+    return arrays[0], arrays[1]
+
+
 def write_netcdf(root      : TreeGroup,
                  path      : str,
                  zlib      : bool,
@@ -985,19 +1149,25 @@ def write_netcdf(root      : TreeGroup,
     Serializes the intermediate tree as netCDF4 with the requested
     compression, declaring each variable's ``_FillValue`` at creation
     time (the same discipline as the netCDF recompression path).
+    Streaming payloads are copied in bounded blocks from the reopened
+    source (opened lazily on the first payload, identity-checked, and
+    closed on exit — including on exceptions); eager values are written
+    as held.
 
     '''
 
-    with nc.Dataset(path, mode = "w", format = "NETCDF4") as dataset:
+    with SourceSession() as session, \
+         nc.Dataset(path, mode = "w", format = "NETCDF4") as dataset:
 
-        _write_group(root, dataset, zlib, shuffle, complevel)
+        _write_group(root, dataset, zlib, shuffle, complevel, session)
 
 
 def _write_group(tree      : TreeGroup,
                  target,
                  zlib      : bool,
                  shuffle   : bool,
-                 complevel : int) -> None:
+                 complevel : int,
+                 session   : SourceSession) -> None:
 
     for name, size in tree.dimensions.items():
 
@@ -1010,9 +1180,11 @@ def _write_group(tree      : TreeGroup,
         attributes = dict(variable.attributes)
         fill_value = attributes.pop("_FillValue", None)
 
+        dtype, shape, array = _values_facts(variable)
+
         netcdf_variable = target.createVariable(
             variable.name,
-            variable.values.dtype,
+            dtype,
             variable.dimensions,
             zlib       = zlib,
             shuffle    = shuffle,
@@ -1021,19 +1193,33 @@ def _write_group(tree      : TreeGroup,
         )
 
         netcdf_variable.set_auto_maskandscale(False)
+        netcdf_variable.set_auto_chartostring(False)
         netcdf_variable.setncatts(attributes)
 
-        if 0 not in variable.values.shape:
+        if 0 in shape:
 
-            netcdf_variable[...] = variable.values
+            continue
+
+        if array is None:
+
+            limit_cache(netcdf_variable)
+            hdf4_stream.copy_payload(variable.values, session,
+                                     netcdf_variable)
+
+        else:
+
+            netcdf_variable[...] = array
 
     for name, subgroup in tree.groups.items():
 
         _write_group(subgroup, target.createGroup(name),
-                     zlib, shuffle, complevel)
+                     zlib, shuffle, complevel, session)
 
 
-def verify_conversion(src_path : str, dst_path : str) -> None:
+def verify_conversion(src_path : str,
+                      dst_path : str,
+                      *,
+                      stream   : bool = True) -> None:
 
     '''
 
@@ -1043,16 +1229,25 @@ def verify_conversion(src_path : str, dst_path : str) -> None:
     additive and ignored; a normalized attribute passes only if the
     original value is preserved under ``original_<name>``.
 
+    By default (``stream=True``) the comparison is block-bounded on both
+    sides — SDS blocks from a reopened, identity-checked source handle
+    against the same blocks of the output — so verification never holds
+    a whole SDS. ``stream=False`` keeps the whole-array comparison.
+
     '''
 
-    expected = read_hdf4(src_path, geolocation = False)
+    expected = read_hdf4(src_path, geolocation = False, stream = stream)
 
-    with nc.Dataset(dst_path, mode = "r") as actual:
+    with SourceSession() as session, \
+         nc.Dataset(dst_path, mode = "r") as actual:
 
-        _verify_group(expected, actual, "/")
+        _verify_group(expected, actual, "/", session)
 
 
-def _verify_group(expected : TreeGroup, actual, path : str) -> None:
+def _verify_group(expected : TreeGroup,
+                  actual,
+                  path     : str,
+                  session  : SourceSession) -> None:
 
     for name, size in expected.dimensions.items():
 
@@ -1084,13 +1279,15 @@ def _verify_group(expected : TreeGroup, actual, path : str) -> None:
         netcdf_variable = actual.variables[variable.name]
 
         netcdf_variable.set_auto_maskandscale(False)
+        netcdf_variable.set_auto_chartostring(False)
 
-        if netcdf_variable.dtype != variable.values.dtype:
+        dtype, shape, array = _values_facts(variable)
+
+        if netcdf_variable.dtype != dtype:
 
             raise VerificationError(
                 f"Verification failed: variable {path}{variable.name} "
-                f"dtype {netcdf_variable.dtype} != "
-                f"{variable.values.dtype}."
+                f"dtype {netcdf_variable.dtype} != {dtype}."
             )
 
         if tuple(netcdf_variable.dimensions) != variable.dimensions:
@@ -1100,10 +1297,30 @@ def _verify_group(expected : TreeGroup, actual, path : str) -> None:
                 f"dimensions differ."
             )
 
-        equal_nan = variable.values.dtype.kind in "fc"
+        if tuple(netcdf_variable.shape) != tuple(shape):
 
-        if not np.array_equal(netcdf_variable[...], variable.values,
-                              equal_nan = equal_nan):
+            raise VerificationError(
+                f"Verification failed: variable {path}{variable.name} "
+                f"shape {tuple(netcdf_variable.shape)} != {tuple(shape)}."
+            )
+
+        if array is None:
+
+            # Streaming: block-by-block from the reopened source against
+            # the same blocks of the output (empty shapes compare by
+            # shape alone above; there are no blocks to read).
+            limit_cache(netcdf_variable)
+
+            equal = hdf4_stream.verify_payload(
+                variable.values, session, netcdf_variable
+            )
+
+        else:
+
+            equal = np.array_equal(netcdf_variable[...], array,
+                                   equal_nan = dtype.kind in "fc")
+
+        if not equal:
 
             raise VerificationError(
                 f"Verification failed: variable {path}{variable.name} "
@@ -1124,7 +1341,8 @@ def _verify_group(expected : TreeGroup, actual, path : str) -> None:
                 f"the output."
             )
 
-        _verify_group(subgroup, actual.groups[name], f"{path}{name}/")
+        _verify_group(subgroup, actual.groups[name], f"{path}{name}/",
+                      session)
 
 
 def _verify_attributes(expected : dict, actual, path : str) -> None:

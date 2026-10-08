@@ -4,6 +4,51 @@ All notable changes to this project are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+## [2.3.0] - Unreleased candidate
+
+- Add explicit-output prepared plans, shared finite-batch collision checks and
+  digest-verified resume journals. Existing one-shot defaults remain compatible.
+- Store completion checkpoints separately so large batches remain resumable;
+  resolve directory aliases and check every output parent before execution.
+- Refuse unknown inputs before output-directory creation; reserve CLI result
+  journals before conversion and distinguish later reporting failures.
+- Bound hostile handoff records, refuse invalid text and audit modes, freeze
+  encoding options, and guard unsynchronized attribute inquiries.
+- Stream netCDF and HDF4 SDS copying and verification in slices; offer an
+  OS-enforced conversion-worker memory cap on Windows and Linux. Generated
+  HDF-EOS coordinates still materialize whole arrays within that worker cap,
+  while tiled swath interpolation avoids large full-grid temporaries.
+- Preserve reads of multidimensional variables named like dimensions when
+  configuring netCDF native caches (found with the complete MOD03 granule).
+- Finish large storage chunks before advancing and coalesce small chunks to
+  avoid repeated compression and excessive per-chunk Python calls.
+- Add exact-granule retrieval and verification, Windows test portability fixes,
+  and a separately packaged numeric Zarr/xarray demonstration.
+- Document the public staged, prepared, handoff and bounded-worker APIs on Read
+  the Docs, and synchronize package, citation, Zenodo and conda recipe metadata.
+- Gate publication on the complete CI suite, test built packages outside the
+  checkout on Linux, Windows and macOS, and test the separate Zarr companion.
+  Add manual full-granule validation that refuses incomplete evidence; require
+  matching production tags and fail duplicate TestPyPI uploads.
+- Reconcile MYD05 fixture regeneration with its recorded trimmed metadata and
+  emit canonical source-archive gzip headers for publication inspection.
+
+### Compatibility notes
+
+- Existing one-shot source-replacement defaults remain unchanged. The new
+  prepared and bounded APIs always require a separate explicit output.
+- Encoding options are now immutable, enforcing the documented immutable-plan
+  contract. Use `dataclasses.replace(options, complevel=...)` to derive options;
+  assigning to a field now raises `FrozenInstanceError`.
+- Unknown audit modes and invalid UTF-8 result text are now deliberately refused.
+  Metadata-only audit is the only implemented audit depth.
+- The handoff schema stays at version 1. New diagnostic codes are append-only;
+  the classification ruleset advances independently to version 9.
+- Hard worker limits are available on Windows and Linux; macOS is explicitly
+  unsupported by `execute_bounded`. Ordinary conversion remains portable.
+
 ## [2.2.2] - 2026-07-21
 
 Maintenance release with packaging and CI updates. Conversion, recompression,

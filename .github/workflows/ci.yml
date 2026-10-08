@@ -5,6 +5,17 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        default: ''
+      publish_target:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
 
 # The pip-based jobs (test, test-windows-degraded, build) install no system
 # HDF libraries on purpose: the netCDF4 wheels bundle libhdf5/libnetcdf, and
@@ -16,6 +27,20 @@ on:
 # the *supported* install channel delivers full HDF4 capability (KD-L7, G2).
 
 jobs:
+  docs-and-metadata:
+    name: Documentation and release metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r docs/requirements.txt PyYAML cffconvert pytest
+      - run: python -m pytest -q tools/tests
+      - run: python tools/validate_release_metadata.py
+      - run: cffconvert --validate
+      - run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+
   lint:
     name: ruff
     runs-on: ubuntu-latest
@@ -41,15 +66,13 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         # Smoke the self-contained-wheel install story (pyhdf + netCDF4 +
-        # pyproj, no system HDF libs) on macOS too. Windows is deliberately
-        # excluded from the *full* matrix: pyhdf's Windows wheel ships no
-        # HDF4 runtime, so the HDF4 fixtures can't run there. Windows-pip
-        # instead gets the dedicated degraded-capability job below
-        # (KD-L4/KD-L7), which pins exactly what must keep working — and
-        # exactly how the HDF4 path must refuse — without a usable pyhdf.
+        # pyproj, no system HDF libs) on macOS and Windows. A separate
+        # injected-missing-runtime job retains degraded-capability coverage.
         include:
           - os: macos-latest
             python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.11"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
@@ -71,9 +94,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with test extras (pip wheels only)
-        # pyhdf's Windows wheel *installs* but cannot *import* (it ships no
-        # HDF4 runtime) — which is precisely the degraded environment this
-        # job exists to pin (KD-L4/KD-L7, gate G2).
+        # Tests inject an unavailable runtime, independently of whether the
+        # installed pyhdf wheel works on this particular Windows runner.
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
@@ -85,8 +107,12 @@ jobs:
         run: python -m pytest tests/test_optional_hdf4.py -q
 
   test-conda-forge:
-    name: pytest full-capability (conda-forge)
-    runs-on: ubuntu-latest
+    name: pytest full-capability (conda-forge, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     # conda-forge is the *supported* HDF4 install channel (the refusal and
     # the README point Windows/aarch64 users at `conda install -c
     # conda-forge ncarnate`). This lane proves that channel actually
@@ -120,12 +146,15 @@ jobs:
             pyproj
             tqdm
             pytest
+            pip
       - name: Install ncarnate from source without replacing native deps
         # --no-deps: install only ncarnate; the native stack (pyhdf,
         # netCDF4, numpy, pyproj, tqdm) stays the conda-forge build. Build
         # isolation still fetches the hatchling backend into a throwaway
         # env, which never touches the runtime dependencies above.
-        run: python -m pip install -e . --no-deps
+        run: |
+          python -m pip install build "hatchling>=1.27"
+          python -m pip install -e . --no-deps
       - name: Prove the conda-forge HDF4 runtime imports
         run: |
           python -c "from ncarnate.hdf4_runtime import require_hdf4_runtime; require_hdf4_runtime(); print('conda-forge HDF4 runtime OK')"
@@ -144,14 +173,75 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build tooling
-        run: python -m pip install build twine
+        run: python -m pip install build twine PyYAML cffconvert
+      - name: Validate release identity before building
+        env:
+          NCARNATE_RELEASE_TAG: ${{ inputs.release_tag || '' }}
+          NCARNATE_PUBLISH_TARGET: ${{ inputs.publish_target || '' }}
+        run: |
+          python tools/validate_release_metadata.py
+          cffconvert --validate
       - name: Build sdist + wheel
         run: python -m build
       - name: Check distributions
-        run: twine check dist/*
+        run: twine check --strict dist/*
       - name: Validate distributions
         run: >-
           python tools/validate_distributions.py
           --allowed-email dev@erickshepherd.com
           --allowed-email ca@trufo.ai
           dist/*
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  installed-packages:
+    name: Installed ${{ matrix.kind }} (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        kind: [wheel, sdist]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: dist
+          path: dist/
+      - name: Test installed package outside the source checkout
+        run: python tools/test_distribution.py dist --kind ${{ matrix.kind }}
+
+  zarr-companion:
+    name: Installed Zarr companion
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: dist
+          path: dist/
+      - name: Build and install the companion with the candidate wheel
+        run: |
+          python -m pip install build twine
+          python -m build companions/zarr-demo --outdir companion-dist
+          python -m twine check --strict companion-dist/*
+          python -m pip install dist/*.whl companion-dist/*.whl pytest
+          python -m pip check
+      - name: Run companion tests outside both source packages
+        run: |
+          cp -R companions/zarr-demo/tests "$RUNNER_TEMP/zarr-tests"
+          cd "$RUNNER_TEMP"
+          python -m pytest -q zarr-tests

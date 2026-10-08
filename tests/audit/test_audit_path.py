@@ -161,7 +161,18 @@ def test_audit_cli_bad_output_path_exits_cleanly(workdir):
     assert rc == 2
 
 
+def test_directory_enumeration_denial_has_clean_cli_exit(workdir, monkeypatch):
+    original = os.listdir
+    def denied(path):
+        if os.path.abspath(path) == os.path.abspath(workdir):
+            raise PermissionError("injected directory access denial")
+        return original(path)
+    monkeypatch.setattr(os, "listdir", denied)
+    assert audit_main([str(workdir), "--no-recursive"]) == 2
+
+
 @_skip_if_root
+@pytest.mark.skipif(os.name == "nt", reason="chmod does not deny directory access on Windows")
 def test_audit_cli_survives_unreadable_directory(workdir):
     # Discovery I/O (os.listdir in --no-recursive) can fail at the root before
     # any per-file guard is reached. The CLI must degrade to a clean error
@@ -178,6 +189,7 @@ def test_audit_cli_survives_unreadable_directory(workdir):
 
 
 @_skip_if_root
+@pytest.mark.skipif(os.name == "nt", reason="chmod does not deny directory access on Windows")
 def test_recursive_scan_warns_on_unreadable_subtree(workdir, caplog):
     # A permission-denied subdirectory in a recursive scan is skipped, but the
     # omission must be surfaced (an auditor silently dropping a subtree gives

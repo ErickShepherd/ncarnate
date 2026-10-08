@@ -43,6 +43,14 @@ consumer therefore MUST:
 4. pass the record through :func:`check_materializable` (this refuses the
    empty-store trap and unknown versions).
 
+**Hostile-record bound.** Every public gate first runs
+:func:`precheck_handoff`, an *iterative* walk that bounds nesting depth
+(``HANDOFF_MAX_DEPTH``) and node count (``HANDOFF_MAX_NODES``), refuses
+reference cycles, and refuses non-JSON values (``bytes``, non-finite floats,
+non-string keys, arbitrary objects). A record that breaks any bound is refused
+with :class:`~ncarnate.errors.HandoffError` (or a reason string from the
+non-raising helpers) — never a leaked ``RecursionError`` or ``TypeError``.
+
 Copyright (c) 2020-2026 Erick Edward Shepherd. MIT License — see the
 top-level LICENSE file.
 
@@ -51,6 +59,7 @@ top-level LICENSE file.
 from __future__ import annotations
 
 import json
+import math
 from functools import lru_cache
 from importlib import resources
 from typing import Any
@@ -62,6 +71,106 @@ from ncarnate.errors import HandoffError
 from ncarnate.result import OPERATION_RESULT_SCHEMA_VERSION
 
 _SCHEMA_RESOURCE = "handoff.schema.json"
+
+# The record-complexity bounds every public gate enforces before any
+# recursive work. Depth counts nested containers including the root: a real
+# record is ~9 deep at a variable attribute value and gains two levels per
+# nested netCDF group, so 128 leaves ample room while staying far below the
+# interpreter's recursion limit (the schema walk spends at most two frames per
+# level). The node bound caps the work a single record can demand of a
+# consumer; full-granule record sizes still need qualification.
+HANDOFF_MAX_DEPTH = 128
+HANDOFF_MAX_NODES = 2_000_000
+
+
+def _scalar_error(value : Any, path : str) -> str | None:
+
+    # A JSON scalar is str / bool / None / int / finite float. Anything else
+    # (bytes, numpy, sets, objects, NaN/Infinity) cannot be a handoff value.
+    if value is None or isinstance(value, (str, bool)):
+        return None
+    if isinstance(value, int):
+        return None
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return None
+        return f"{path}: non-finite float {value!r} is not a JSON value"
+    return f"{path}: {type(value).__name__} is not a JSON value"
+
+
+def _children(container : Any, path : str):
+
+    if isinstance(container, dict):
+        return ((f"{path}.{key}" if isinstance(key, str) else path, key, value)
+                for key, value in container.items())
+    return ((f"{path}[{index}]", "", item) for index, item in enumerate(container))
+
+
+def precheck_handoff(record : Any, *,
+                     max_depth : int | None = None,
+                     max_nodes : int | None = None) -> str | None:
+
+    '''
+
+    Bounded, **iterative**, non-raising structural precheck of an untrusted
+    record. Returns a reason string if the record exceeds ``max_depth``
+    nested containers (default ``HANDOFF_MAX_DEPTH``), exceeds ``max_nodes``
+    total values (default ``HANDOFF_MAX_NODES``), contains a reference cycle,
+    a non-string object key, or a non-JSON value; ``None`` if it is within
+    bounds. Runs before the recursive schema walk in every public gate so a
+    hostile record is refused deliberately instead of leaking a
+    ``RecursionError``. Containers are ``dict`` / ``list`` / ``tuple``; the
+    typed schema positions still require lists.
+
+    '''
+
+    if max_depth is None:
+        max_depth = HANDOFF_MAX_DEPTH
+    if max_nodes is None:
+        max_nodes = HANDOFF_MAX_NODES
+
+    if not isinstance(record, (dict, list, tuple)):
+        return _scalar_error(record, "$")
+
+    nodes = 1
+    frames = [(id(record), _children(record, "$"))]
+    on_path = {id(record)}
+
+    while frames:
+        container_id, iterator = frames[-1]
+        try:
+            path, key, child = next(iterator)
+        except StopIteration:
+            frames.pop()
+            on_path.discard(container_id)
+            continue
+
+        if not isinstance(key, str):
+            return f"{path}: object key is not a string"
+
+        nodes += 1
+        if nodes > max_nodes:
+            return (
+                f"record exceeds the handoff node bound ({max_nodes} values)"
+            )
+
+        if isinstance(child, (dict, list, tuple)):
+            if id(child) in on_path:
+                return f"{path}: record contains a reference cycle"
+            if len(frames) >= max_depth:
+                return (
+                    f"{path}: record exceeds the handoff nesting bound "
+                    f"({max_depth} levels)"
+                )
+            frames.append((id(child), _children(child, path)))
+            on_path.add(id(child))
+            continue
+
+        reason = _scalar_error(child, path)
+        if reason is not None:
+            return reason
+
+    return None
 
 
 def handoff_schema_path():
@@ -175,9 +284,15 @@ def schema_errors(record : dict[str, Any]) -> list[str]:
 
     Return the list of schema violations in ``record`` against the frozen
     handoff schema — empty iff the record is well-formed. Non-raising; the
-    caller decides whether to raise, log, or aggregate.
+    caller decides whether to raise, log, or aggregate. A record outside the
+    :func:`precheck_handoff` bounds is reported as a single violation without
+    entering the recursive schema walk.
 
     '''
+
+    reason = precheck_handoff(record)
+    if reason is not None:
+        return [reason]
 
     schema = load_handoff_schema()
     return _schema_errors(record, schema, schema)
@@ -204,17 +319,24 @@ def validate_handoff(record : dict[str, Any]) -> None:
 
 def _variable_count(group : Any) -> int:
 
-    # Total variables anywhere in the (recursive) group tree. Defensive: this
-    # runs over an untrusted record, so a non-dict node or non-list field
-    # contributes zero rather than raising.
-    if not isinstance(group, dict):
-        return 0
-    variables = group.get("variables")
-    total = len(variables) if isinstance(variables, list) else 0
-    children = group.get("groups")
-    if isinstance(children, list):
-        for child in children:
-            total += _variable_count(child)
+    # Total variables anywhere in the group tree, walked iteratively (no
+    # recursion to exhaust) and once per node (a cycle cannot loop it).
+    # Defensive: this runs over an untrusted record, so a non-dict node or
+    # non-list field contributes zero rather than raising.
+    total = 0
+    stack = [group]
+    seen : set[int] = set()
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, dict) or id(node) in seen:
+            continue
+        seen.add(id(node))
+        variables = node.get("variables")
+        if isinstance(variables, list):
+            total += len(variables)
+        children = node.get("groups")
+        if isinstance(children, list):
+            stack.extend(children)
     return total
 
 
@@ -229,6 +351,9 @@ def materializability_error(record : Any) -> str | None:
     this untrusted boundary — a malformed shape fails closed to *unsafe* (a
     reason string), never to ``None`` (safe). Refuses, in order:
 
+    * a record outside the :func:`precheck_handoff` bounds (nesting depth,
+      node count, a reference cycle, or a non-JSON value such as a NaN
+      ``size_bytes``);
     * a non-object record, or an unknown ``schema_version`` (this ncarnate
       expects ``OPERATION_RESULT_SCHEMA_VERSION``);
     * a degraded read-back record — one still bearing the
@@ -240,6 +365,10 @@ def materializability_error(record : Any) -> str | None:
       turn into an empty Zarr store.
 
     '''
+
+    reason = precheck_handoff(record)
+    if reason is not None:
+        return reason
 
     if not isinstance(record, dict):
         return f"record is not a JSON object: {type(record).__name__}"

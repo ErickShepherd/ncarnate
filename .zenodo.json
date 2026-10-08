@@ -1,7 +1,8 @@
 {
   "upload_type": "software",
+  "version": "2.3.0",
   "title": "ncarnate: Convert HDF4/HDF-EOS2 (MODIS, AMSR-E) to CF-annotated netCDF4 and losslessly recompress netCDF/HDF5",
-  "description": "A Python tool that converts legacy HDF4/HDF-EOS2 granules (MODIS, AMSR-E, and kin) to CF-annotated netCDF4 - reconstructing CF lat/lon coordinates and grid mappings - and losslessly recompresses netCDF4/HDF5 files, verifying every output value-for-value against its source before replacement.",
+  "description": "A Python library and command-line tool for converting HDF4/HDF-EOS2 granules to CF-annotated netCDF4 and losslessly recompressing netCDF/HDF5. Version 2.3.0 adds explicit-output prepared jobs, digest-verified resume, streamed copying and verification, tiled swath interpolation, and optional isolated conversion workers with OS-enforced memory limits on Windows and Linux. Outputs are verified value-for-value before publication. Generated coordinate fields can still require whole arrays, and the worker limit excludes the calling process.",
   "access_right": "open",
   "license": "MIT",
   "keywords": [

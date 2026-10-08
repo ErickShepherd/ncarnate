@@ -88,8 +88,18 @@ error. The same verified machinery, run without conversion, provides lossless
 recompression for shrinking archives of already-modern netCDF/HDF5 files.
 
 `ncarnate` is implemented on top of the `netCDF4`, `pyhdf`, `pyproj`, and NumPy
-[@numpy] libraries, is tested entirely offline against small fixtures trimmed
-from real granules, and is distributed on PyPI and conda-forge.
+[@numpy] libraries. Its ordinary tests run offline against small fixtures
+trimmed from real granules; an additional opt-in suite checks complete original
+granules and an independent reference product. Released versions are distributed
+on PyPI and conda-forge.
+
+The 2.3.0 candidate adds explicit-output prepared plans and digest-verified
+resumption, with completion evidence kept separately from the scientific
+outputs. Array copying and verification are streamed in slices; generated
+coordinate fields can still require complete arrays. Optional isolated workers
+enforce memory limits on Windows and Linux, excluding the caller. A separately
+packaged numeric Zarr demonstration consumes verified handoffs; it is an example
+of downstream integration rather than a production storage service.
 
 # Acknowledgements
 

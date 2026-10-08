@@ -38,8 +38,12 @@ from ncarnate.stage import execute
 from ncarnate.stage import execute_batch
 from ncarnate.stage import inspect
 from ncarnate.stage import plan
+from ncarnate.prepared import PreparedPlan, prepare, prepare_batch, execute_prepared, execute_prepared_batch
+from ncarnate.memory import execute_bounded
 
 __all__ = [
+    "execute_bounded",
+    "PreparedPlan", "prepare", "prepare_batch", "execute_prepared", "execute_prepared_batch",
     "recompress",
     "audit_path",
     "AuditOptions",

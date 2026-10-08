@@ -1,5 +1,12 @@
 # `OperationResult` — the structured operation result (stage API step 4A) — Design
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 > **Status:** **BUILT** (step 4A implemented on `feat/stage-api-4a`; 337 tests green, ruff clean,
 > build + twine pass). **Rev 3** (2026-07-20) — one implementation-driven refinement to KD1: a
 > converted `ConvertRecord` *carries* an optional `OperationResult` rather than `ConvertResult.converted`

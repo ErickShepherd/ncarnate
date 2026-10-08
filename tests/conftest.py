@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import os
 from pathlib import Path
 
 import netCDF4 as nc
@@ -52,8 +53,8 @@ if {f.stem for f in BLOCKER_FIXTURES} != _EXPECTED_BLOCKERS:
     )
 
 # Raw multi-MB granules live outside the repo; the tests marked
-# raw_granules only run where they exist (never in CI).
-GRANULE_DIR = Path.home() / "ncarnate-data" / "granules"
+# raw_granules only run where they exist (including the opt-in full-corpus CI job).
+GRANULE_DIR = Path(os.environ.get("NCARNATE_GRANULE_DIR", Path.home() / "ncarnate-data" / "granules"))
 
 
 @pytest.fixture

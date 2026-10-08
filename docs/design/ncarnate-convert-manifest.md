@@ -1,5 +1,12 @@
 # `ncarnate convert --manifest` — Design (audit family, increment 2)
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 > **Status:** designed, **build in progress in this repo**. This is the build-authoritative
 > copy (imported from the owner's internal planning records, master
 > `an internal revision`, opus SIGN-OFF). The `IMPLEMENTATION_PLAN.md` at the repo root decomposes this

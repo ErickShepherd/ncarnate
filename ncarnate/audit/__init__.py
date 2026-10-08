@@ -273,6 +273,7 @@ def audit_path(path : str, options : AuditOptions) -> AuditReport:
 
     '''
 
+    options.__post_init__()  # options are mutable; validate again at use.
     root, files = _discover(path, options.recursive)
 
     audited_at = datetime.datetime.now(

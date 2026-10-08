@@ -23,3 +23,9 @@ docs/audits/*.audit-state.json
 
 # Sphinx documentation build output.
 docs/_build/
+
+# Machine-local publication policy, requests and private reports.
+.publication-private/
+.publication-reports/
+.publication-cache/
+full-granules.xml

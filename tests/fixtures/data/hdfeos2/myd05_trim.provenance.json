@@ -13,7 +13,11 @@
     "rows_kept_1km": 50,
     "rows_kept_5km": 10,
     "dimension_map": "offset=2, increment=5 (unchanged)",
-    "structmetadata_edit": "Size= rewritten for Cell_Along_Swath_1km/5km"
+    "structmetadata_edit": "Size= rewritten for Cell_Along_Swath_1km/5km",
+    "global_attributes_omitted": [
+      "Maximum_Number_of_1km_Frames",
+      "Number_of_Instrument_Scans"
+    ]
   },
   "generated": "2026-07-08",
   "generator": "tests/fixtures/trim_hdfeos2.py"

@@ -33,7 +33,7 @@ from __future__ import annotations
 import os
 
 # Local application imports.
-from ncarnate.audit.codes import DESTINATION_COLLISION
+from ncarnate.destinations import DestinationCollisionError, validate_destinations
 from ncarnate.errors import NcarnateError
 from ncarnate.formats import FileFormat, detect_format
 from ncarnate.convert.integrity import resolve_within, verify_sha256
@@ -43,19 +43,6 @@ __all__ = [
     "DestinationCollisionError",
     "preflight_destinations",
 ]
-
-
-class DestinationCollisionError(NcarnateError):
-
-    '''
-
-    Raised when the destination preflight finds any collision among a
-    manifest run's computed outputs. The whole selected run is refused
-    before any directory or output is created (KD-L1); the message lists
-    every involved source and the contested destination, and ``code`` is
-    the stable ``DESTINATION_COLLISION`` registry string (KD-L2).
-
-    '''
 
 
 def _output_relpath(record, detected : FileFormat) -> str:
@@ -135,6 +122,11 @@ def preflight_destinations(
                 record, source, allow_unverified=options.allow_unverified
             )
             detected = detect_format(source)
+            if detected is FileFormat.UNKNOWN:
+                raise NcarnateError(
+                    f"{source} is not a recognized scientific container",
+                    code="FORMAT_UNRECOGNIZED",
+                )
 
             if options.in_place:
 
@@ -181,118 +173,15 @@ def preflight_destinations(
         plans.append((record, source, destination, detected))
 
     problems = []
-
-    # Duplicate actionable source records (readiness action 1 step 6): two
-    # selected records resolving to one file — realpath'd, so symlinked
-    # duplicates collide too — would double-convert it.
-    by_source = {}
-
-    for record, source, _, _ in plans:
-
-        by_source.setdefault(source, []).append(record.path)
-
-    for source, paths in sorted(by_source.items()):
-
-        if len(paths) > 1:
-
-            problems.append(
-                f"duplicate records for source {source}: {', '.join(paths)}"
-            )
-
-    # Destination-based collision checks run over every plan with a real
-    # output path — mirrored out-dir destinations and, under --in-place,
-    # HDF4 derived .nc siblings alike (F1). A netCDF --in-place replacement
-    # has destination None (a genuine in-place rewrite, no separate output)
-    # and takes no part in these checks.
-    dest_plans = [
-        (record, source, destination, detected)
-        for record, source, destination, detected in plans
-        if destination is not None
-    ]
-
     if plans and not options.in_place:
-
         out_real = os.path.realpath(options.out_dir)
-        selected = ", ".join(record.path for record, _, _, _ in plans)
-
-        # Source-tree/output-tree overlap (step 5): an output root inside
-        # the source tree (or vice versa, or symlink-aliased to it) makes
-        # outputs indistinguishable from sources. Out-dir mode only — an
-        # --in-place run has no separate output tree to overlap; its derived
-        # siblings sit inside the source tree by design (KD3), and their
-        # data-loss shapes are caught by the destination checks below.
-        for base in sorted({
-            os.path.realpath(options.root or record.root)
-            for record, _, _, _ in plans
-        }):
-
+        for base in {os.path.realpath(options.root or record.root)
+                     for record, _, _, _ in plans}:
             if _overlapping(base, out_real):
-
-                problems.append(
-                    f"output tree {out_real} overlaps source tree {base}; "
-                    f"selected sources: {selected}"
-                )
-
-    if dest_plans:
-
-        # Duplicate or case-fold-equivalent destinations (step 4): exact
-        # duplicates lose data everywhere; case-fold equivalents lose it on
-        # case-insensitive filesystems (NTFS/APFS), so both are refused on
-        # every platform.
-        by_destination = {}
-
-        for record, _, destination, _ in dest_plans:
-
-            by_destination.setdefault(
-                destination.casefold(), []
-            ).append((record.path, destination))
-
-        for _, group in sorted(by_destination.items()):
-
-            if len(group) > 1:
-
-                destinations = " / ".join(sorted({d for _, d in group}))
-                sources      = ", ".join(path for path, _ in group)
-                problems.append(
-                    f"destination {destinations} claimed by: {sources}"
-                )
-
-        # A destination aliasing a selected source (step 5): both sides are
-        # realpath'd, so a symlinked out_dir pointing back into the source
-        # tree — or an HDF4 --in-place derived .nc that lands on a selected
-        # .nc source — collides here rather than silently overwriting it.
-        sources_real = {source for _, source, _, _ in plans}
-
-        for record, _, destination, _ in dest_plans:
-
-            if destination in sources_real:
-
-                problems.append(
-                    f"destination {destination} aliases selected source "
-                    f"{record.path}"
-                )
-
-        # A pre-existing destination (step 7) is refused unless the operator
-        # selected the resume policy (--skip-existing, which skips it in the
-        # convert loop instead). Presence-only for now; the verified resume
-        # journal is readiness action 12, out of this loop's scope.
-        if not options.skip_existing:
-
-            for record, _, destination, _ in dest_plans:
-
-                if os.path.lexists(destination):
-
-                    problems.append(
-                        f"destination {destination} already exists (source "
-                        f"{record.path}); pass --skip-existing to resume"
-                    )
-
-    if problems:
-
-        raise DestinationCollisionError(
-            "destination preflight refused the entire run (no outputs were "
-            "written):\n  " + "\n  ".join(problems),
-            code=DESTINATION_COLLISION,
-        )
-
+                affected = ", ".join(record.path for record, _, _, _ in plans)
+                problems.append(f"output tree {out_real} overlaps source tree {base}: {affected}")
+    validate_destinations(
+        [(source, destination, record.path) for record, source, destination, _ in plans],
+        allow_existing=options.skip_existing, problems=problems,
+    )
     return plans, failed

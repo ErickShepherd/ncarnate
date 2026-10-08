@@ -14,6 +14,7 @@ The build is hermetic (``--no-isolation``): ``build`` and the ``hatchling``
 backend are test dependencies, so no network fetch is needed.
 """
 
+import gzip
 import subprocess
 import sys
 import tarfile
@@ -30,6 +31,9 @@ EXCLUDED_MEMBERS = (
     "LOOP_LEARNINGS.md",
 )
 EXCLUDED_PREFIXES = (
+    "conda-recipe/",
+    "recovery-review/",
+    "companions/",
     "docs/plans/",
     "docs/design/",
     "docs/audits/",
@@ -42,6 +46,7 @@ REQUIRED_MEMBERS = (
     "ncarnate/convert/preflight.py",
     "README.md",
     "docs/fidelity-notes.md",
+    "tools/hatch_build.py",
 )
 
 
@@ -58,7 +63,7 @@ def _member_relpaths(tar_path: Path) -> set[str]:
 
 
 @pytest.fixture(scope="module")
-def sdist_members(tmp_path_factory) -> set[str]:
+def sdist_path(tmp_path_factory) -> Path:
     pytest.importorskip("build", reason="build is a test dependency")
     pytest.importorskip("hatchling", reason="hatchling is a test dependency")
 
@@ -74,7 +79,19 @@ def sdist_members(tmp_path_factory) -> set[str]:
 
     tarballs = list(out_dir.glob("*.tar.gz"))
     assert len(tarballs) == 1, f"expected one sdist, got {tarballs}"
-    return _member_relpaths(tarballs[0])
+    return tarballs[0]
+
+
+@pytest.fixture(scope="module")
+def sdist_members(sdist_path) -> set[str]:
+    return _member_relpaths(sdist_path)
+
+
+def test_sdist_has_canonical_gzip_header_and_valid_payload(sdist_path):
+    raw = sdist_path.read_bytes()
+    assert raw[:8] == b"\x1f\x8b\x08\x00\x00\x00\x00\x00"
+    # Read the entire stream so gzip checks its CRC and uncompressed length.
+    assert gzip.decompress(raw)
 
 
 def test_sdist_excludes_root_loop_artifacts(sdist_members):

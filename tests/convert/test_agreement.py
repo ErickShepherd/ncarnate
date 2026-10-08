@@ -131,7 +131,7 @@ def test_recompressed_modern_outputs_are_lossless(workdir):
     assert not result.failed, [r.reason for r in result.failed]
     for relpath in modern:
         output = out_dir / relpath               # netCDF name kept
-        assert_lossless_netcdf(staged[relpath], output)
+        assert_lossless_netcdf(staged[relpath.replace("\\", "/")], output)
 
 
 # --- a blocker prediction is never converted (KD4 / KD6) ---------------
