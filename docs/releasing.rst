@@ -1,8 +1,8 @@
 Releasing ncarnate
 ==================
 
-The current source is a 2.3.0 release candidate. Updating local metadata does
-not publish to GitHub, PyPI, conda-forge, Read the Docs or Zenodo.
+This guide describes the release process for ncarnate. Updating source metadata
+does not publish to GitHub, PyPI, conda-forge, Read the Docs or Zenodo.
 
 Before publication
 ------------------
