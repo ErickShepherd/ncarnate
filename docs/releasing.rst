@@ -70,6 +70,16 @@ branch. Duplicate TestPyPI uploads fail instead of silently skipping existing
 files; use a new candidate version for a changed test upload. These are
 separate maintainer actions.
 
+The first 2.3.0 upload encountered an outdated publisher that could not read
+core metadata 2.5. The publisher is now pinned to a compatible version. A
+one-time ``recover_230`` option, selected with target ``pypi`` from ``main``,
+retries only the preserved distributions from that original release run.
+It verifies the pinned run, all 19 successful validation jobs, the unchanged
+release tag, and both package checksums before reaching the normal protected
+PyPI environment. It does not rebuild packages or move the published tag.
+The recovery is specific to 2.3.0 and cannot publish another release. Once
+those files are uploaded, duplicate uploads still fail.
+
 For full-size evidence, ``Full-granule validation`` runs automatically for
 pull requests from ``release/`` branches into ``main``. This also validates a
 new workflow before it reaches the default branch. Once available on the
