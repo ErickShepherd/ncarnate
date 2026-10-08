@@ -1,0 +1,31 @@
+{
+  "repository": "ErickShepherd/ncarnate",
+  "tag": "v2.3.0",
+  "run_id": 37859119484,
+  "head_sha": "7ae1c805944d9fd212d1ba268f4f83092304c8a3",
+  "required_jobs": [
+    "Test and build the exact release revision / Documentation and release metadata",
+    "Test and build the exact release revision / Installed Zarr companion",
+    "Test and build the exact release revision / Installed sdist (macos-latest)",
+    "Test and build the exact release revision / Installed sdist (ubuntu-latest)",
+    "Test and build the exact release revision / Installed sdist (windows-latest)",
+    "Test and build the exact release revision / Installed wheel (macos-latest)",
+    "Test and build the exact release revision / Installed wheel (ubuntu-latest)",
+    "Test and build the exact release revision / Installed wheel (windows-latest)",
+    "Test and build the exact release revision / build + twine check",
+    "Test and build the exact release revision / pytest (macos-latest py3.12)",
+    "Test and build the exact release revision / pytest (ubuntu-latest py3.10)",
+    "Test and build the exact release revision / pytest (ubuntu-latest py3.11)",
+    "Test and build the exact release revision / pytest (ubuntu-latest py3.12)",
+    "Test and build the exact release revision / pytest (ubuntu-latest py3.13)",
+    "Test and build the exact release revision / pytest (windows-latest py3.11)",
+    "Test and build the exact release revision / pytest degraded-capability (windows pip)",
+    "Test and build the exact release revision / pytest full-capability (conda-forge, ubuntu-latest)",
+    "Test and build the exact release revision / pytest full-capability (conda-forge, windows-latest)",
+    "Test and build the exact release revision / ruff"
+  ],
+  "files": {
+    "ncarnate-2.3.0-py3-none-any.whl": "5477b2825e27bfb52b9b44b6c5a6c169ea0344b9b7f44edcb58c8b1a277127f8",
+    "ncarnate-2.3.0.tar.gz": "3852afbea8e31697e5a75eb2fd266672fbf932b43aa58c3077c0c9c60f1617ce"
+  }
+}

@@ -22,6 +22,10 @@ on:
         type: choice
         options: [testpypi, pypi]
         default: testpypi
+      recover_230:
+        description: "Retry only the verified 2.3.0 artifacts after the uploader failure"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,6 +33,7 @@ permissions:
 jobs:
   verify:
     name: Test and build the exact release revision
+    if: ${{ !inputs.recover_230 }}
     # A local reusable workflow uses the same revision as this caller.
     # Its dist artifact is installed by the package tests and then published
     # unchanged below. Failure of ANY CI job prevents either upload.
@@ -50,10 +55,54 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # v1.14.1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           # Duplicate versions fail: success must mean these files were uploaded.
+
+  verify-recovery:
+    name: Verify the preserved 2.3.0 release artifacts
+    if: github.event_name == 'workflow_dispatch' && inputs.recover_230 && inputs.target == 'pypi' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: dist
+          path: dist/
+          run-id: 37859119484
+          github-token: ${{ github.token }}
+      - name: Verify original run, all release tests, tag and exact package bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/verify_release_retry.py dist
+      - run: python -m pip install "twine>=7,<8"
+      - run: python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: recovery-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-recovery:
+    name: Retry the verified 2.3.0 upload
+    needs: verify-recovery
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: recovery-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
 
   publish-pypi:
     name: Publish to PyPI
@@ -68,4 +117,4 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # v1.14.1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
