@@ -70,8 +70,11 @@ branch. Duplicate TestPyPI uploads fail instead of silently skipping existing
 files; use a new candidate version for a changed test upload. These are
 separate maintainer actions.
 
-For full-size evidence, manually run ``Full-granule validation`` in GitHub
-Actions on the candidate revision. It downloads the catalogued original
+For full-size evidence, ``Full-granule validation`` runs automatically for
+pull requests from ``release/`` branches into ``main``. This also validates a
+new workflow before it reaches the default branch. Once available on the
+default branch, it can also be run manually in GitHub Actions on the candidate
+revision. It downloads the catalogued original
 granules and independent reference, verifies every pinned digest, and runs the
 full-size tests. Missing data, unavailable mirrors, mismatched digests, test
 failures, skipped tests and missing expected test cases all fail the job.

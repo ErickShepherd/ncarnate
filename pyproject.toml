@@ -105,7 +105,7 @@ path = "tools/hatch_build.py"
 testpaths = ["tests"]
 markers = [
     # Cross-checks against the raw multi-MB granules kept outside the
-    # repo; ordinary CI skips them. The manual full-granule workflow verifies
+    # repo; ordinary CI skips them. The separate full-granule workflow verifies
     # every required input first and refuses skipped validation.
     "raw_granules: local-only cross-checks against raw granules",
 ]
