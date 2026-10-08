@@ -74,8 +74,7 @@ def require_hdf4_runtime():
             "manifests all work without it. To enable HDF4/HDF-EOS2 "
             "conversion, install ncarnate from conda-forge, which supplies "
             "the HDF4 runtime it needs: conda install -c conda-forge "
-            "ncarnate. (Adding only pyhdf to an existing environment can "
-            "work but is unsupported — the pip wheel ships no HDF4 runtime "
-            "on Windows; see the README for that troubleshooting.)",
+            "ncarnate. A compatible pip pyhdf runtime is another option; "
+            "availability depends on the wheel and platform. See the README.",
             code = HDF4_RUNTIME_UNAVAILABLE,
         ) from error

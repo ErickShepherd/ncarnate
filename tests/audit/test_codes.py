@@ -25,6 +25,10 @@ V1_CODES = {
 
 # Append-only additions after v1, each of which bumped RULESET_VERSION.
 POST_V1_CODES = {
+    "OUTPUT_PUBLISH_FAILED", "WORKER_CLEANUP_INCOMPLETE",
+    "MEMORY_LIMIT_UNAVAILABLE", "BOUNDED_WORKER_FAILED", "WORKER_TIMEOUT",
+    "SOURCE_CHANGED", "RESUME_MISMATCH", "JOURNAL_UNAVAILABLE", "JOURNAL_WRITE_FAILED",
+    "RESULT_ENCODING_INVALID", "AUDIT_MODE_UNSUPPORTED",
     "MALFORMED_CONTAINER",       # ruleset v2
     "DESTINATION_COLLISION",     # ruleset v3 — convert preflight whole-run refusal
     "HDF4_RUNTIME_UNAVAILABLE",  # ruleset v4 — missing pyhdf degraded-capability refusal

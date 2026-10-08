@@ -55,7 +55,7 @@ def render_summary(result : ConvertResult) -> str:
                 src = record.result.source.size_bytes
                 dst = record.result.destination.size_bytes
                 lines.append(
-                    f"  {record.path!r} — {src} → {dst} bytes ({dst - src:+d})"
+                    f"  {record.path!r} - {src} -> {dst} bytes ({dst - src:+d})"
                 )
 
             else:

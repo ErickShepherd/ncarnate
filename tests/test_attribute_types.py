@@ -23,6 +23,7 @@ test_convert_collisions.py / test_optional_hdf4.py established).
 """
 
 import ctypes
+import ctypes.util
 import glob
 import os
 
@@ -45,18 +46,27 @@ NC_GLOBAL = -1
 def _libnetcdf():
     """The libnetcdf netCDF4-python links, loaded for ctypes inquiry.
 
-    Two strategies, tried in order: dlopen the ``_netCDF4`` extension
-    module itself (its dynamic-symbol table resolves the linked
-    libnetcdf's exports — works for manylinux wheels, which vendor
-    libnetcdf into ``netCDF4.libs``), then the wheel's bundled library
-    directories directly (macOS ``.dylibs``). Failing BOTH is a loud
+    Strategies, tried in order: dlopen the ``_netCDF4`` extension module
+    itself (its dynamic-symbol table resolves the linked libnetcdf's
+    exports — works for manylinux wheels, which vendor libnetcdf into
+    ``netCDF4.libs``), then the wheel's bundled library directories
+    directly (``netCDF4.libs`` on Linux and Windows, macOS ``.dylibs``),
+    then the system loader path. The bundled-library glob is ``*netcdf*``
+    rather than ``libnetcdf*`` because delvewheel-built Windows wheels
+    bundle a mangled ``netcdf-<hash>.dll`` with no ``lib`` prefix; the old
+    pattern silently found nothing there, so every storage-type assertion
+    failed at lookup rather than running. Failing ALL strategies is a loud
     test failure, never a skip — a silent skip would gut the storage-type
-    pin on that platform.
+    pin on that platform. This stays independent of ``ncarnate.atttypes``
+    so the evidence never trusts the code under test.
     """
     candidates = [nc._netCDF4.__file__]
     pkgdir = os.path.dirname(nc.__file__)
-    for pattern in ("../netCDF4.libs/libnetcdf*", ".dylibs/libnetcdf*"):
+    for pattern in ("../netCDF4.libs/*netcdf*", ".dylibs/*netcdf*"):
         candidates += sorted(glob.glob(os.path.join(pkgdir, pattern)))
+    found = ctypes.util.find_library("netcdf")
+    if found:
+        candidates.append(found)
     for candidate in candidates:
         try:
             lib = ctypes.CDLL(candidate)

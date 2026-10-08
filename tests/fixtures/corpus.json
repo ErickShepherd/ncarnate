@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "granules": [
+    {
+      "name": "AMSR_E_L3_5DaySnow_V09_20050126.hdf",
+      "sha256": "c728c793a8a77062427016a02ccffb137ddcab14e1d1d85e61252150b1f15fc2",
+      "digest_provenance": "tests/fixtures/data/hdfeos2/amsre_5daysnow_trim.provenance.json",
+      "urls": [
+        "https://web.archive.org/web/20240705063428id_/https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDF/AMSR_E_L3_5DaySnow_V09_20050126.hdf"
+      ],
+      "retrieval_status": "unverified; run the retrieval tool; mirrors may require access or be unavailable"
+    },
+    {
+      "name": "AMSR_E_L3_SeaIce12km_B02_20020619.hdf",
+      "sha256": "573b124843b481884043229a2887f6859341ca983f76505ed1a275422a6d31c6",
+      "digest_provenance": "tests/fixtures/data/hdfeos2/amsre_seaice12km_trim.provenance.json",
+      "urls": [
+        "https://web.archive.org/web/20240624112359id_/https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDFfiles2/eosweb/hdf4/hdfeos2-grid-2d(polar-stereographic)/AMSR_E_L3_SeaIce12km_B02_20020619.hdf"
+      ],
+      "retrieval_status": "unverified; run the retrieval tool; mirrors may require access or be unavailable"
+    },
+    {
+      "name": "MOD03.A2002299.0710.006.2012261211245.hdf",
+      "sha256": "aa3f7bbb40957bdb1516a9190b0d1caeaa1698e2dbe9f656c9af3d86a82a67ef",
+      "digest_provenance": "tests/fixtures/data/hdfeos2/mod03_trim.provenance.json",
+      "urls": [
+        "https://media.githubusercontent.com/media/SpatioTemporal/STAREPandas/master/tests/data/granules/MOD03.A2002299.0710.006.2012261211245.hdf"
+      ],
+      "retrieval_status": "unverified; run the retrieval tool; mirrors may require access or be unavailable"
+    },
+    {
+      "name": "MYD05_L2.A2020060.1635.061.2020061153519.hdf",
+      "sha256": "5f7c16cfd4f2f027312c36fb6a8bc745e8d51c114c61a996f084b0a356b801f2",
+      "digest_provenance": "tests/fixtures/data/hdfeos2/myd05_trim.provenance.json",
+      "urls": [
+        "https://media.githubusercontent.com/media/SpatioTemporal/STAREPandas/master/tests/data/granules/MYD05_L2.A2020060.1635.061.2020061153519.hdf"
+      ],
+      "retrieval_status": "unverified; run the retrieval tool; mirrors may require access or be unavailable"
+    },
+    {
+      "name": "AMSR_E_L3_RainGrid_B05_200707.hdf",
+      "sha256": "2a84becd2d29c23dfb20d7f225585d794120aae32d835941e8087b84aa4e6982",
+      "digest_provenance": "tests/fixtures/data/hdfeos2/raingrid_trim.provenance.json",
+      "urls": [
+        "https://web.archive.org/web/20240613225054id_/https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDFfiles2/eosweb/hdf4/hdfeos2-grid-1d/AMSR_E_L3_RainGrid_B05_200707.hdf"
+      ],
+      "retrieval_status": "unverified; run the retrieval tool; mirrors may require access or be unavailable"
+    }
+  ],
+  "references": [
+    {
+      "name": "AMSR_E_L3_SeaIce12km_B02_20020619_flatten.nc",
+      "sha256": "1746620daab2990b3b4628e37d39793a9552fb03e7330fa26613e581b27d8c81",
+      "urls": [
+        "https://web.archive.org/web/20240707211406id_/https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDFfiles2/eosweb/hdf5/converted/netcdf4-classic/AMSR_E_L3_SeaIce12km_B02_20020619_flatten.nc"
+      ],
+      "provenance": "HDF Group independent SeaIce conversion linked by archived official GrADS page; digest recorded after retrieval on 2026-10-08"
+    }
+  ]
+}

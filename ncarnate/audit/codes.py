@@ -33,7 +33,21 @@ top-level LICENSE file.
 # (the consumer-side handoff gates in `ncarnate.handoff`, refusing a received
 # record that is not well-formed / not safe to materialize a store from; the
 # handoff-contract hardening before the step-6 Zarr tail).
-RULESET_VERSION = 6
+# v7: prepared source/resume checks, journal failures, strict text and audit mode.
+# v8: mandatory OS-enforced isolated conversion worker limits.
+# v9: explicit publication refusal and non-fatal worker cleanup warning.
+RULESET_VERSION = 9
+OUTPUT_PUBLISH_FAILED = "OUTPUT_PUBLISH_FAILED"
+WORKER_CLEANUP_INCOMPLETE = "WORKER_CLEANUP_INCOMPLETE"
+MEMORY_LIMIT_UNAVAILABLE = "MEMORY_LIMIT_UNAVAILABLE"
+BOUNDED_WORKER_FAILED = "BOUNDED_WORKER_FAILED"
+WORKER_TIMEOUT = "WORKER_TIMEOUT"
+SOURCE_CHANGED = "SOURCE_CHANGED"
+RESUME_MISMATCH = "RESUME_MISMATCH"
+JOURNAL_UNAVAILABLE = "JOURNAL_UNAVAILABLE"
+JOURNAL_WRITE_FAILED = "JOURNAL_WRITE_FAILED"
+RESULT_ENCODING_INVALID = "RESULT_ENCODING_INVALID"
+AUDIT_MODE_UNSUPPORTED = "AUDIT_MODE_UNSUPPORTED"
 
 # The v1 issue codes, each mirroring the converter site named in the
 # design §Classification registry table. Value == name by construction so
@@ -96,6 +110,10 @@ HANDOFF_NOT_MATERIALIZABLE    = "HANDOFF_NOT_MATERIALIZABLE"
 # The registry: the single source of truth the append-only contract test
 # iterates. Adding a code means adding it here (and bumping RULESET_VERSION).
 ALL_CODES = frozenset({
+    OUTPUT_PUBLISH_FAILED, WORKER_CLEANUP_INCOMPLETE,
+    MEMORY_LIMIT_UNAVAILABLE, BOUNDED_WORKER_FAILED, WORKER_TIMEOUT,
+    SOURCE_CHANGED, RESUME_MISMATCH, JOURNAL_UNAVAILABLE, JOURNAL_WRITE_FAILED,
+    RESULT_ENCODING_INVALID, AUDIT_MODE_UNSUPPORTED,
     EOS_UNSUPPORTED_PROJECTION,
     EOS_STRUCTMETADATA_MALFORMED,
     SWATH_DIMMAP_UNRESOLVED,

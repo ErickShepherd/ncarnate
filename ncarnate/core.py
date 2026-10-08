@@ -46,6 +46,7 @@ from ncarnate.formats import FileFormat
 from ncarnate.formats import detect_format
 from ncarnate.hashing import sha256_of_file
 from ncarnate.limits import check_array_size
+from ncarnate.streaming import slices, limit_cache
 from ncarnate.result import Attribute
 from ncarnate.result import CoordinateActions
 from ncarnate.result import Dimension
@@ -291,7 +292,7 @@ def _execute_core(plan : Plan) -> str:
 
         hdf4 = require_hdf4_runtime()
 
-        tree = hdf4.read_hdf4(plan.source, geolocation = options.geolocation)
+        tree = hdf4.read_hdf4(plan.source, geolocation = options.geolocation, stream=True)
 
         def _write(tmp_path : str) -> None:
 
@@ -301,7 +302,7 @@ def _execute_core(plan : Plan) -> str:
 
         def _verify(tmp_path : str) -> None:
 
-            hdf4.verify_conversion(plan.source, tmp_path)
+            hdf4.verify_conversion(plan.source, tmp_path, stream=True)
 
     else:
 
@@ -503,11 +504,14 @@ def _write_verified(src_path : str,
 
     '''
 
-    descriptor, tmp_path = tempfile.mkstemp(
-        dir    = os.path.dirname(dst_path),
-        prefix = os.path.basename(dst_path) + ".",
-        suffix = ".tmp"
-    )
+    try:
+        descriptor, tmp_path = tempfile.mkstemp(
+            dir    = os.path.dirname(dst_path),
+            prefix = os.path.basename(dst_path) + ".",
+            suffix = ".tmp"
+        )
+    except OSError as error:
+        raise NcarnateError(f"cannot reserve output staging for {dst_path}: {error}", code="OUTPUT_PUBLISH_FAILED") from error
 
     os.close(descriptor)
 
@@ -624,6 +628,7 @@ def _copy_variables(src_obj   : _Group,
     for name, src_var in src_obj.variables.items():
 
         src_var.set_auto_maskandscale(False)
+        src_var.set_auto_chartostring(False)
 
         dtype      = src_var.datatype
         dimensions = src_var.dimensions
@@ -681,15 +686,15 @@ def _copy_variables(src_obj   : _Group,
         )
 
         dst_var.set_auto_maskandscale(False)
+        dst_var.set_auto_chartostring(False)
 
         # Copies the variable attributes (minus the declared `_FillValue`).
         _copy_attributes(src_var, dst_var, exclude = ("_FillValue",))
 
         # Copies the variable's stored values, raw. Zero-size variables
         # (an empty unlimited dimension) have nothing to write. The whole
-        # variable is materialized in memory, so bound its declared size
-        # first — a tiny, highly compressible crafted file can otherwise
-        # declare a variable that expands to terabytes on read.
+        # variable is streamed in slices. Retain the declared-size refusal
+        # as a separate work limit for highly compressed hostile inputs.
         if 0 not in src_var.shape:
 
             check_array_size(
@@ -697,7 +702,11 @@ def _copy_variables(src_obj   : _Group,
                 f"Variable {name!r}"
             )
 
-            dst_var[...] = src_var[...]
+            limit_cache(src_var)
+            limit_cache(dst_var)
+            storage_chunks = src_var.chunking() if isinstance(src_var.chunking(), list) else dst_var.chunking()
+            for selection in slices(src_var.shape, src_var.dtype.itemsize, storage_chunks):
+                dst_var[selection] = src_var[selection]
 
 
 def _verify_lossless(src_path : str, dst_path : str) -> None:
@@ -754,6 +763,8 @@ def _verify_group(src_obj : _Group, dst_obj : _Group, path : str) -> None:
 
         src_var.set_auto_maskandscale(False)
         dst_var.set_auto_maskandscale(False)
+        src_var.set_auto_chartostring(False)
+        dst_var.set_auto_chartostring(False)
 
         _require(
             src_var.dtype == dst_var.dtype,
@@ -769,13 +780,15 @@ def _verify_group(src_obj : _Group, dst_obj : _Group, path : str) -> None:
         _verify_attributes(src_var, dst_var, location)
 
         equal_nan  = src_var.dtype.kind in "fc"
-        src_values = src_var[...]
-        dst_values = dst_var[...]
-
-        _require(
-            np.array_equal(src_values, dst_values, equal_nan = equal_nan),
-            f"variable {location} values differ"
-        )
+        _require(src_var.shape == dst_var.shape, f"variable {location} shape differs")
+        limit_cache(src_var)
+        limit_cache(dst_var)
+        storage_chunks = src_var.chunking() if isinstance(src_var.chunking(), list) else dst_var.chunking()
+        for selection in slices(src_var.shape, src_var.dtype.itemsize, storage_chunks):
+            _require(
+                np.array_equal(src_var[selection], dst_var[selection], equal_nan=equal_nan),
+                f"variable {location} values differ"
+            )
 
     _require(
         set(src_obj.groups) == set(dst_obj.groups),

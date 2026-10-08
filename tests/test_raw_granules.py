@@ -1,6 +1,6 @@
 """Cross-checks against the raw multi-MB granules kept outside the repo
-(the local source-granule archive/). Local-only: marked raw_granules and skipped
-wherever the granule directory is absent (always skipped in CI)."""
+(the local source-granule archive/). Marked raw_granules and skipped wherever
+the granule directory is absent; the manual full-granule CI job requires it."""
 
 import numpy as np
 import netCDF4 as nc

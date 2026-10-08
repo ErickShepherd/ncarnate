@@ -1,2 +1,2 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep release source bytes consistent in Windows and Linux checkouts.
+* text=auto eol=lf

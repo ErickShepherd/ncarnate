@@ -5,14 +5,17 @@ abstract: >-
   Reincarnate legacy scientific data as modern netCDF4: losslessly
   recompress netCDF/HDF5 files and convert HDF4/HDF-EOS2 granules to
   CF-annotated netCDF4 with reconstructed grid and swath geolocation.
+  Supports verified resumable conversions, streamed data transfer, and
+  isolated conversion workers with memory limits on Windows and Linux.
 type: software
 authors:
   - family-names: "Shepherd"
     given-names: "Erick Edward"
     email: "dev@erickshepherd.com"
     orcid: "https://orcid.org/0000-0002-4750-6100"
-version: "2.2.2"
-date-released: "2026-07-21"
+version: "2.3.0"
+# Set date-released to the actual publication date when this candidate ships.
+# This is the verified concept DOI, which identifies all versions.
 doi: "10.5281/zenodo.21288802"
 license: MIT
 repository-code: "https://github.com/ErickShepherd/ncarnate"

@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ncarnate"
 dynamic = ["version"]
-description = "Convert HDF4/HDF-EOS2 (MODIS, AMSR-E) to CF-annotated netCDF4 and losslessly recompress netCDF/HDF5 files."
+description = "Verified, resumable HDF4/HDF-EOS2 conversion and streamed netCDF/HDF5 recompression."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -36,15 +36,14 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
-    # Floors track the versions the local build environment is verified
-    # against (netCDF4 1.7.x, numpy 2.x); the Phase-4 CI matrix pins the
-    # tested range. Loosening below these is an out-of-loop decision.
+    # These are the supported dependency floors. CI exercises resolved
+    # installations across Python/platform combinations, not every possible
+    # dependency version. Lowering a floor requires separate validation.
     "netCDF4>=1.6",
     "numpy>=1.26",
     # >= 0.11.6: the first release whose manylinux/macOS wheels bundle
-    # libhdf4 (the no-system-HDF4 install story depends on it). The Windows
-    # wheel ships no HDF4 runtime — see the README for the conda-forge/WSL
-    # route.
+    # libhdf4. Runtime availability still varies by wheel/platform; the
+    # capability gate handles missing runtimes. Windows 0.11.7 was tested.
     "pyhdf>=0.11.6",
     "pyproj>=3.6",
     "tqdm>=4.66",
@@ -56,6 +55,7 @@ dependencies = [
 # (the F5 distribution-content guard). Keep hatchling in step with the
 # build-system floor above.
 test = ["pytest", "build>=1.0", "hatchling>=1.27"]
+release = ["build>=1.0", "twine", "PyYAML>=6", "cffconvert", "tomli; python_version < '3.11'"]
 
 [project.scripts]
 ncarnate = "ncarnate.cli:main"
@@ -66,6 +66,7 @@ Documentation = "https://ncarnate.readthedocs.io/en/stable/"
 Source = "https://github.com/ErickShepherd/ncarnate"
 Changelog = "https://github.com/ErickShepherd/ncarnate/releases"
 Issues = "https://github.com/ErickShepherd/ncarnate/issues"
+Citation = "https://doi.org/10.5281/zenodo.21288802"
 
 [tool.hatch.version]
 path = "ncarnate/constants.py"
@@ -79,6 +80,11 @@ packages = ["ncarnate"]
 # NOT the internal planning/design/checklist/audit docs, which are
 # development material, not part of the release.
 exclude = [
+    # The downstream recipe hashes this sdist. Exclude it to avoid embedding
+    # a self-referential source hash and downstream-maintenance prose.
+    "conda-recipe",
+    "recovery-review",
+    "companions",
     "docs/plans",
     "docs/design",
     "docs/owner-checklist-*.md",
@@ -92,12 +98,15 @@ exclude = [
     "LOOP_LEARNINGS.md",
 ]
 
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "tools/hatch_build.py"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     # Cross-checks against the raw multi-MB granules kept outside the
-    # repo (the local source-granule archive/); they self-skip where that store
-    # is absent, so CI never runs them.
+    # repo; ordinary CI skips them. The separate full-granule workflow verifies
+    # every required input first and refuses skipped validation.
     "raw_granules: local-only cross-checks against raw granules",
 ]
 filterwarnings = [
@@ -107,6 +116,7 @@ filterwarnings = [
 ]
 
 [tool.ruff]
+extend-exclude = ["recovery-review"]
 target-version = "py310"
 line-length = 100
 

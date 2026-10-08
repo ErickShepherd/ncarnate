@@ -116,7 +116,11 @@ def read_manifest(path : str) -> list[ManifestRecord]:
     records        = []
     ruleset_warned = False
 
-    with open(path, encoding="utf-8") as stream:
+    try:
+        stream = open(path, encoding="utf-8")
+    except OSError as error:
+        raise MalformedManifestError(f"cannot read manifest {path!r}: {error}") from error
+    with stream:
 
         for line_number, line in enumerate(stream, start=1):
 

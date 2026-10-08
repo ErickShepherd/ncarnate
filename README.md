@@ -89,9 +89,9 @@ in [`docs/fidelity-notes.md`](https://github.com/ErickShepherd/ncarnate/blob/mai
 conda install -c conda-forge ncarnate
 ```
 
-This works on every platform and is the recommended install on **Windows** —
-conda-forge's `pyhdf` is built against a proper HDF4 library everywhere, so the
-full HDF4/HDF-EOS2 converter runs on Windows, macOS, and Linux alike.
+Conda-forge supplies the native HDF4, netCDF and PROJ dependencies together.
+Package availability depends on the platform and Python version. Release CI
+checks Linux and Windows conda environments separately from pip installations.
 
 **With pip** (from [PyPI](https://pypi.org/project/ncarnate/)):
 
@@ -99,24 +99,18 @@ full HDF4/HDF-EOS2 converter runs on Windows, macOS, and Linux alike.
 pip install ncarnate
 ```
 
-On **Linux (x86_64)** and **macOS (arm64)**, every dependency — including
-`pyhdf` — installs as a self-contained binary wheel with no system libraries
-required. On platforms without a repaired `pyhdf` wheel (e.g. Linux aarch64),
-building from sdist requires the system HDF4 library first (Debian/Ubuntu:
+Where compatible binary wheels are available, no separate native-library
+installation is needed. Building `pyhdf` from source requires an HDF4 library
+and build tools first (Debian/Ubuntu:
 `apt install libhdf4-dev`).
 
-**Windows via pip:** PyPI wheels give you the full netCDF/HDF5 surface —
-`import ncarnate`, the CLI (`--help`/`--version`), format detection, audits,
-manifest runs, and verified recompression — but **not** HDF4/HDF-EOS2
-*conversion*: `pyhdf`'s Windows wheel ships no HDF4 runtime. An HDF4 attempt
-is refused cleanly **before any output is created** with the stable
-`[HDF4_RUNTIME_UNAVAILABLE]` message naming the detected cause, the
-capabilities that still work, and the fix — never an unexplained import
-traceback. An audit of an archive containing HDF4 files still completes,
-recording those files as `unsupported` with the same code. For HDF4 on
-Windows use the conda-forge install above (or **WSL** with the pip
-instructions); a dedicated CI job pins this degraded-capability contract on
-every change.
+**Windows via pip:** HDF4 availability depends on the installed pyhdf runtime.
+The 2.3.0 candidate validation used Python 3.11 and pyhdf 0.11.7 successfully on
+Windows, including all five full granules in the checked-in corpus catalog. This does not
+qualify every Python or Windows build. If HDF4 cannot be loaded, ncarnate
+refuses that conversion before output creation with `HDF4_RUNTIME_UNAVAILABLE`;
+netCDF conversion remains usable. The conda-forge installation above is an
+alternative when the pip runtime is unavailable.
 
 ## Command line usage
 
@@ -180,16 +174,17 @@ ncarnate audit /data/archive --output manifest.jsonl --checksum sha256
 #    pass --allow-manifest-root to opt into trusting it instead). A record whose
 #    bytes changed since the audit (sha256 mismatch) is skipped with an error;
 #    a blocker is never converted; sources are left untouched.
-ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /archive
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /data/archive
 
-# Widen the selection once you've read the report; resume an interrupted run.
-ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /archive \
+# Widen the selection and skip paths that already exist (without verifying them).
+ncarnate convert --manifest manifest.jsonl --out-dir ./modern --root /data/archive \
     --status ready,already_modern --skip-existing
 ```
 
-The end-of-run summary counts converted / skipped / failed with reasons, and the
-exit code is non-zero **iff** a selected record failed — so a partial failure on
-a terabyte run surfaces loudly instead of silently mis-converting.
+The end-of-run summary counts converted / skipped / failed with reasons.
+Conversion failures return nonzero. With `--result-journal`, an unavailable
+journal refuses the run before conversions (exit 2); a later reporting failure
+returns exit 3 while retaining the conversion summary and completed outputs.
 
 **Destination collision preflight.** Before any directory or output file is
 created, every selected record's destination is computed up front — from the
@@ -202,7 +197,97 @@ landing on one output path (e.g. an `a.hdf` → `a.nc` conversion next to a real
 `a.nc` sibling), case-fold-equivalent names (one file on NTFS/APFS), duplicate
 records for one source, an output tree overlapping a source tree (symlinks
 resolved), and a pre-existing destination unless you pass `--skip-existing` to
-resume.
+skip them. This legacy flag checks existence, not successful completion. Use the
+prepared library API below for digest-verified resumption.
+
+## Prepared conversions and verified resume
+
+```python
+from ncarnate import prepare, execute_prepared
+
+# The output's parent must already exist. Preparation writes nothing.
+job = prepare("input.nc", "output.nc", complevel=4)
+record = execute_prepared(job, journal="completion.json", resume=True)
+```
+
+`prepare` binds the source digest, size and frozen encoding options to an
+explicit, separate output. `prepare_batch([(source, output), ...])` checks all
+destinations before execution; `execute_prepared_batch` checkpoints each completed
+item in the journal. Existing outputs require a matching journal record and a
+matching output digest. Changed sources, changed options, damaged outputs and
+missing completion evidence are refused. An existing journal requires
+`resume=True`; it is never silently discarded. These APIs return handoff records.
+
+Keep the journal descriptor together with its sibling `<journal>.records`
+directory when backing up or moving completion evidence. Each completed output
+gets its own atomic checkpoint, so larger batches do not repeatedly rewrite a
+growing journal. Each record has a 64 MiB limit; the complete journal has no
+aggregate byte limit. Resume loads these records into caller memory, so its
+memory use grows with the batch. Earlier 2.3.0 development journals migrate when
+resumed. Records without an output digest cannot authorize reuse. Preserve a
+completed output for inspection if checkpoint writing fails; retry with a fresh
+destination rather than assuming the existing output is resumable. Concurrent
+journal writers and power-loss durability are not supported.
+
+Legacy `recompress` still defaults to replacing a netCDF source when no output
+is supplied. Legacy `execute_batch` remains a lazy executor of caller-owned
+plans; it does not inspect future destinations. The new explicit-output API is
+the non-destructive route. Digest checks assume a cooperative filesystem and
+do not prevent concurrent path replacement between checking and reading.
+
+netCDF arrays and HDF4 SDS values copy and verify in bounded slices. To change the temporary
+array budget, wrap execution in `with ncarnate.streaming.array_budget(bytes):`.
+The default is 16 MiB. This is **not a global process-memory limit**: Python,
+metadata, compression and native chunk caches add memory. Native caches can hold
+at least one storage chunk. Variables whose names collide with a dimension use
+the native cache default to avoid a netCDF-C read failure. HDF-EOS geolocation
+reconstruction retains whole output coordinate arrays under declared-size limits;
+swath interpolation computes its larger temporary arrays in tiles.
+
+For a hard limit across the conversion worker, including native allocations:
+
+```python
+from ncarnate import prepare, execute_bounded
+
+report = execute_bounded(prepare("input.hdf", "output.nc"),
+                         memory_bytes=512 * 1024**2,
+                         array_bytes=4 * 1024**2,
+                         timeout_seconds=600)
+record = report["result"]
+```
+
+This serial worker uses a Windows Job Object committed-memory limit or a Linux
+process address-space limit. Neither measures RSS; the calling process is outside
+the cap. Only a successful, verified worker output is published, exclusively to a
+new destination. Timeout, insufficient memory, or native failure leaves no final
+output. Existing outputs are refused; journals and resume remain in the prepared
+API. Unsupported platforms, including macOS for this API, fail before conversion
+with `MEMORY_LIMIT_UNAVAILABLE`. The ordinary conversion API remains portable.
+Publication needs same-filesystem hard-link support; an unavailable link fails
+with `OUTPUT_PUBLISH_FAILED`. If cleanup fails after publication, the verified
+result still returns with a `WORKER_CLEANUP_INCOMPLETE` warning naming the retained
+staging directory. Resource counters are diagnostics; allocation-refusal tests
+verify enforcement independently of those counters.
+The accepted 64 MiB minimum is a validation floor; imports alone may exceed it.
+Start with the default 512 MiB and size the limit for the input and runtime.
+
+Audit mode is metadata-only. Handoff validation bounds nesting and record
+complexity. Undecodable byte attributes and lone surrogate text are refused at
+serialization; a conversion already committed before result read-back fails
+remains an intact output, with a degraded record unsuitable for materialization.
+
+Full-granule provenance and digests are in `tests/fixtures/corpus.json`.
+For a complete small worked example, run
+`python examples/verified_conversion.py NEW_DEMO_DIRECTORY`.
+Run `python tools/corpus.py DATA_DIRECTORY --fetch --include-references`, then set
+`NCARNATE_GRANULE_DIR` and run
+`python tools/test_full_corpus.py --junitxml full-granules.xml`.
+This release check refuses missing or changed inputs, skipped tests and missing
+test cases. Ordinary `pytest` still skips unavailable full-size data. GitHub's
+manual **Full-granule validation** workflow runs the same strict checks and
+retains reports. The separately packaged, local Zarr
+demonstration lives under `companions/zarr-demo` and is excluded from ncarnate's
+distribution. It is not a production storage service.
 
 ## Library usage
 
@@ -221,7 +306,8 @@ recompress("granule.hdf", dst="granule.nc")
 report = audit_path("/data/archive", AuditOptions(recursive=True))
 
 # Execute an audit manifest; returns a ConvertResult (converted/skipped/failed).
-result = convert_manifest("manifest.jsonl", ConvertOptions(out_dir="./modern"))
+result = convert_manifest("manifest.jsonl",
+                          ConvertOptions(root="/data/archive", out_dir="./modern"))
 ```
 
 ## Example
@@ -250,14 +336,22 @@ agree with The HDF Group's independent conversion of the same granule to within
 ## Development
 
 ```console
-pip install -e ".[test]"
+python -m pip install -e ".[test,release]" "ruff==0.15.*"
 ruff check .
-pytest
+python -m pytest -q
+python -m pytest -q tools/tests
 ```
 
 The test suite runs entirely offline against small committed fixtures trimmed
 from real granules (provenance sidecars included); cross-checks against the raw
 multi-MB granules self-skip where the local granule store is absent.
+CI additionally builds documentation, checks release metadata, installs both
+package formats outside the checkout, and tests the separate Zarr companion.
+PyPI and TestPyPI publication wait for all those jobs and use the same tested
+artifacts. Production runs require a matching version tag and release date.
+See [the contributor guide](https://github.com/ErickShepherd/ncarnate/blob/main/CONTRIBUTING.md) for local checks and
+[the release guide](https://ncarnate.readthedocs.io/en/latest/releasing.html)
+for the publication sequence.
 
 ## License
 

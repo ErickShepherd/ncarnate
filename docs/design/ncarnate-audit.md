@@ -1,5 +1,12 @@
 # `ncarnate audit` + the migration-manifest contract — Design
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 > **Status:** ratified design, build in progress in **this** repo. This copy is the
 > **authoritative** build spec (per Key decision 9); the originating design lives in
 > the owner's internal planning records and no longer governs.

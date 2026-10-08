@@ -40,6 +40,26 @@ import numpy as np
 
 # Local application imports.
 from ncarnate.constants import __version__ as _NCARNATE_VERSION
+from ncarnate.errors import NcarnateError
+
+
+class ResultEncodingError(NcarnateError):
+
+    '''
+
+    Raised when an attribute value cannot be represented as valid text at
+    the result-serialization boundary: a ``bytes`` value that is not valid
+    UTF-8, or a ``str`` carrying lone surrogates (for example, the
+    ``surrogateescape`` form of undecodable bytes). The policy is strict and
+    portable — refuse deliberately, before encoding — rather than emitting
+    canonical text that no UTF-8 writer can serialize. Valid text is never
+    altered by this check.
+
+    '''
+
+    def __init__(self, message):
+        super().__init__(message, code="RESULT_ENCODING_INVALID")
+
 
 # The operation-result schema version. Independent of the audit record's
 # SCHEMA_VERSION and the classifier's RULESET_VERSION — it versions a
@@ -91,11 +111,22 @@ def json_safe(value : Any) -> Any:
     into a JSON-safe form. Recursively walks arrays/sequences so a nested
     non-finite float is tokenized too (:func:`_finite_or_token`).
 
+    Text policy: a ``str`` must be encodable as UTF-8 (no lone surrogates)
+    and a ``bytes`` value must decode as strict UTF-8; otherwise
+    :class:`ResultEncodingError` is raised rather than emitting text that
+    cannot be serialized or silently substituting characters.
+
     '''
 
     # str/None/bool before int (bool is an int subclass) so a text scalar or
     # a flag is never mis-coerced.
-    if value is None or isinstance(value, (str, bool)):
+    if isinstance(value, str):
+
+        _require_utf8_text(value)
+
+        return value
+
+    if value is None or isinstance(value, bool):
 
         return value
 
@@ -121,9 +152,34 @@ def json_safe(value : Any) -> Any:
 
     if isinstance(value, bytes):
 
-        return value.decode("utf-8", "surrogateescape")
+        try:
+
+            return value.decode("utf-8")
+
+        except UnicodeDecodeError as error:
+
+            raise ResultEncodingError(
+                "attribute bytes are not valid UTF-8 at offset "
+                f"{error.start}: {value[:32]!r}; refusing to serialize an "
+                "undecodable value"
+            ) from error
 
     return value
+
+
+def _require_utf8_text(value : str) -> None:
+
+    try:
+
+        value.encode("utf-8")
+
+    except UnicodeEncodeError as error:
+
+        raise ResultEncodingError(
+            "attribute text carries a lone surrogate at offset "
+            f"{error.start} (an undecodable byte escaped as text); refusing "
+            "to serialize it"
+        ) from error
 
 
 # ---------------------------------------------------------------------------
@@ -184,14 +240,17 @@ class OutputIdentity:
         }
 
 
-@dataclass
+@dataclass(frozen = True)
 class EncodingOptions:
 
     '''
 
     The **requested** run encoding (mirrors ``recompress``'s flags). The
     *effective* per-variable encoding is recorded separately on each
-    :class:`Variable`, read back from the output (KD5).
+    :class:`Variable`, read back from the output (KD5). Frozen: a reviewed
+    :class:`ncarnate.core.Plan` owns one of these, and the plan is only
+    immutable if its options are too (use ``dataclasses.replace`` to derive
+    a changed request).
 
     '''
 
@@ -660,14 +719,30 @@ def canonical_json(result : OperationResult) -> str:
     by :func:`json_safe`). Stable across runs and across same-endianness
     machines for a fixed fixture + schema version (see
     :meth:`OperationResult.canonical_form` on the byte-order residual) — the
-    exact function step 5's golden-hash test pins.
+    exact function step 5's golden-hash test pins. Raises
+    :class:`ResultEncodingError` if the text cannot be UTF-8 encoded (a lone
+    surrogate in a name or path that bypassed :func:`json_safe`), so the
+    canonical form is always writable by a UTF-8 journal.
 
     '''
 
-    return json.dumps(
+    text = json.dumps(
         result.canonical_form(),
         sort_keys   = True,
         separators  = (",", ":"),
         ensure_ascii = False,
         allow_nan   = False,
     )
+
+    try:
+
+        text.encode("utf-8")
+
+    except UnicodeEncodeError as error:
+
+        raise ResultEncodingError(
+            "canonical result text carries a lone surrogate at offset "
+            f"{error.start}; refusing to emit text no UTF-8 writer can store"
+        ) from error
+
+    return text

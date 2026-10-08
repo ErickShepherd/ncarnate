@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 
 # Third party imports.
 try:
@@ -51,10 +52,10 @@ from ncarnate.constants import PACKAGE_NAME
 from ncarnate.core import Plan, execute
 from ncarnate.discovery import _configure_logging
 from ncarnate.errors import NcarnateError, render_refusal
-from ncarnate.formats import FileFormat
+from ncarnate.formats import FileFormat, detect_format
 from ncarnate.hdf4_runtime import require_hdf4_runtime
 from ncarnate.result import EncodingOptions
-from ncarnate.convert.integrity import ContainmentError
+from ncarnate.convert.integrity import ContainmentError, resolve_within
 from ncarnate.convert.models import (
     ConvertOptions,
     ConvertRecord,
@@ -403,6 +404,12 @@ def _build_convert_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_summary(result):
+    text = render_summary(result)
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(text.encode(encoding, errors="backslashreplace").decode(encoding))
+
+
 def main(argv : list[str]) -> int:
 
     '''
@@ -451,31 +458,71 @@ def main(argv : list[str]) -> int:
         geolocation      = args.geolocation,
     )
 
-    try:
-
-        result = convert_manifest(args.manifest, options)
-
-    except NcarnateError as error:
-
-        # A whole-run refusal (destination preflight, containment) renders
-        # its stable registry code textually — [DESTINATION_COLLISION] … —
-        # so operators can script against stderr, not just the exception
-        # attribute the CLI boundary would otherwise swallow (KD-L2).
-        logger.error("%s", render_refusal(error))
-
-        return 2
-
+    journal = None
     if args.result_journal:
+        from ncarnate.journal import ResultJournal
+        try:
+            if not options.root and not options.allow_manifest_root:
+                raise ContainmentError("supply --root or explicitly trust --allow-manifest-root")
+            manifest_records = list(read_manifest(args.manifest))
+        except NcarnateError as error:
+            logger.error("%s", render_refusal(error))
+            return 2
+        try:
+            target = os.path.realpath(args.result_journal)
+            forbidden = {os.path.realpath(args.manifest)}
+            for record in manifest_records:
+                try:
+                    source = resolve_within(options.root or record.root, record.path)
+                except (NcarnateError, OSError):
+                    continue  # the converter retains per-record refusal semantics
+                forbidden.add(os.path.realpath(source))
+                if record.status not in options.statuses or record.plan is None:
+                    continue
+                try:
+                    detected = detect_format(source)
+                except (NcarnateError, OSError):
+                    continue
+                if options.out_dir:
+                    from ncarnate.convert.preflight import _output_relpath
+                    forbidden.add(os.path.realpath(os.path.join(
+                        options.out_dir, _output_relpath(record, detected),
+                    )))
+                else:
+                    forbidden.add(os.path.splitext(source)[0] + ".nc")
+            if target in forbidden or any(
+                os.path.exists(target) and os.path.exists(path) and os.path.samefile(target, path)
+                for path in forbidden
+            ):
+                raise OSError("journal target aliases a source, manifest, or conversion output")
+            folded_target = target.casefold().rstrip(os.sep)
+            if any(path.casefold().startswith(folded_target + os.sep)
+                   or folded_target.startswith(path.casefold().rstrip(os.sep) + os.sep)
+                   for path in forbidden):
+                raise OSError("journal target conflicts with a parent of a source, manifest, or output")
+            journal = ResultJournal(args.result_journal)
+        except (OSError, NcarnateError) as error:
+            logger.error("[JOURNAL_UNAVAILABLE] %s; no conversions started", error)
+            _print_summary(ConvertResult())
+            return 2
 
-        # The machine-readable journal (action 13): one structured
-        # OperationResult per converted file. Written newline-terminated so a
-        # consumer can `for line in open(...)` cleanly.
-        journal = render_result_journal(result)
-
-        with open(args.result_journal, "w", encoding="utf-8") as stream:
-
-            stream.write(journal + "\n" if journal else "")
-
-    print(render_summary(result))
-
-    return result.exit_code
+    try:
+        try:
+            result = convert_manifest(args.manifest, options)
+        except NcarnateError as error:
+            logger.error("%s", render_refusal(error))
+            return 2
+        _print_summary(result)
+        if journal is not None:
+            try:
+                journal.publish(render_result_journal(result))
+            except (OSError, ValueError, NcarnateError) as error:
+                logger.error("[JOURNAL_WRITE_FAILED] %s; conversion outcomes above remain valid", error)
+                return 3
+        return result.exit_code
+    finally:
+        if journal is not None:
+            try:
+                journal.close()
+            except OSError as error:
+                logger.warning("journal temporary cleanup failed: %s", error)

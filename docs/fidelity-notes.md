@@ -1,7 +1,7 @@
 # Fidelity notes — what ncarnate guarantees lossless, and how it's proven
 
-**Date:** 2026-07-08 (Phase 1). Living document; the Phase-4 test suite pins everything
-stated here.
+**Reviewed:** 2026-10-08 for the 2.3.0 candidate. The tests named below cover the
+stated guarantees; historical measurements retain their original dates.
 
 ## The contract
 
@@ -23,9 +23,10 @@ bit-for-bit for integer/packed data, NaN- and signed-zero-insensitive for floati
   global attributes;
 - explicit variable endianness (stored layout may change only when the user asks).
 
-Deliberately changed: compression (`zlib`/`complevel`), `shuffle`, chunking when
-requested. Output must be smaller or equal at higher `complevel`, and the source is never
-replaced until the new file has been written and re-opened successfully.
+Deliberately changed: compression (`zlib`/`complevel`), `shuffle` and storage
+layout. A smaller file is not guaranteed for arbitrary inputs: container and
+compression overhead may increase size. The source is never replaced until the
+new file has been written, re-opened and verified successfully.
 
 ### HDF4 / HDF-EOS2 → netCDF4 (conversion)
 
@@ -140,5 +141,29 @@ was validated against the sources: 15/15 checks (verbatim/structural StructMetad
 dimension + dimension-map integrity, bit-identical values on kept rows/columns, attribute
 values *and* HDF4 type codes preserved) passed 2026-07-08.
 
-Raw-granule cross-checks (the 29–60 MB originals) stay in a local, non-CI test mark.
+Full-size originals remain outside the repository. Ordinary pytest skips them
+when absent; the manual full-granule CI job verifies the complete pinned corpus
+and independent reference and refuses missing, skipped or omitted checks.
 
+## Prepared execution, streaming and completion evidence
+
+Prepared plans bind source bytes and frozen encoding options to explicit new
+destinations. Finite batches validate all destinations before conversions begin.
+Reusing an existing output requires a matching completion record and a fresh
+digest check. CLI `--skip-existing` only checks existence and does not provide
+this guarantee. Prepared journals keep a descriptor plus one atomic checkpoint
+per completed output in a sibling records directory; preserve both together.
+
+Science arrays copy and verify in bounded slices, following native chunk
+boundaries where available. This bounds temporary arrays, not the whole process:
+native caches, Python, metadata and generated coordinate arrays add memory.
+Swath interpolation tiles its larger temporaries. An optional isolated worker
+enforces a Windows committed-memory limit or a Linux address-space limit; the
+caller is outside that cap and macOS deliberately refuses this worker API.
+
+Failed conversions do not replace source files. Reporting can fail after a
+verified output has been committed; the output remains intact, but a degraded
+record without a digest cannot authorize resume or downstream materialization.
+Concurrent filesystem replacement and power-loss durability are outside these
+cooperating-writer guarantees. See the current API reference for failure codes
+and publication requirements.

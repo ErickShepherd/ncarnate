@@ -1,5 +1,12 @@
 # `inspect → plan → execute` — the ncarnate stage API (step 4B) — Design
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 > **Status:** built as the public stage-API increment. Scoped to the
 > `inspect → plan → execute` integration boundary.
 > Builds directly on **4A** ([`ncarnate-operation-result.md`](ncarnate-operation-result.md)) — `execute`

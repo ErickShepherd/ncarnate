@@ -1,5 +1,12 @@
 # HDF-EOS2 → CF-netCDF4 geolocation subsystem — Design
 
+> **Historical design record.** Reviewed for the 2.3.0 candidate on October 8,
+> 2026. Status labels, implementation plans, source locations and test counts
+> below describe the original design period, not current release readiness.
+> Use the [current API documentation](../api.rst),
+> [release notes](../release-notes.rst) and [release guide](../releasing.rst)
+> for supported behavior and remaining publication checks.
+
 **Date:** 2026-07-08
 **Status:** DRAFT — grounded in the 2026-07-08 fixture survey of three real granules.
 **Scope:** This document details the geolocation subsystem: full grid/swath

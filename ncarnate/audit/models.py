@@ -26,10 +26,28 @@ from typing import Any
 # Local application imports.
 from ncarnate.constants import __version__ as _NCARNATE_VERSION
 from ncarnate.audit.codes import RULESET_VERSION
+from ncarnate.errors import NcarnateError
 
 # The record schema version. Bumped only on a breaking schema change; the
 # classification ruleset versions independently (codes.RULESET_VERSION).
 SCHEMA_VERSION = 1
+
+# The audit depths this release implements. Only metadata-only inspection
+# exists; no deeper mode is advertised or faked. Append here when a deeper
+# mode is actually implemented.
+AUDIT_MODES = ("metadata",)
+
+
+class AuditModeError(NcarnateError):
+
+    '''
+
+    Raised when :class:`AuditOptions` is constructed with an audit ``mode``
+    this release does not implement. Refusing at construction keeps the
+    reported ``mode`` honest: an unknown label can never be echoed into a
+    record while metadata-only inspection silently ran underneath it.
+
+    '''
 
 
 @dataclass
@@ -38,12 +56,23 @@ class AuditOptions:
     '''
 
     How an audit run behaves: recursion, audit depth, and opt-in hashing.
+    ``mode`` must be one of ``AUDIT_MODES``; anything else raises
+    :class:`AuditModeError` at construction.
 
     '''
 
     recursive : bool = False
     mode      : str = "metadata"
     checksum  : str | None = None
+
+    def __post_init__(self) -> None:
+
+        if self.mode not in AUDIT_MODES:
+
+            raise AuditModeError(
+                f"unsupported audit mode {self.mode!r}; this release "
+                f"implements only {', '.join(AUDIT_MODES)}", code="AUDIT_MODE_UNSUPPORTED"
+            )
 
 
 @dataclass

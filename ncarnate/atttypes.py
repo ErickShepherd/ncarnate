@@ -148,10 +148,25 @@ def string_attribute_names(
     the root; netCDF4-python's ``Group.path`` convention), or, when
     ``variable`` is given, that variable within the group. One
     ``nc_open`` per call — callers inquire per scope, never per
-    attribute.
+    attribute. This inspects the bytes **on disk**: it cannot see
+    attributes a still-open writer has not synchronized (see
+    :func:`string_attributes_of` for the handle-aware contract).
 
     '''
 
+    return frozenset(
+        name for name, att_type in _attribute_types(path, group_path, variable).items()
+        if att_type == NC_STRING
+    )
+
+
+def _attribute_types(
+    path : str, group_path : str, variable : "str | None"
+) -> "dict[str, int]":
+
+    # Every attribute name at the scope mapped to its netCDF-C external
+    # type code, read from the file on disk through an independent
+    # read-only nc_open.
     library = _libnetcdf()
 
     ncid = ctypes.c_int()
@@ -206,7 +221,7 @@ def string_attribute_names(
                 "nc_inq_varnatts",
             )
 
-        names = []
+        types = {}
 
         for index in range(count.value):
 
@@ -223,35 +238,85 @@ def string_attribute_names(
                 f"nc_inq_atttype({buffer.value!r})",
             )
 
-            if att_type.value == NC_STRING:
+            types[buffer.value.decode("utf-8")] = att_type.value
 
-                names.append(buffer.value.decode("utf-8"))
-
-        return frozenset(names)
+        return types
 
     finally:
 
         library.nc_close(ncid)
 
 
-def string_attributes_of(obj) -> frozenset:
+def _root_dataset(group):
+
+    # The owning Dataset of a Group (a Dataset is its own root).
+    node = group
+
+    while getattr(node, "parent", None) is not None:
+
+        node = node.parent
+
+    return node
+
+
+def string_attributes_of(obj, *, sync : bool = False) -> frozenset:
 
     '''
 
     :func:`string_attribute_names` for an **open** netCDF4-python object
     — a ``Dataset``, ``Group``, or ``Variable`` — deriving the file
     path and scope from the object itself (``filepath()``, ``path``,
-    ``Variable.group()``). The inquiry re-opens the file read-only via
-    netCDF-C, so the object may be any readable handle.
+    ``Variable.group()``).
+
+    **Contract.** The inquiry re-opens the file read-only via netCDF-C,
+    so it reports what is **on disk**, not what an unsynchronized writer
+    holds in memory. The handle is therefore expected to be read-only or
+    already synchronized — every shipped caller passes a read handle. The
+    normal path is guarded, not trusted: the attribute **names** the live
+    handle reports are compared with the names found on disk, and any
+    difference raises :class:`AttTypeInquiryError` (the handle has
+    unsynced attributes) instead of returning a silently incomplete set.
+    A writer that wants the inquiry must opt in with ``sync=True``, which
+    explicitly flushes the owning ``Dataset`` (``Dataset.sync()``) before
+    the on-disk read; nothing is flushed without that opt-in.
+
+    Residual: the guard sees unsynced *added or removed* attributes. An
+    attribute re-written under the same name with a different storage type
+    and not yet synced is indistinguishable by name; a writer must use
+    ``sync=True`` to get a correct answer in that case.
 
     '''
 
     if hasattr(obj, "group"):  # a Variable
 
-        group = obj.group()
+        group    = obj.group()
+        variable = obj.name
 
-        return string_attribute_names(
-            group.filepath(), group.path, variable = obj.name
+    else:
+
+        group    = obj
+        variable = None
+
+    if sync:
+
+        _root_dataset(group).sync()
+
+    stored = _attribute_types(group.filepath(), group.path, variable)
+    live   = frozenset(obj.ncattrs())
+
+    if live != frozenset(stored):
+
+        scope = f"{group.path}" + (f":{variable}" if variable else "")
+
+        raise AttTypeInquiryError(
+            f"attribute storage-type inquiry on {scope} saw different "
+            "attribute names on disk than the open handle reports "
+            f"(only in handle: {sorted(live - set(stored))}; only on disk: "
+            f"{sorted(set(stored) - live)}); the handle has unsynced "
+            "changes — pass a read-only or synchronized handle, or opt in "
+            "with sync=True for a writer"
         )
 
-    return string_attribute_names(obj.filepath(), obj.path)
+    return frozenset(
+        name for name, att_type in stored.items() if att_type == NC_STRING
+    )

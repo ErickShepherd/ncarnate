@@ -30,12 +30,15 @@ or an issue labelled `question`. The README covers installation (including the
 ```console
 git clone https://github.com/ErickShepherd/ncarnate
 cd ncarnate
-pip install -e ".[test]"
+python -m pip install -e ".[test,release]" "ruff==0.15.*"
+python -m pip install -r docs/requirements.txt
 ```
 
-On Linux (x86_64) and macOS (arm64) every dependency — including `pyhdf` —
-installs as a binary wheel. On other platforms the HDF4 path may need a system
-HDF4 library first (see the README).
+Compatible pip wheels can supply the native dependencies. If a wheel is not
+available for your platform and Python version, use conda-forge or install the
+native libraries and build tools described in the README. Ordinary conversion
+and the hard memory-limit worker have different platform coverage: the worker
+supports Windows and Linux and deliberately refuses macOS.
 
 ## Making a change
 
@@ -47,11 +50,36 @@ HDF4 library first (see the README).
 4. Run the checks locally:
    ```console
    ruff check .
-   pytest
+   python -m pytest -q
+   python -m pytest -q tools/tests
+   python tools/validate_release_metadata.py
+   cffconvert --validate
+   python -m sphinx -W --keep-going -b html docs docs/_build/html
    ```
 5. Open a pull request describing the change and, for a conversion change, how
    it preserves the fidelity contract (stored values unchanged; output verified
    against the source before it replaces anything).
+
+For full-size regression evidence, fetch and verify the catalogued originals
+and independent reference with
+`python tools/corpus.py DATA_DIRECTORY --fetch --include-references`.
+Set `NCARNATE_GRANULE_DIR` to that directory and
+run `python tools/test_full_corpus.py --junitxml full-granules.xml`. That check
+fails on missing files or skipped/missing tests; ordinary pytest remains usable
+without the external corpus. Keep downloaded inputs and reports outside the
+tracked source tree. The manual full-granule GitHub workflow retains its reports.
+
+The Zarr demonstration requires Python 3.11 or newer and is a separate package:
+install `companions/zarr-demo` after the candidate ncarnate package, then run
+`python -m pytest -q companions/zarr-demo/tests`. Its CI job builds and tests the
+installed wheel outside both source packages.
+
+To exercise release installations locally, build to a directory outside the
+checkout with `python -m build --outdir PATH_TO_ARTIFACTS`, then run
+`python tools/test_distribution.py PATH_TO_ARTIFACTS --kind wheel` and repeat
+with `--kind sdist`. Each run creates a clean environment and tests the installed
+package. PyPI and TestPyPI wait for these jobs and the full source CI. Publication
+is a separate maintainer action; see `docs/releasing.rst`.
 
 ## Scope and design
 

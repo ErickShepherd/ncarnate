@@ -74,7 +74,8 @@ def structmetadata(sd: SD) -> str:
     return "".join(sd.attributes()[k] for k in keys)
 
 
-def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) -> None:
+def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None,
+                    *, omit: tuple[str, ...] = ()) -> None:
     """Copy global attributes preserving each one's exact HDF4 type code.
 
     Iterates by index through the typed ``attr()`` accessor rather than the
@@ -88,6 +89,8 @@ def copy_file_attrs(src: SD, dst: SD, structmeta_override: str | None = None) ->
     for idx in range(n_attrs):
         attr = src.attr(idx)
         name, attr_type, _n = attr.info()
+        if name in omit:
+            continue
         if name.startswith("StructMetadata"):
             if not wrote_sm:
                 text = structmeta_override if structmeta_override is not None \
@@ -221,7 +224,10 @@ def trim_myd05(granule_dir: Path, out_dir: Path) -> Path:
         "Cell_Along_Swath_5km": N_LINES_5KM,
     })
     dst = SD(str(out), SDC.WRITE | SDC.CREATE | SDC.TRUNC)
-    copy_file_attrs(src, dst, structmeta_override=sm)
+    # The retained fixture omits these full-granule counters. They would
+    # misdescribe the trimmed swath; its dimensions live in StructMetadata.
+    omitted = ("Maximum_Number_of_1km_Frames", "Number_of_Instrument_Scans")
+    copy_file_attrs(src, dst, structmeta_override=sm, omit=omitted)
     copy_sds(src, dst, "Latitude", rows=N_LINES_5KM)
     copy_sds(src, dst, "Longitude", rows=N_LINES_5KM)
     copy_sds(src, dst, "Water_Vapor_Near_Infrared", rows=N_LINES_1KM)
@@ -235,6 +241,7 @@ def trim_myd05(granule_dir: Path, out_dir: Path) -> Path:
                    "dimension_map": "offset=2, increment=5 (unchanged)",
                    "structmetadata_edit":
                        "Size= rewritten for Cell_Along_Swath_1km/5km",
+                   "global_attributes_omitted": list(omitted),
                })
     return out
 
