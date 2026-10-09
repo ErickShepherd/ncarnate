@@ -142,7 +142,7 @@ dimension + dimension-map integrity, bit-identical values on kept rows/columns, 
 values *and* HDF4 type codes preserved) passed 2026-07-08.
 
 Full-size originals remain outside the repository. Ordinary pytest skips them
-when absent; the manual full-granule CI job verifies the complete pinned corpus
+when absent; the full-granule CI job verifies the complete pinned corpus
 and independent reference and refuses missing, skipped or omitted checks.
 
 ## Prepared execution, streaming and completion evidence

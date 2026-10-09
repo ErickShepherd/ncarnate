@@ -81,10 +81,11 @@ The recovery is specific to 2.3.0 and cannot publish another release. Once
 those files are uploaded, duplicate uploads still fail.
 
 For full-size evidence, ``Full-granule validation`` runs automatically for
-pull requests from ``release/`` branches into ``main``. This also validates a
-new workflow before it reaches the default branch. Once available on the
-default branch, it can also be run manually in GitHub Actions on the candidate
-revision. It downloads the catalogued original
+pull requests into ``main`` and pushes to ``main`` that change package code,
+tests, the corpus tools, package metadata, or the full-granule workflow. It
+can also be run manually in GitHub Actions on the candidate revision, including
+releases containing only documentation changes. It restores a cache keyed by
+the corpus manifest and downloads any missing catalogued original
 granules and independent reference, verifies every pinned digest, and runs the
 full-size tests. Missing data, unavailable mirrors, mismatched digests, test
 failures, skipped tests and missing expected test cases all fail the job.
@@ -93,6 +94,11 @@ retained even on failure. This network-dependent job is separate from the
 normal publication gate; review its result before release. For an already
 acquired local corpus, set ``NCARNATE_GRANULE_DIR`` and run
 ``python tools/test_full_corpus.py --junitxml PATH_TO_REPORT``.
+Temporary download failures receive up to three attempts per URL with bounded
+backoff; detailed errors appear directly in the job log. Cache hits never skip
+checksum verification. The cache is saved only after all inputs verify, before
+conversion tests run. See :doc:`ci-dependencies` for source availability and
+the proposed durable mirror.
 
 After PyPI publication, verify the downloaded archive matches the retained
 release artifact and update the recipe digest if necessary. The local recipe

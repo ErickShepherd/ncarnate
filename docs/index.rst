@@ -30,3 +30,4 @@
    API reference <api>
    Release notes <release-notes>
    Releasing ncarnate <releasing>
+   CI dependencies <ci-dependencies>

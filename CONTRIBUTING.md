@@ -67,7 +67,12 @@ Set `NCARNATE_GRANULE_DIR` to that directory and
 run `python tools/test_full_corpus.py --junitxml full-granules.xml`. That check
 fails on missing files or skipped/missing tests; ordinary pytest remains usable
 without the external corpus. Keep downloaded inputs and reports outside the
-tracked source tree. The manual full-granule GitHub workflow retains its reports.
+tracked source tree. The full-granule GitHub workflow retains its reports and
+uses a cache keyed by the corpus manifest. It verifies every cached file before
+testing. Downloads retry temporary failures at most three times per URL, with
+2- and 4-second pauses; errors appear in the job log even when JSON is redirected.
+Bad checksums and permanent HTTP errors are not retried. See
+[CI dependencies](docs/ci-dependencies.rst) for data sources and the mirror plan.
 
 The Zarr demonstration requires Python 3.11 or newer and is a separate package:
 install `companions/zarr-demo` after the candidate ncarnate package, then run
