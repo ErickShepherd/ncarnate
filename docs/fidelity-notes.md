@@ -1,7 +1,16 @@
 # Fidelity notes — what ncarnate guarantees lossless, and how it's proven
 
-**Reviewed:** 2026-10-08 for the 2.3.0 candidate. The tests named below cover the
+**Reviewed:** 2026-10-09 for the 2.3.1 candidate. The tests named below cover the
 stated guarantees; historical measurements retain their original dates.
+
+The `convert_file` entry point uses the same value verifier as `recompress`,
+but requires a separate output and defaults to refusing replacement. Its
+filesystem publication and netCDF3 regression checks are in
+`tests/test_convert_file.py`. The default probes hard-link support before
+conversion, refuses a competing output, and checks file identity after an
+ambiguous link error. Unsupported filesystems fail safely; `overwrite=True`
+explicitly opts into replacement. Callers must keep source paths and parent
+directories stable during execution.
 
 ## The contract
 

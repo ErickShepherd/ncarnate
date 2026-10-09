@@ -8,6 +8,12 @@ and isolated conversion workers. The APIs below are available from ``ncarnate``.
 Conversion and recompression
 ----------------------------
 
+Use ``convert_file(src, dst)`` for one-file conversion or recompression with
+a separate output. Existing outputs require ``overwrite=True``. The legacy
+``recompress`` function retains its original source-replacement defaults.
+
+.. autofunction:: ncarnate.convert_file
+
 .. autofunction:: ncarnate.recompress
 
 Read-only audit

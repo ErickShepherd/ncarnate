@@ -2,7 +2,7 @@ schema_version: 1
 
 context:
   # Candidate recipe: verify its sdist digest against PyPI before feedstock submission.
-  version: "2.3.0"
+  version: "2.3.1"
   python_min: "3.10"
 
 package:
@@ -11,7 +11,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/n/ncarnate/ncarnate-${{ version }}.tar.gz
-  sha256: 3852afbea8e31697e5a75eb2fd266672fbf932b43aa58c3077c0c9c60f1617ce
+  sha256: dca7585745241a4f2af462abf8794643de149500905c65fddda424e0a74dfc1f
 
 build:
   number: 0
@@ -49,6 +49,7 @@ tests:
   - script:
       - ncarnate --help
       - ncarnate --version
+      - python -c "from ncarnate import convert_file, convert_manifest, recompress; assert all(callable(api) for api in (convert_file, convert_manifest, recompress))"
 
 about:
   summary: Losslessly recompress netCDF/HDF5 and convert HDF4/HDF-EOS2 granules to CF-annotated netCDF4 with reconstructed geolocation
@@ -69,6 +70,8 @@ about:
     outputs and digest-verified resume. Science arrays copy and verify in
     bounded slices; optional isolated workers enforce memory limits on Windows
     and Linux. Generated coordinate fields may still require whole arrays.
+    The convert_file API requires a separate output and explicit permission
+    to replace an existing output file, while keeping the source intact.
   license: MIT
   license_file: LICENSE
   homepage: https://github.com/ErickShepherd/ncarnate

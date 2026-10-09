@@ -83,6 +83,10 @@ def limit_cache(variable):
         # become unreadable after changing the cache. Keep the native default
         # in this case; execute_bounded still caps the whole worker.
         group = variable.group()
+        # netCDF3 variables expose the cache methods in netCDF4-python,
+        # but netCDF-C rejects these HDF5-only operations on classic files.
+        if group.data_model.startswith("NETCDF3"):
+            return
         while group is not None:
             if variable.name in group.dimensions and variable.dimensions != (variable.name,):
                 return

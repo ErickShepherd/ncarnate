@@ -13,8 +13,8 @@ authors:
     given-names: "Erick Edward"
     email: "dev@erickshepherd.com"
     orcid: "https://orcid.org/0000-0002-4750-6100"
-version: "2.3.0"
-date-released: "2026-10-08"
+version: "2.3.1"
+# Add date-released on the actual publication date.
 # This is the verified concept DOI, which identifies all versions.
 doi: "10.5281/zenodo.21288802"
 license: MIT
