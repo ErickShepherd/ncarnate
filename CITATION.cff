@@ -14,7 +14,7 @@ authors:
     email: "dev@erickshepherd.com"
     orcid: "https://orcid.org/0000-0002-4750-6100"
 version: "2.3.1"
-# Add date-released on the actual publication date.
+date-released: 2026-10-09
 # This is the verified concept DOI, which identifies all versions.
 doi: "10.5281/zenodo.21288802"
 license: MIT

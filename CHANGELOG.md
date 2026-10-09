@@ -6,7 +6,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-## [2.3.1] - Unreleased
+## [2.3.1] - 2026-10-09
 
 - Add `convert_file(src, dst, ...)` as the preferred one-file Python API for
   conversion and recompression. It requires a separate output, preserves the

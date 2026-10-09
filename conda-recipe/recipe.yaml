@@ -11,7 +11,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/n/ncarnate/ncarnate-${{ version }}.tar.gz
-  sha256: dca7585745241a4f2af462abf8794643de149500905c65fddda424e0a74dfc1f
+  sha256: c6ef6c00d2b81e4f077a5043ce7ab00889daa8272b0321a257327ad60fe3d87f
 
 build:
   number: 0

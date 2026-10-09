@@ -134,7 +134,7 @@ Downstream automation and manual checks
   routine version update or invent a version DOI before Zenodo assigns it.
   See `Zenodo's GitHub release guide <https://help.zenodo.org/docs/github/archive-software/github-upload/>`_.
 
-For 2.3.1, keep the citation and changelog undated while the PR is a draft.
+Keep the citation and changelog undated until the release is scheduled.
 Before tagging, set the actual publication date in both, rebuild and retest
 the final artifacts, and refresh the local conda digest. The new
 ``convert_file`` API requires a separate output and, by default, hard-link
