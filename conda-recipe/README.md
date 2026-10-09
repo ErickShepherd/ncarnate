@@ -1,9 +1,10 @@
 # conda-forge recipe
 
-This is the maintained candidate recipe for ncarnate 2.3.0 in conda-forge's
+This is the maintained candidate recipe for ncarnate 2.3.1 in conda-forge's
 v1 recipe format. The package already has a
 [feedstock](https://github.com/conda-forge/ncarnate-feedstock); submit updates
-there. Its published recipe was 2.2.2 when checked on October 8, 2026.
+there. The conda-forge channel serves 2.3.0 as of October 9, 2026;
+this 2.3.1 recipe remains a local release candidate.
 
 The candidate version, dependencies and Python floor are synchronized with
 the main package. The source digest records the locally built candidate

@@ -6,6 +6,20 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [2.3.1] - 2026-10-09
+
+- Add `convert_file(src, dst, ...)` as the preferred one-file Python API for
+  conversion and recompression. It requires a separate output, preserves the
+  source, and refuses existing outputs unless `overwrite=True` is supplied.
+- Verify the output before publication; default publication also refuses an
+  output created while conversion was running. This mode requires a filesystem
+  with hard-link support and fails safely when that support is unavailable.
+- Keep `recompress()`, `convert_manifest()`, the `ncarnate.convert` module and
+  all command-line behavior compatible with 2.3.0.
+- Restore netCDF3 input conversion in the Python APIs, CLI and manifest runs
+  after the 2.3.0 chunk-cache regression attempted an HDF5-only operation on
+  classic files.
+
 ## [2.3.0] - 2026-10-08
 
 - Add explicit-output prepared plans, shared finite-batch collision checks and

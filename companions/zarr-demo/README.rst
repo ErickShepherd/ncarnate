@@ -5,8 +5,8 @@ This is a separate package, excluded from ncarnate's wheel and source
 distribution. It consumes a handoff and a caller-located netCDF checkpoint.
 It never opens the handoff's advisory source path.
 
-Use Python 3.11 or newer. The example requires ncarnate >=2.3,<3; while 2.3.0 is
-a local candidate, install the candidate checkout first, then this directory::
+Use Python 3.11 or newer. The example requires ncarnate >=2.3,<3. To test a
+local release candidate, install that checkout first, then this directory::
 
     python -m pip install -e .
     python -m pip install -e companions/zarr-demo

@@ -293,14 +293,14 @@ distribution. It is not a production storage service.
 
 ```python
 from ncarnate import (
-    recompress, audit_path, AuditOptions, convert_manifest, ConvertOptions,
+    convert_file, recompress, audit_path, AuditOptions, convert_manifest, ConvertOptions,
 )
 
-# Lossless recompression; returns the output path.
-recompress("observations.nc", complevel=9)
+# Lossless recompression into a separate file; returns the output path.
+convert_file("observations.nc", "observations_compressed.nc", complevel = 9)
 
 # HDF-EOS2 conversion; the .hdf source is never replaced.
-recompress("granule.hdf", dst="granule.nc")
+convert_file("granule.hdf", "granule.nc")
 
 # Read-only archive audit; returns an AuditReport (report.summary, report.files).
 report = audit_path("/data/archive", AuditOptions(recursive=True))
@@ -309,6 +309,18 @@ report = audit_path("/data/archive", AuditOptions(recursive=True))
 result = convert_manifest("manifest.jsonl",
                           ConvertOptions(root="/data/archive", out_dir="./modern"))
 ```
+
+`convert_file()` is available from 2.3.1. It requires an explicit, separate
+output path and leaves the source intact. Existing output files are refused;
+pass `overwrite=True` to replace an output after verification. Its parent
+directory must already exist. Default publication requires hard-link support
+so an output created during conversion cannot be overwritten; unsupported
+filesystems (for example FAT/exFAT) fail before conversion. Choose a filesystem
+with hard links, or explicitly use `overwrite=True`; that also permits replacing
+an output created during conversion. Source aliases, symbolic-link outputs and
+paths differing from the source only by case are refused on every platform.
+Keep source paths and parent directories stable while
+conversion runs. The legacy `recompress()` API and its defaults are unchanged.
 
 ## Example
 

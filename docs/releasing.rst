@@ -107,7 +107,36 @@ those bytes. Submit the version and digest update to the existing
 ``conda-forge/ncarnate-feedstock`` and run its build/lint matrix. Do not reopen
 an initial staged-recipes submission for the existing package.
 
-Confirm the tagged Read the Docs build succeeds and that the intended stable
-version is active. Confirm Zenodo created the new version under the existing
-concept DOI and reports the correct version and actual release date. No new
-version-specific DOI can be filled in before Zenodo assigns it.
+Downstream automation and manual checks
+---------------------------------------
+
+* **PyPI:** a full GitHub release starts the workflow described above. The
+  upload still needs passing CI and approval of the protected ``pypi``
+  environment. A branch push or draft pull request does not publish a package.
+  Verify the uploaded version, README rendering and retained artifact digests.
+* **conda-forge:** the version-update bot can propose a feedstock update after
+  PyPI publication. Review its version, digest and dependency changes, and wait
+  for the feedstock's own checks before merging. If no update appears, use the
+  documented bot update request or submit the recipe update. A main-repository
+  merge does not itself update the conda-forge channel. See the
+  `conda-forge maintainer guide <https://conda-forge.org/docs/maintainer/updating_pkgs/>`_.
+* **Read the Docs:** ``latest`` tracks the default branch; ``stable`` tracks
+  the highest stable version tag. Newly discovered named versions are inactive
+  by default unless an automation rule activates them. After tagging, check
+  the Versions dashboard, activate ``v2.3.1`` if necessary, and verify both its
+  build and ``stable``. Trigger a build to resync tags if needed. Activation
+  triggers a build; do not assume that discovering a tag published its docs.
+  See `Read the Docs version management <https://docs.readthedocs.com/platform/stable/versions.html>`_.
+* **Zenodo:** with the GitHub repository integration enabled, publishing a
+  GitHub release triggers archiving. Check the integration result and verify
+  that the record belongs to the existing concept DOI, with the correct
+  version and actual release date. Do not create a separate deposit for a
+  routine version update or invent a version DOI before Zenodo assigns it.
+  See `Zenodo's GitHub release guide <https://help.zenodo.org/docs/github/archive-software/github-upload/>`_.
+
+Keep the citation and changelog undated until the release is scheduled.
+Before tagging, set the actual publication date in both, rebuild and retest
+the final artifacts, and refresh the local conda digest. The new
+``convert_file`` API requires a separate output and, by default, hard-link
+support on the output filesystem. Confirm its platform tests pass; do not
+silently fall back to overwriting on filesystems without that support.

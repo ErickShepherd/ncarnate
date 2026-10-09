@@ -162,6 +162,55 @@ def recompress(src         : str,
     )
 
 
+def convert_file(src         : str,
+                 dst         : str,
+                 *,
+                 zlib        : bool = True,
+                 shuffle     : bool = True,
+                 complevel   : int  = 7,
+                 overwrite   : bool = False,
+                 geolocation : bool = True) -> str:
+
+    '''Convert a supported file to verified netCDF4, keeping the source.
+
+    ``dst`` is required and must be separate from ``src`` (including aliases).
+    Its parent directory must already exist. Existing outputs are refused
+    unless ``overwrite=True``; that option replaces only the output, never
+    the source. Returns the absolute output path after value verification.
+
+    Supports the same formats, compression settings and HDF-EOS2 geolocation
+    as :func:`recompress`. Unlike that legacy API, this function never chooses
+    an in-place destination. Symbolic-link outputs and paths differing from
+    the source only by case are refused, including on case-sensitive systems.
+
+    Default publication uses an atomic hard link to avoid replacing an output
+    created during conversion. The output filesystem must support hard links;
+    support is probed before conversion. On filesystems without hard links
+    (such as FAT/exFAT), choose another output filesystem or explicitly use
+    ``overwrite=True``; that opts into replacing even an output created during
+    conversion. Callers must
+    keep source paths and parent directories stable during execution.
+
+    .. versionadded:: 2.3.1
+    '''
+
+    from ncarnate.destinations import validate_destinations
+
+    if dst is None:
+        raise NcarnateError("convert_file requires a separate output path",
+                            code="DESTINATION_COLLISION")
+
+    validate_destinations([(src, dst, os.fspath(src))], allow_existing=overwrite)
+    plan = _plan_from_path(src, dst, zlib, shuffle, complevel,
+                           overwrite=False, geolocation=geolocation)
+    if not os.path.isdir(os.path.dirname(plan.destination)):
+        raise NcarnateError("output parent must be an existing directory",
+                            code="OUTPUT_PUBLISH_FAILED")
+    if not overwrite:
+        _probe_no_replace(os.path.dirname(plan.destination))
+    return _execute_core(plan, replace_existing=overwrite)
+
+
 def _plan_from_path(src         : str,
                     dst         : str | None = None,
                     zlib        : bool       = True,
@@ -263,15 +312,15 @@ def _plan_from_path(src         : str,
     )
 
 
-def _execute_core(plan : Plan) -> str:
+def _execute_core(plan : Plan, *, replace_existing : bool = True) -> str:
 
     '''
 
-    Run a :class:`Plan`'s verified write-then-atomic-replace and return the
+    Run a :class:`Plan`'s verified write-then-atomic-publish and return the
     destination path. Builds the format-specific write/verify closures from
     ``plan.detected_format`` and drives the shared :func:`_write_verified`
-    scaffold — the *only* writer and the *only* mover. A verified output is
-    atomically renamed into place and **never deleted**; on any failure the
+    scaffold — the *only* writer and publisher. A verified output is
+    atomically published into place and **never deleted**; on any failure the
     source is untouched and the temporary file is removed.
 
     For HDF4 input the runtime gate (``require_hdf4_runtime``) fires here,
@@ -321,7 +370,11 @@ def _execute_core(plan : Plan) -> str:
 
             _verify_lossless(plan.source, tmp_path)
 
-    _write_verified(plan.source, plan.destination, _write, _verify)
+    if replace_existing:
+        _write_verified(plan.source, plan.destination, _write, _verify)
+    else:
+        _write_verified(plan.source, plan.destination, _write, _verify,
+                        replace_existing=False)
 
     return plan.destination
 
@@ -490,10 +543,50 @@ def _guard_auto_destination(dst_path : str) -> None:
         )
 
 
+def _link_without_replacement(src_path : str, dst_path : str) -> None:
+    try:
+        os.link(src_path, dst_path)
+    except OSError as error:
+        # An NFS server can create the link and lose its reply. Verify the
+        # actual file identity before reporting failure (link(2), BUGS).
+        try:
+            if not os.path.islink(dst_path) and os.path.samefile(src_path, dst_path):
+                return
+        except OSError:
+            pass
+        if isinstance(error, FileExistsError):
+            raise NcarnateError(
+                f"destination appeared during conversion: {dst_path}",
+                code="DESTINATION_COLLISION",
+            ) from error
+        raise NcarnateError(
+            "cannot publish output without replacement: the default mode "
+            "requires hard-link support and permission on the output filesystem. "
+            "Use a supporting filesystem, or explicitly pass overwrite=True "
+            "to permit replacing existing outputs, including ones created during "
+            f"conversion. Original error: {error}", code="OUTPUT_PUBLISH_FAILED",
+        ) from error
+
+
+def _probe_no_replace(directory : str) -> None:
+    # A private, uniquely named directory prevents a probe-name collision from
+    # leaving uncertainty about which files we own and can safely clean up.
+    try:
+        with tempfile.TemporaryDirectory(prefix=".ncarnate-probe-", dir=directory) as probe:
+            source = os.path.join(probe, "source")
+            with open(source, "xb"):
+                pass
+            _link_without_replacement(source, os.path.join(probe, "link"))
+    except OSError as error:
+        raise NcarnateError(f"output filesystem preflight failed: {error}",
+                            code="OUTPUT_PUBLISH_FAILED") from error
+
+
 def _write_verified(src_path : str,
                     dst_path : str,
                     write    : "Callable[[str], None]",
-                    verify   : "Callable[[str], None]") -> None:
+                    verify   : "Callable[[str], None]",
+                    *, replace_existing : bool = True) -> None:
 
     '''
 
@@ -523,11 +616,30 @@ def _write_verified(src_path : str,
         # `mkstemp` creates the file 0o600; carry the source's permission
         # bits over so the output isn't unreadable to the user's group
         # (masking off setuid/setgid/sticky — no reason to propagate them).
-        os.chmod(tmp_path, os.stat(src_path).st_mode & 0o777)
+        source_mode = os.stat(src_path).st_mode & 0o777
 
         # The temporary file lives in the target's directory, so the
         # replace is a same-filesystem atomic rename.
-        os.replace(tmp_path, dst_path)
+        if replace_existing:
+            os.chmod(tmp_path, source_mode)
+            os.replace(tmp_path, dst_path)
+        else:
+            _link_without_replacement(tmp_path, dst_path)
+            # The output now owns the verified bytes. Failure to remove the
+            # temporary link must not report a failed conversion after success.
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                logging.getLogger("ncarnate").warning(
+                    "Could not remove temporary output link: %s", tmp_path)
+            # Windows cannot unlink a read-only staging inode. Apply source
+            # permissions only after removing the extra name. Publication has
+            # succeeded, so a permission failure is a warning, not a failed run.
+            try:
+                os.chmod(dst_path, source_mode)
+            except OSError:
+                logging.getLogger("ncarnate").warning(
+                    "Output verified, but could not copy source permissions: %s", dst_path)
 
     except BaseException:
 

@@ -14,6 +14,7 @@ top-level LICENSE file.
 from ncarnate.constants import __author__
 from ncarnate.constants import __version__
 from ncarnate.core import recompress
+from ncarnate.core import convert_file
 from ncarnate.errors import HandoffError
 from ncarnate.errors import NcarnateError
 from ncarnate.errors import UnsupportedFormatError
@@ -45,6 +46,7 @@ __all__ = [
     "execute_bounded",
     "PreparedPlan", "prepare", "prepare_batch", "execute_prepared", "execute_prepared_batch",
     "recompress",
+    "convert_file",
     "audit_path",
     "AuditOptions",
     "convert_manifest",
