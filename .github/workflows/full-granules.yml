@@ -4,6 +4,24 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+    paths:
+      - 'ncarnate/**'
+      - 'tests/**'
+      - 'tools/corpus.py'
+      - 'tools/test_full_corpus.py'
+      - 'tools/tests/**'
+      - '.github/workflows/full-granules.yml'
+      - 'pyproject.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'ncarnate/**'
+      - 'tests/**'
+      - 'tools/corpus.py'
+      - 'tools/test_full_corpus.py'
+      - 'tools/tests/**'
+      - '.github/workflows/full-granules.yml'
+      - 'pyproject.toml'
 
 permissions:
   contents: read
@@ -11,7 +29,6 @@ permissions:
 jobs:
   full-granules:
     name: Exact originals and independent reference
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -22,10 +39,23 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - name: Set the corpus location outside the checkout
         run: echo "NCARNATE_GRANULE_DIR=$RUNNER_TEMP/ncarnate-granules" >> "$GITHUB_ENV"
+      - name: Restore full-size validation inputs
+        id: corpus-cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/ncarnate-granules
+          key: corpus-v1-${{ hashFiles('tests/fixtures/corpus.json') }}
+      # Cache hits must pass the same digest verification as fresh downloads.
       - name: Fetch and verify every required file before running tests
         run: >-
           python tools/corpus.py "$NCARNATE_GRANULE_DIR" --fetch --include-references
           > corpus-verification.json
+      - name: Cache only a fully verified corpus
+        if: steps.corpus-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/ncarnate-granules
+          key: ${{ steps.corpus-cache.outputs.cache-primary-key }}
       - name: Run full-size conversions and reference comparisons
         run: python tools/test_full_corpus.py --junitxml full-granules.xml
       - name: Retain verification and test results, including failures
